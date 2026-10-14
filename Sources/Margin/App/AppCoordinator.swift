@@ -55,6 +55,11 @@ final class AppCoordinator {
     }
     /// Shortcuts that didn't register (also in `RuntimeStatus.hotkeyFailures`), for the menu bar warning.
     var hotkeyFailures: [HotkeyCenter.Failure] { hotkeys?.failures ?? [] }
+    /// Whether the Unsaved folder holds shots, for the menu's Show Unsaved Shots. The menu is built synchronously,
+    /// so it reads this cached flag (see `refreshUnsavedShots`).
+    private(set) var hasUnsavedShots = false
+    /// Bumped by every check and fallback save: only the latest one sets `hasUnsavedShots`.
+    private var unsavedShotsGeneration = 0
 
     init() {
         store = ShelfStore(fileURL: ShelfStore.defaultFileURL)
@@ -97,6 +102,7 @@ final class AppCoordinator {
             Task { await capture.prewarm() }
         }
         enableLoginItemOnFirstLaunch()
+        refreshUnsavedShots()
 
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
@@ -211,18 +217,59 @@ final class AppCoordinator {
 
     /// Creates the folder if it's missing, then opens it in Finder. The first touch of ~/Desktop can block
     /// on the Desktop-folder privacy prompt, so the file system is only touched off the main actor.
+    /// A folder that can't be opened (access denied, an unplugged disk) says so in the shelf, and the Unsaved
+    /// folder opens instead when shots are waiting there.
     func openScreenshotsFolder() {
         let folder = prefs.saveFolder
-        Task.detached(priority: .userInitiated) {
+        let unsaved = Preferences.fallbackSaveFolder
+        Task.detached(priority: .userInitiated) { [weak self] in
             do {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             } catch {
                 Self.log.error("Can't create the screenshots folder: \(error.localizedDescription, privacy: .public)")
             }
-            await MainActor.run {
-                if !NSWorkspace.shared.open(folder) { NSSound.beep() }
-            }
+            let hasUnsaved = UnsavedShots.exist(in: unsaved)
+            await self?.open(folder, orUnsaved: unsaved, hasUnsaved: hasUnsaved)
         }
+    }
+
+    private func open(_ folder: URL, orUnsaved unsaved: URL, hasUnsaved: Bool) {
+        if NSWorkspace.shared.open(folder) { return }
+        let name = "“\(folder.lastPathComponent)”"
+        if hasUnsaved, NSWorkspace.shared.open(unsaved) {
+            shelf.showToast("Can't open \(name). Showing Unsaved shots", isError: true)
+        } else {
+            shelf.showToast("Can't open \(name)", isError: true)
+        }
+    }
+
+    /// Menu "Show Unsaved Shots": the folder captures go to when the save folder can't be written.
+    func showUnsavedShots() {
+        if !NSWorkspace.shared.open(Preferences.fallbackSaveFolder) { NSSound.beep() }
+        refreshUnsavedShots()
+    }
+
+    /// Checks the Unsaved folder off the main actor (it's in Application Support, which never prompts, but the
+    /// main actor stays off the file system). Runs at launch and each time the menu opens, for the next time.
+    func refreshUnsavedShots() {
+        unsavedShotsGeneration += 1
+        let generation = unsavedShotsGeneration
+        let folder = Preferences.fallbackSaveFolder
+        Task.detached(priority: .utility) { [weak self] in
+            let found = UnsavedShots.exist(in: folder)
+            await self?.unsavedShotsChecked(found, generation: generation)
+        }
+    }
+
+    private func unsavedShotsChecked(_ found: Bool, generation: Int) {
+        guard generation == unsavedShotsGeneration else { return }
+        hasUnsavedShots = found
+    }
+
+    /// A capture just went to Unsaved: the menu shows Show Unsaved Shots from now on.
+    func didSaveToUnsaved() {
+        unsavedShotsGeneration += 1   // a check still running may have looked before this file existed
+        hasUnsavedShots = true
     }
 
     func showSettings() {

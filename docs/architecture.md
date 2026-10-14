@@ -56,6 +56,7 @@ flowchart LR
 | `LoginItem.swift` | `SMAppService.mainApp` state and registration |
 | `ShelfUndo.swift` | `UndoSequencer`: the shelf's ⌘Z one step at a time, so a quick second ⌘Z waits for a slow first one. `TrashedFile.putBack`: a trashed shot back home (or already there, after Finder's Put Back) |
 | `ShutterSound.swift` | The system Screen Capture sound, honouring "Play user interface sound effects" |
+| `UnsavedShots.swift` | Whether the Unsaved folder holds shots (for the menu's Show Unsaved Shots), and the toast after a capture went there |
 
 **`Sources/Margin/`**
 
@@ -183,7 +184,7 @@ Back on the main actor, `finishSave`:
 
 1. Writes the clipboard, if **Copy each capture** is on and this is still the newest capture (a copy from the shelf since then wins). It writes one item per shot: `public.png`, plus `public.file-url` pointing at the *final* path. It records the pasteboard's `changeCount` and puts the ⌘V mark on the card.
 2. Stores the final path and bookmark, and calls `shelf.itemDidSave`.
-3. Shows the "Saved to Unsaved" toast if needed, bumps the capture counter, and tells first run.
+3. Shows the Unsaved toast if needed (and sets the flag behind the menu's **Show Unsaved Shots**), bumps the capture counter, and tells first run.
 
 If saving fails completely, the card goes with "Couldn't save the screenshot". The clipboard gets the PNG alone, if it's still the newest capture.
 
@@ -202,7 +203,7 @@ Quitting while saves are in flight answers `.terminateLater`. Margin waits for t
   - writing PNGs and checking whether shelf files exist (`ShelfFiles`);
   - reading a file to copy it, renaming, trashing and untrashing;
   - loading thumbnails from disk;
-  - creating the folder for **Open Screenshots Folder**;
+  - creating the folder for **Open Screenshots Folder**, and checking whether the Unsaved folder holds shots (**Show Unsaved Shots**: the menu is built synchronously, so it reads a flag this check keeps current, at launch and on each menu open);
   - Settings' folder icon.
 
   Even the predicted file name is checked against memory, not the disk. Results come back to the main actor, and a background check is applied only to items that haven't changed since it started.
@@ -253,7 +254,7 @@ More on how these behave:
   - **Without permission:** a capture shortcut opens first run at step 1 instead of touching ScreenCaptureKit.
   - **Revocation:** preflight is cached per process, so a revocation while running shows up as a capture error (`SCStreamError.userDeclined`). That sets `RuntimeStatus.screenRecordingRevoked`, which keeps the warning up until a capture succeeds or Margin relaunches.
   - **Relaunch Margin** starts `/bin/sh`, which waits for this process to exit and then `open`s the bundle. It deliberately doesn't use `open -n`, so there's never a second copy.
-- **Files.** The default save folder is in `~/Desktop`, so macOS shows its Desktop-folder prompt on first write. That's the reason for the off-main rule. A denied write falls back to Unsaved.
+- **Files.** The default save folder is in `~/Desktop`, so macOS shows its Desktop-folder prompt on first write, with the reason from `NSDesktopFolderUsageDescription` (`Info.plist` also has the Documents, Downloads, removable and network volume strings, for a folder chosen in Settings). That's the reason for the off-main rule. A denied write falls back to Unsaved, and the menu offers **Show Unsaved Shots** while that folder holds shots.
 - **Launch at login** uses `SMAppService.mainApp`. It's registered once, on the first launch from `/Applications` (never from a dev copy elsewhere). Settings shows `SMAppService`'s real status, including "requires approval".
 - **No Accessibility or Input Monitoring.** Carbon hotkeys don't need them.
 

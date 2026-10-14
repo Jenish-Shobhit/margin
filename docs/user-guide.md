@@ -31,6 +31,7 @@ Margin has no Dock icon. Everything is in its menu bar icon, a small rectangle w
 | Tuck Shelf / Show Shelf ⇧⌘1 | Tuck the shelf away, or bring it back (dimmed while the shelf is empty) |
 | Restore Last Removed | Bring back the card(s) that last left the shelf |
 | Open Screenshots Folder | Open the save folder in Finder (creating it if needed) |
+| Show Unsaved Shots | Open the Unsaved folder, where shots go when the save folder can't be written. Only there while it holds shots |
 | Settings… | Open Settings |
 | About Margin | Version and copyright |
 | Quit Margin | Quit |
@@ -136,7 +137,7 @@ The moment you let go:
    - it's tagged as a screenshot, the way macOS tags its own, so Finder's and Spotlight's screenshot searches find it.
 4. It's copied to the clipboard as both the image and the saved file. See [the clipboard section in the README](../README.md#clipboard) for what each app pastes.
 
-If the save folder can't be written, the shot goes to `~/Library/Application Support/Margin/Unsaved/` and the shelf shows "Saved to Unsaved — folder not writable". If it can't be saved at all, the card goes away with "Couldn't save the screenshot".
+If the save folder can't be written (say you clicked **Don't Allow** when macOS asked about the Desktop folder), the shot goes to `~/Library/Application Support/Margin/Unsaved/` and the shelf says so: "Can't write to “Screenshots”. Saved to Unsaved: menu bar › Show Unsaved Shots". **Show Unsaved Shots** in the menu bar opens that folder; [troubleshooting](troubleshooting.md#macos-asks-to-access-the-desktop-folder) explains how to fix the save folder. If it can't be saved at all, the card goes away with "Couldn't save the screenshot".
 
 If you quit right after a capture, Margin waits (at most about 3 s) for the file to be written.
 

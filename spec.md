@@ -105,7 +105,8 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 Release starts three things in parallel. The in-memory image feeds the shelf thumbnail right away, and **one** PNG encode feeds both the file and the clipboard.
 
 - **Folder.** `~/Desktop/Screenshots` by default (Settings can change it). Create it if missing.
-  - If the folder can't be written, save to `~/Library/Application Support/Margin/Unsaved/` and show the shelf toast "Saved to Unsaved — folder not writable".
+  - If the folder can't be written, save to `~/Library/Application Support/Margin/Unsaved/` and show the shelf toast "Can't write to “Screenshots”. Saved to Unsaved: menu bar › Show Unsaved Shots" (with the save folder's name; an error toast that wraps and stays 4 s). The menu bar offers **Show Unsaved Shots** while that folder holds shots (§6).
+  - `Info.plist` gives the reason for the folder prompts: `NSDesktopFolderUsageDescription` (the default folder is on the Desktop), plus the Documents, Downloads, removable and network volume strings for a folder chosen in Settings.
 - **Name.** `Screenshot yyyy-MM-dd 'at' HH.mm.ss.png`.
   - Use the `en_US_POSIX` locale and the local time zone, 24-hour time and plain ASCII spaces.
   - On a collision, add ` (2)`, ` (3)` and so on before `.png`.
@@ -154,7 +155,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - ••• (top-left, tooltip "Options"; since 0.0.6) for the menu.
   - A meta line at the bottom: `HH:mm · W × H`.
 - **Tuck.** ⌘⇧1 slides the shelf off the edge and leaves a 22 pt tab showing the count. Hovering the tab peeks the shelf; clicking it shows the shelf. Tucking (or the end of a peek) gives the keys back. Tucking keeps what a rename in progress has typed; a peek doesn't end while a rename is open.
-- **Toasts.** Inside the shelf, above the top card, never as notifications: "Copied", "Path copied", "Restored", and error messages. They last 1.2 s.
+- **Toasts.** Inside the shelf, above the top card, never as notifications: "Copied", "Path copied", "Restored", and error messages. They last 1.2 s. A message too long for one line wraps (up to three lines); the Unsaved warning (§3) stays 4 s.
 - **Persistence.**
   - `~/Library/Application Support/Margin/shelf.json`.
   - Store items in order with **bookmark data**, so moved files are followed, plus the date and pixel size.
@@ -197,7 +198,8 @@ The shelf never steals focus. A click (copy) or double-click (open) leaves the k
   - —
   - Tuck Shelf / Show Shelf ⌘⇧1 (disabled while the shelf is empty)
   - Restore Last Removed (disabled when there's nothing to restore)
-  - Open Screenshots Folder
+  - Open Screenshots Folder (creates it if missing; if it can't be opened, says so in a toast, and opens the Unsaved folder instead when that holds shots)
+  - Show Unsaved Shots (only while `~/Library/Application Support/Margin/Unsaved/` holds shots; opens it in Finder. The menu is built synchronously, so it reads a flag that's checked off the main thread at launch and on each menu open, and set by a fallback save)
   - —
   - "macOS still uses ⇧⌘4 — Fix…" (only while a macOS shortcut takes one of Margin's keys)
   - Settings…

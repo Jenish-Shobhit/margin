@@ -598,9 +598,10 @@ final class ShelfController: ShelfControlling {
 
     // MARK: - Toasts
 
-    /// "Copied", "Path copied", "Restored" and errors. Inside the shelf, above the top card, 1.2 s.
-    func showToast(_ text: String, isError: Bool) {
-        toast.show(text, isError: isError, anchorRight: 0, bottom: 0, maxWidth: stageWidth - 12)
+    /// "Copied", "Path copied", "Restored" and errors. Inside the shelf, above the top card, 1.2 s unless the
+    /// message needs longer (up to three lines).
+    func showToast(_ text: String, isError: Bool, duration: TimeInterval = ShelfToastView.defaultDuration) {
+        toast.show(text, isError: isError, anchorRight: 0, bottom: 0, maxWidth: stageWidth - 12, duration: duration)
         positionToast()
         if !panel.isVisible { showPanel() }
         applyGeometry(deferShrink: false)
@@ -620,7 +621,8 @@ final class ShelfController: ShelfControlling {
         }
         var f = toast.frame
         let old = f.origin
-        f.origin = CGPoint(x: anchorRight - f.width, y: bottom)
+        // A long (wrapped) toast stays inside the stage, rather than lose its top lines off the panel.
+        f.origin = CGPoint(x: anchorRight - f.width, y: max(0, min(bottom, stageSize.height - f.height - 4)))
         toast.frame = f
         if animated, let layer = toast.layer {
             ShelfMotion.slide(layer, from: CGPoint(x: old.x - f.minX, y: old.y - f.minY))

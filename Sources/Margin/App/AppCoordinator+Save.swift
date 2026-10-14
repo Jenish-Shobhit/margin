@@ -34,7 +34,8 @@ extension AppCoordinator {
     }
 
     static let saveFailedMessage = "Couldn't save the screenshot"
-    static let fallbackToast = "Saved to Unsaved — folder not writable"
+    /// The fallback toast is longer than most and says how to find the shot, so it stays up a while.
+    static let fallbackToastDuration: TimeInterval = 4
 }
 
 /// The moment of release (spec §3): sound, name, thumbnail on the shelf, then one PNG encode off the
@@ -173,7 +174,9 @@ extension AppCoordinator {
         if outcome.usedFallback {
             Self.log.error(
                 "Saved to Unsaved — folder not writable (\(outcome.error ?? "", privacy: .public)): \(saved.path, privacy: .public)")
-            shelf.showToast(Self.fallbackToast)
+            didSaveToUnsaved()
+            shelf.showToast(UnsavedShots.fallbackToast(saveFolder: prefs.saveFolder), isError: true,
+                            duration: Self.fallbackToastDuration)
         }
 
         // 7. Bookkeeping.
