@@ -35,7 +35,14 @@ extension ShelfController {
     /// deactivating hands it straight back: that app's window is key again (checked on macOS 27). Not while
     /// Margin itself is in front (Settings, Welcome), which would send the user to another app.
     func releaseKeys() {
-        guard panel.isKeyWindow, !NSRunningApplication.current.isActive else { return }
+        guard panel.isKeyWindow || root.isQuickLookKey, !NSRunningApplication.current.isActive else { return }
+        // Quick Look holds the keyboard the same way, and closes first. Deactivating while it animates away
+        // would leave the shelf key once it's gone (and its close can't be repeated), so the keyboard goes back
+        // when it has closed (`ShelfRootView.endPreviewPanelControl`).
+        if root.isQuickLookOpen {
+            root.closeQuickLook()
+            return
+        }
         NSApp.deactivate()
     }
 
@@ -69,9 +76,9 @@ extension ShelfController {
         }
     }
 
-    /// Esc closes Quick Look; otherwise it clears the selection and gives the keyboard back.
+    /// Esc closes Quick Look; otherwise it clears the selection. Either way the keyboard goes back.
     func escape() {
-        if root.isQuickLookOpen { root.closeQuickLook(); return }
+        if root.isQuickLookOpen { closeQuickLook(); return }
         if cards.values.contains(where: { $0.isRenaming }) { return }
         clearSelection()
         releaseKeys()
@@ -153,9 +160,16 @@ extension ShelfController {
         }
     }
 
+    /// Space: Quick Look for the key targets, or closes it.
     func toggleQuickLook() {
-        if root.isQuickLookOpen { root.closeQuickLook(); return }
-        let items = keyTargets.filter { !pending.contains($0) }.compactMap { item(for: $0) }
+        if root.isQuickLookOpen { closeQuickLook(); return }
+        quickLook(keyTargets)
+    }
+
+    /// Quick Look for these shots. It takes the keyboard from the shelf, without activating Margin (see
+    /// `ShelfRootView.showQuickLook`): Space and Esc close it, and the arrows step through the shots.
+    func quickLook(_ ids: [UUID]) {
+        let items = ordered(ids).filter { !pending.contains($0) }.compactMap { item(for: $0) }
         guard !items.isEmpty else { NSSound.beep(); return }
         Task { [weak self] in
             let results = await ShelfFiles.check(items) { $0 }
@@ -165,8 +179,25 @@ extension ShelfController {
                 self.showToast("File not found", isError: true)
                 return
             }
+            // Clicked away meanwhile: nothing would close it.
+            guard self.panel.isKeyWindow else { return }
             self.root.showQuickLook(urls)
         }
+    }
+
+    /// Space or Esc on the shelf while Quick Look is open (the shelf was ⌘-clicked since): closes it and gives
+    /// the keyboard back, as Esc does. Quick Look's own Space, Esc and close button do the same
+    /// (`ShelfRootView.endPreviewPanelControl`).
+    func closeQuickLook() {
+        releaseKeys()           // closes Quick Look with the keys
+        root.closeQuickLook()   // or alone, while Margin is in front
+    }
+
+    /// Quick Look is open but neither it nor the shelf has the keyboard any more (a click in another app):
+    /// nothing could close it with a key, so it closes.
+    func keyWindowChanged() {
+        guard root.isQuickLookOpen, !panel.isKeyWindow, !root.isQuickLookKey else { return }
+        root.closeQuickLook()
     }
 
     /// For Quick Look's zoom: the card showing this file, in screen points.

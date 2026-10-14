@@ -171,7 +171,7 @@ The shelf survives quitting and restarting.
 | ⌘-click | Add it to, or remove it from, the selection |
 | ⌘A | Select every card that isn't in the pile |
 | ⌘C | Copy the selected cards (or the one under the pointer, or the last one clicked) |
-| Space | Quick Look; Space or Esc closes it |
+| Space | Quick Look; ← and → step through the selected shots, and Space or Esc closes it and hands the keys back to your app |
 | ⌫ (or ⌦) | Dismiss; the file stays on disk |
 | Two-finger swipe right | Dismiss |
 | ✕ | Dismiss |

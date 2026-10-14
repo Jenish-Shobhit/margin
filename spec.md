@@ -173,7 +173,7 @@ The shelf never steals focus. A click (copy) or double-click (open) leaves the k
 | ⌥ held when the drop lands | The card stays on the shelf |
 | ⌘-click | Toggle selection. Dragging a selected card drags all selected cards (stacked drag image with a count badge). ⌘C copies all selected cards as images |
 | Click | Copies that shot at once (same clipboard write as §3), moves the ⌘V mark to it, shows the toast "Copied". The keyboard stays with the app you're in |
-| Space | Quick Look (`QLPreviewPanel`) for the focused card or the selection |
+| Space | Quick Look (`QLPreviewPanel`) for the focused card or the selection. Like the shelf, it takes the keys without activating Margin (its panel is made non-activating): Space or Esc closes it and ← → step through the shots. Closing it (also with its close button, a copy or tucking) gives the keyboard back, as Esc does. Clicking another app closes it |
 | ⌫ | Dismiss. The file stays on disk |
 | Two-finger swipe right on a card | Dismiss |
 | Double-click | Open with the default app (its first click has already copied the shot) |

@@ -53,7 +53,7 @@ The four macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4, ⌃⇧⌘4) m
 
 ## On the shelf
 
-A plain click copies a card and leaves the keyboard with your app, so ⌘V right after it pastes there. The keys below reach the shelf only after you ⌘-click a card, click ✕ or the pile, or choose Rename…, Move to Trash or Clear shelf; Esc, a copy, tucking the shelf or a click elsewhere gives them back. Keys act on the selection if there is one, otherwise on the card under the pointer, otherwise on the last card you clicked.
+A plain click copies a card and leaves the keyboard with your app, so ⌘V right after it pastes there. The keys below reach the shelf only after you ⌘-click a card, click ✕ or the pile, or choose Rename…, Move to Trash or Clear shelf; Esc, a copy, closing Quick Look, tucking the shelf or a click elsewhere gives them back. Keys act on the selection if there is one, otherwise on the card under the pointer, otherwise on the last card you clicked.
 
 | Keys | Action |
 |---|---|
@@ -64,7 +64,7 @@ A plain click copies a card and leaves the keyboard with your app, so ⌘V right
 | ⌘-click | Toggle the card in the selection |
 | ⌘A | Select every card that isn't in the pile |
 | ⌘C | Copy the selected cards |
-| Space | Quick Look (Space or Esc closes it) |
+| Space | Quick Look (← → step through the selected shots; Space or Esc closes it and gives the keys back to your app) |
 | ⌫ or ⌦ | Dismiss (the file stays on disk) |
 | Two-finger swipe right | Dismiss the card under the pointer |
 | Esc | Close Quick Look; otherwise clear the selection and give the keys back to your app |

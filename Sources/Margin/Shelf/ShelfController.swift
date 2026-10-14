@@ -103,6 +103,13 @@ final class ShelfController: ShelfControlling {
         observers.append(nc.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.screensChanged() }
         })
+        // Quick Look and the keyboard (`keyWindowChanged`). Checked once the change has settled: while one window
+        // resigns key, the next isn't key yet.
+        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
+            observers.append(nc.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.keyWindowChanged() }
+            })
+        }
         let wnc = NSWorkspace.shared.notificationCenter
         observers.append(wnc.addObserver(forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.accessibilityChanged() }

@@ -56,6 +56,9 @@ final class ShelfRootView: NSView, QLPreviewPanelDataSource, QLPreviewPanelDeleg
         case 49 where mods.isEmpty: c.toggleQuickLook()          // Space
         case 51, 117: c.dismissKeyTargets()                        // ⌫, ⌦
         case 53: c.escape()                                        // Esc
+        // Quick Look open behind a key shelf (it was ⌘-clicked since): ← ↑ previous shot, → ↓ next.
+        case 123 where isQuickLookOpen, 126 where isQuickLookOpen: stepQuickLook(-1)
+        case 124 where isQuickLookOpen, 125 where isQuickLookOpen: stepQuickLook(1)
         default: super.keyDown(with: event)
         }
     }
@@ -84,23 +87,48 @@ final class ShelfRootView: NSView, QLPreviewPanelDataSource, QLPreviewPanelDeleg
 
     // MARK: - Quick Look
 
+    /// Shows Quick Look with the keyboard, which it takes from the shelf. Margin isn't the active app: the shelf
+    /// holds the keyboard because it's a non-activating panel, and Quick Look's panel must be one too. Left as
+    /// it ships, it became key in Margin while the keyboard went back to the user's app, so Space and Esc
+    /// landed there and it stayed open. Non-activating, it handles its own keys: Space and Esc close it, the
+    /// arrows step through the shots.
     func showQuickLook(_ urls: [URL]) {
         qlURLs = urls
+        quickLookClosing = false
         guard let ql = QLPreviewPanel.shared() else { return }
         if QLPreviewPanel.sharedPreviewPanelExists(), ql.isVisible, ql.currentController != nil {
             ql.reloadData()
         } else {
+            ql.styleMask.insert(.nonactivatingPanel)
             ql.makeKeyAndOrderFront(nil)
         }
     }
 
+    /// Set while Quick Look animates away after `closeQuickLook`: another `orderOut` then cancels the close and
+    /// leaves it open (macOS 27), so it counts as closed already.
+    private var quickLookClosing = false
+
     func closeQuickLook() {
-        guard QLPreviewPanel.sharedPreviewPanelExists(), let ql = QLPreviewPanel.shared(), ql.isVisible else { return }
+        guard isQuickLookOpen, let ql = QLPreviewPanel.shared() else { return }
+        quickLookClosing = true
         ql.orderOut(nil)
     }
 
     var isQuickLookOpen: Bool {
-        QLPreviewPanel.sharedPreviewPanelExists() && (QLPreviewPanel.shared()?.isVisible ?? false)
+        !quickLookClosing && QLPreviewPanel.sharedPreviewPanelExists() && (QLPreviewPanel.shared()?.isVisible ?? false)
+    }
+
+    /// Quick Look has the keyboard (it's open and was opened or clicked last).
+    var isQuickLookKey: Bool {
+        QLPreviewPanel.sharedPreviewPanelExists() && (QLPreviewPanel.shared()?.isKeyWindow ?? false)
+    }
+
+    /// ← → while Quick Look is open but the shelf has the keys (a ⌘-click since): the previous or next shot.
+    private func stepQuickLook(_ delta: Int) {
+        guard let ql = QLPreviewPanel.shared(), ql.currentController != nil else { return }
+        let index = ql.currentPreviewItemIndex + delta
+        guard qlURLs.indices.contains(index) else { return }
+        ql.currentPreviewItemIndex = index
     }
 
     override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool { true }
@@ -117,6 +145,13 @@ final class ShelfRootView: NSView, QLPreviewPanelDataSource, QLPreviewPanelDeleg
         MainActor.assumeIsolated {
             panel.dataSource = nil
             panel.delegate = nil
+            quickLookClosing = false
+            // Closed, by its own keys (Space, Esc), its close button or `releaseKeys`: the shelf is key again,
+            // and the keyboard goes back to the user's app, as Esc on the shelf does.
+            Task { @MainActor [weak self] in
+                guard let self, !self.isQuickLookOpen else { return }
+                self.controller?.releaseKeys()
+            }
         }
     }
 
