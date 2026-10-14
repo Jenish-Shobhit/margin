@@ -107,3 +107,5 @@ The script bumps the version in `Resources/Info.plist` and runs the tests. It th
 ## License
 
 By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).
+
+By taking part you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
