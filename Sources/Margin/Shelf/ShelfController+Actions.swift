@@ -309,6 +309,9 @@ extension ShelfController {
     func detach(_ ids: [UUID], exit: ShelfCardView.Exit) {
         var longest = 0.0
         for id in ids {
+            // Off the shelf it isn't pending any more (⌘Z re-checks), and a queued click-copy is moot.
+            pending.remove(id)
+            if queuedCopy == id { queuedCopy = nil }
             selection.remove(id)
             if focusedID == id { focusedID = nil }
             if hoveredID == id { hoveredID = nil }
@@ -367,6 +370,7 @@ extension ShelfController {
             return
         }
         store.restore(removals)
+        repend(removals.map(\.item))
         for r in removals where cards[r.item.id] == nil {
             let card = makeCard(r.item)
             if let thumb = step.thumbnails[r.item.id] { card.setThumbnail(thumb) } else { loadThumbnail(for: r.item) }
@@ -379,6 +383,24 @@ extension ShelfController {
         showPanel()
         pruneMissing()
         showToast(failed ? "Some files couldn't be restored" : "Restored", isError: failed)
+    }
+
+    /// Restored items whose save hasn't been reported are pending until their file is on disk: either
+    /// `itemDidSave` arrives, or the file is already there (checked off the main thread).
+    private func repend(_ items: [ShelfItem]) {
+        let unsure = items.filter { awaitingSave.contains($0.id) }
+        guard !unsure.isEmpty else { return }
+        for item in unsure { pending.insert(item.id) }
+        let paths = unsure.map { ($0.id, $0.path) }
+        Task { [weak self] in
+            let present = await Task.detached(priority: .userInitiated) {
+                paths.filter { FileManager.default.fileExists(atPath: $0.1) }.map(\.0)
+            }.value
+            guard let self else { return }
+            for id in present where self.pending.contains(id) && self.item(for: id) != nil {
+                self.markReady(id)
+            }
+        }
     }
 
     // MARK: - Drag out

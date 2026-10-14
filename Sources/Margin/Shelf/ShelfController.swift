@@ -34,8 +34,12 @@ final class ShelfController: ShelfControlling {
     var dragSource: ShelfDragSource?
     /// Where click/⌘C copies and Copy Path write. `.general` except in tests.
     var pasteboard: NSPasteboard = .general
-    /// Added but not yet on disk (contract v2): never pruned; drag, copy and Quick Look wait for `itemDidSave`.
+    /// On the shelf but not yet on disk (contract v2): never pruned; drag, copy and Quick Look wait for
+    /// `itemDidSave`. Only cards on the shelf are in here; `detach` takes ids out.
     var pending: Set<UUID> = []
+    /// Added this session with no `itemDidSave`/`itemSaveFailed` yet, on the shelf or not. When ⌘Z brings
+    /// one of these back, it's pending again until its file shows up on disk.
+    var awaitingSave: Set<UUID> = []
     /// A click-copy on a pending card, done when its file lands.
     var queuedCopy: UUID?
     private(set) var isPeeking = false
@@ -98,6 +102,7 @@ final class ShelfController: ShelfControlling {
 
     func restore() {
         pending = []
+        awaitingSave = []
         queuedCopy = nil
         store.load()
         store.pruneMissing()
@@ -119,6 +124,7 @@ final class ShelfController: ShelfControlling {
         if screen(for: displayID) != nil { targetDisplayID = displayID }
 
         pending.insert(item.id)
+        awaitingSave.insert(item.id)
         if self.item(for: item.id) == nil { store.append(item) }
         let card = makeCard(item)
         card.setThumbnail(thumbnail)
@@ -156,28 +162,45 @@ final class ShelfController: ShelfControlling {
 
     func toggleTucked() { setTucked(!isTucked) }
 
-    /// The PNG is on disk. The coordinator already wrote the final path and bookmark to the store.
+    /// The PNG is on disk. Called whether or not the item is still on the shelf.
     func itemDidSave(_ item: ShelfItem) {
-        pending.remove(item.id)
-        if let current = self.item(for: item.id) {
+        awaitingSave.remove(item.id)
+        if var current = self.item(for: item.id) {
+            // The coordinator normally wrote the final path and bookmark already; make sure either way.
+            if current.path != item.path || (item.bookmark != nil && current.bookmark != item.bookmark) {
+                current.path = item.path
+                if item.bookmark != nil { current.bookmark = item.bookmark }
+                store.update(current)
+            }
             cards[item.id]?.update(item: current)
         } else {
-            // Dismissed while saving: point its undo record at the real file.
+            // Removed while saving: point its undo record at the real file, so ⌘Z brings back a working card.
             for i in undoStack.indices {
-                undoStack[i].removals = undoStack[i].removals.map {
-                    $0.item.id == item.id ? ShelfStore.Removal(index: $0.index, item: item) : $0
+                undoStack[i].removals = undoStack[i].removals.map { r in
+                    guard r.item.id == item.id else { return r }
+                    var saved = r.item
+                    saved.path = item.path
+                    if item.bookmark != nil { saved.bookmark = item.bookmark }
+                    return ShelfStore.Removal(index: r.index, item: saved)
                 }
             }
         }
-        if queuedCopy == item.id {
+        markReady(item.id)
+    }
+
+    /// The item's file is on disk: drag, copy and the menu work, and a click-copy queued meanwhile runs.
+    func markReady(_ id: UUID) {
+        pending.remove(id)
+        if queuedCopy == id {
             queuedCopy = nil
-            copy([item.id])
+            if item(for: id) != nil { copy([id]) }
         }
     }
 
     /// Saving failed: the card goes (no undo) and the message shows as a toast.
     func itemSaveFailed(_ id: UUID, message: String) {
         pending.remove(id)
+        awaitingSave.remove(id)
         if queuedCopy == id { queuedCopy = nil }
         for i in undoStack.indices { undoStack[i].removals.removeAll { $0.item.id == id } }
         undoStack.removeAll { $0.removals.isEmpty }
