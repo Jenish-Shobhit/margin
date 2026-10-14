@@ -2,6 +2,30 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.10 — 2026-10-15
+
+### Fixed
+
+- Clicking a card to copy it took the keyboard away from the app you were in, so ⌘V straight after (in a terminal or a chat) beeped instead of pasting. ⌘Q, ⌘W and typing beeped too. A click now copies and leaves the keyboard where it was.
+- A click copied only after the double-click delay (half a second, longer with a slow double-click setting), so a quick ⌘V pasted the old clipboard. It now copies at once.
+- Cards for shots on an external disk or network share vanished for good when the disk was unplugged. They now stay, and work again when it's back.
+- A card whose file was renamed or moved while Margin was quit stayed blank all session. It now shows the shot.
+- Two quick ⌘Z presses could bring cards back in the wrong order when one step was a Move to Trash.
+- ⌘Z on a card whose file had been deleted said "Restored" and then the card faded away. It now says "File not found", and the next ⌘Z moves on.
+- ⌘Z after Finder's Put Back said "Couldn't restore". It now brings the card back.
+- A rename in progress was hidden when its card folded into the pile or the shelf tucked, and typing went into the hidden field. The rename is now saved first.
+- Tuck Shelf was enabled in the menu with an empty shelf, and did nothing.
+- Settings accepted shortcuts that break other apps or never fire, such as ⌘Q, ⌘V, ⌃C, ⇧⌘Z, ⇧⌘5 and ⌘Space. They're now refused, with the reason. F-keys with one modifier are fine.
+
+### Added
+
+- Saved shots are tagged as screenshots, the way macOS tags its own, so Finder's and Spotlight's screenshot searches find them.
+
+### Changed
+
+- The shelf takes the keyboard only when you need its keys: after a ⌘-click (select), ✕, a click on the pile, Rename… or Move to Trash. Then Space (Quick Look), ⌫, ⌘Z, ⌘C and ⌘A work, and Esc gives the keyboard back. After a plain click, those keys go to your app.
+- A double-click copies the shot as well as opening it.
+
 ## 0.0.9 — 2026-10-15
 
 ### Fixed
