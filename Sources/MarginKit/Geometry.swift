@@ -4,25 +4,30 @@ import CoreGraphics
 /// "CG global" = points, origin at the top-left of the primary screen, y down (Quartz / ScreenCaptureKit).
 public enum Geometry {
     /// AppKit global ↔ CG global. The same function converts both ways.
+    /// `primaryHeight` is the height of the primary display (`NSScreen.screens[0]`), in points.
     public static func flip(_ rect: CGRect, primaryHeight: CGFloat) -> CGRect {
         CGRect(x: rect.minX, y: primaryHeight - rect.maxY, width: rect.width, height: rect.height)
     }
 
     /// A rect in AppKit global points → the pixel rect inside that display's captured image
-    /// (origin top-left). Each edge is rounded to the nearest whole pixel, then clamped to the image.
+    /// (origin top-left). `displayFrame` is the display's `NSScreen.frame` (AppKit global points).
+    /// Each edge is rounded to the nearest whole pixel, then the rect is clamped to the image.
+    /// Returns `.zero` when the rect doesn't overlap the image.
     public static func pixelRect(for globalRect: CGRect, displayFrame: CGRect, scale: CGFloat, imageSize: CGSize) -> CGRect {
-        let x0 = ((globalRect.minX - displayFrame.minX) * scale).rounded()
-        let x1 = ((globalRect.maxX - displayFrame.minX) * scale).rounded()
-        let y0 = ((displayFrame.maxY - globalRect.maxY) * scale).rounded()
-        let y1 = ((displayFrame.maxY - globalRect.minY) * scale).rounded()
-        let r = CGRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)
-        return r.intersection(CGRect(origin: .zero, size: imageSize))
+        let r = globalRect.standardized
+        let x0 = ((r.minX - displayFrame.minX) * scale).rounded()
+        let x1 = ((r.maxX - displayFrame.minX) * scale).rounded()
+        let y0 = ((displayFrame.maxY - r.maxY) * scale).rounded()
+        let y1 = ((displayFrame.maxY - r.minY) * scale).rounded()
+        let clamped = CGRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)
+            .intersection(CGRect(origin: .zero, size: imageSize))
+        return clamped.isNull ? .zero : clamped
     }
 
-    /// Nearest candidate within `threshold` of `value`, or nil.
+    /// Nearest candidate within `threshold` of `value`, or nil. Ties go to the earlier candidate.
     public static func snapValue(_ value: CGFloat, to candidates: [CGFloat], threshold: CGFloat = 8) -> CGFloat? {
         var best: CGFloat?
-        var bestDistance = threshold + 1
+        var bestDistance = CGFloat.infinity
         for c in candidates {
             let d = abs(c - value)
             if d <= threshold, d < bestDistance { best = c; bestDistance = d }
@@ -31,10 +36,17 @@ public enum Geometry {
     }
 
     /// Snap a point (e.g. the dragged corner) to the nearest window edges within `threshold`.
+    /// A window's left/right edges only count when the point is level with that window (its y within the
+    /// window's span, ± threshold), and its top/bottom edges only when the point is within its x span,
+    /// so a far-away window doesn't pull the selection. Point and frames must use the same coordinates.
     /// Returns the snapped point and which axes snapped.
     public static func snap(_ point: CGPoint, to windowFrames: [CGRect], threshold: CGFloat = 8) -> (point: CGPoint, snappedX: Bool, snappedY: Bool) {
-        let xs = windowFrames.flatMap { [$0.minX, $0.maxX] }
-        let ys = windowFrames.flatMap { [$0.minY, $0.maxY] }
+        let xs = windowFrames
+            .filter { point.y >= $0.minY - threshold && point.y <= $0.maxY + threshold }
+            .flatMap { [$0.minX, $0.maxX] }
+        let ys = windowFrames
+            .filter { point.x >= $0.minX - threshold && point.x <= $0.maxX + threshold }
+            .flatMap { [$0.minY, $0.maxY] }
         let sx = snapValue(point.x, to: xs, threshold: threshold)
         let sy = snapValue(point.y, to: ys, threshold: threshold)
         return (CGPoint(x: sx ?? point.x, y: sy ?? point.y), sx != nil, sy != nil)
