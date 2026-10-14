@@ -420,6 +420,8 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         }
         downEvent = event
         didDrag = false
+        // Spec §4 "check when a drag starts": the background check usually lands before the drag begins.
+        controller?.refreshFiles()
         let p = convert(event.locationInWindow, from: nil)
         if isHovered, closeHitRect.contains(p) { press = .close }
         else if isHovered, moreHitRect.contains(p) { press = .more }

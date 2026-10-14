@@ -42,6 +42,11 @@ final class ShelfController: ShelfControlling {
     var awaitingSave: Set<UUID> = []
     /// A click-copy on a pending card, done when its file lands.
     var queuedCopy: UUID?
+    /// Background file checks (`refreshFiles`): one at a time, rerun once if asked meanwhile.
+    var fileRefreshRunning = false
+    var fileRefreshQueued = false
+    /// Bumped by every copy; a slower read that finishes after a newer copy started doesn't write.
+    var copyGeneration = 0
     private(set) var isPeeking = false
     private(set) var layout = ShelfLayout.layout(heights: [], availableHeight: 0)
 
@@ -104,8 +109,9 @@ final class ShelfController: ShelfControlling {
         pending = []
         awaitingSave = []
         queuedCopy = nil
+        // shelf.json lives in Application Support (no privacy prompt); the shots themselves are checked
+        // in the background, so the cards show right away from the persisted list.
         store.load()
-        store.pruneMissing()
         for card in cards.values { card.removeFromSuperview() }
         cards = [:]
         selection = []
@@ -115,11 +121,12 @@ final class ShelfController: ShelfControlling {
         }
         relayout(animated: false)
         updateVisibility()
+        refreshFiles(quietWithin: 0.5)
     }
 
     func add(_ item: ShelfItem, thumbnail: CGImage, flyInFrom sourceRect: CGRect, displayID: CGDirectDisplayID) {
         let appearing = !panel.isVisible
-        if appearing { pruneMissing() }
+        if appearing { refreshFiles() }
         let moved = targetDisplayID != displayID && screen(for: displayID) != nil
         if screen(for: displayID) != nil { targetDisplayID = displayID }
 
@@ -412,7 +419,7 @@ final class ShelfController: ShelfControlling {
             showTab(animated: true)
             if !store.items.isEmpty { showToast(tuckedToastText, isError: false) }
         } else {
-            pruneMissing()
+            refreshFiles()
             applyGeometry(deferShrink: false)
             setContainerOffset(0, animated: true, spring: true)
             hideTab(animated: true)
@@ -492,7 +499,7 @@ final class ShelfController: ShelfControlling {
         guard isTucked, on != isPeeking, !store.items.isEmpty else { return }
         isPeeking = on
         if on {
-            pruneMissing()
+            refreshFiles()
             applyGeometry(deferShrink: false)
             setContainerOffset(-ShelfStyle.leftPad, animated: true, spring: true)
             startPeekPoll()

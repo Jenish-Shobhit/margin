@@ -96,6 +96,7 @@ final class ShelfPileView: NSView {
         }
         downEvent = event
         didDrag = false
+        controller?.refreshFiles()   // see ShelfCardView.mouseDown
     }
 
     override func mouseDragged(with event: NSEvent) {
