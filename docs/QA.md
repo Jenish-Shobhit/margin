@@ -189,4 +189,5 @@ Check `log stream --predicate 'subsystem == "io.github.jenish-shobhit.margin" AN
 - [ ] Exactly five settings: Save to, Copy each capture, Shutter sound, Launch at login, Shortcuts
 - [ ] Save to: the folder picker changes where the next capture lands
 - [ ] Launch at login: on by default, toggling registers/unregisters (System Settings › General › Login Items)
+- [ ] Launch at login shows what macOS has, not just the preference: remove Margin in System Settings › General › Login Items, reopen Settings, and the toggle (and `dump-state`'s `launchAtLogin.on`) reads off
 - [ ] Shortcut recorders for Area, Screen, Repeat area and Tuck shelf; recording the current shortcut works

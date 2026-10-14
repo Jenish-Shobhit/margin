@@ -76,6 +76,12 @@ final class DebugCommandListener: NSObject {
             "firstRunDone": prefs.firstRunDone,
             "copyEachCapture": prefs.copyEachCapture,
             "shutterSound": prefs.shutterSound,
+            // What macOS actually has (the preference is only the user's intent).
+            "launchAtLogin": [
+                "on": LoginItem.isEnabled || LoginItem.requiresApproval,
+                "requiresApproval": LoginItem.requiresApproval,
+                "preference": prefs.launchAtLogin,
+            ],
             "permission": [
                 "preflight": CGPreflightScreenCaptureAccess(),
                 "granted": c.permissionGranted,
