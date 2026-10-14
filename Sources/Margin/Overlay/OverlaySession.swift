@@ -212,12 +212,18 @@ final class OverlaySession {
         case let .moving(from, start):
             let moved = SelectionMath.move(start, by: CGVector(dx: p.x - from.x, dy: p.y - from.y), within: d.frame)
             let snapped = SelectionMath.snapEdges(of: moved, to: snapFrames)
-            selection = align(SelectionMath.move(snapped.rect, by: .zero, within: d.frame), on: d)
-            guideX = snapped.guideX
-            guideY = snapped.guideY
+            let sel = align(SelectionMath.move(snapped.rect, by: .zero, within: d.frame), on: d)
+            selection = sel
+            // A window edge past the display's edge can't hold the selection: no guide for it. (Within half a
+            // point, since `align` may round the edge onto the pixel grid.)
+            func held(_ line: CGFloat?, _ a: CGFloat, _ b: CGFloat) -> CGFloat? {
+                line.flatMap { abs($0 - a) <= 0.5 || abs($0 - b) <= 0.5 ? $0 : nil }
+            }
+            guideX = held(snapped.guideX, sel.minX, sel.maxX)
+            guideY = held(snapped.guideY, sel.minY, sel.maxY)
         case let .resizing(handle, start):
             var q = SelectionMath.align(SelectionMath.clamp(p, to: d.frame), in: d.frame, scale: scale(d))
-            let s = Geometry.snap(q, to: snapFrames)
+            let s = Geometry.snap(q, to: snapFrames, within: d.frame)
             guideX = nil
             guideY = nil
             if handle.movesX, s.snappedX { q.x = s.point.x; guideX = q.x }
@@ -376,7 +382,7 @@ final class OverlaySession {
         var gx: CGFloat?
         var gy: CGFloat?
         if !square {
-            let s = Geometry.snap(corner, to: snapFrames)
+            let s = Geometry.snap(corner, to: snapFrames, within: d.frame)
             corner = s.point
             if s.snappedX { gx = corner.x }
             if s.snappedY { gy = corner.y }
