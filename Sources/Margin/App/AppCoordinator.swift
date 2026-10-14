@@ -69,6 +69,8 @@ final class AppCoordinator {
 
         capture.onCapture = { [weak self] result in self?.handleCapture(result) }
         capture.onPermissionMissing = { [weak self] in self?.captureLostPermission() }
+        // Not in the CaptureControlling contract: a failed capture says so in the shelf instead of doing nothing.
+        capture.onFailure = { [weak self] message in self?.shelf.showToast(message, isError: true) }
         shelf.onCopied = { [weak self] id, changeCount in self?.shelfDidCopy(id, changeCount: changeCount) }
         shelf.onRemoved = { [weak self] ids in self?.shelfDidRemove(ids) }
         FirstRunWindowController.shared.onRelaunch = { [weak self] in self?.relaunch() }

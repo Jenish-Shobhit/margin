@@ -120,6 +120,8 @@ Press **Space** during an area capture (before you start dragging), or choose **
 - **⇧⌘2** captures the same rectangle as your last area capture, with no overlay, then briefly outlines it (150 ms). The area stays on the same part of the same display even if you add, remove or rearrange displays. If there's no last area, or its display is gone or at another resolution, it starts a normal area capture instead.
 - **⌃⇧⌘4, ⌃⇧⌘3 and ⌃⇧⌘2** do the same as without ⌃. On macOS ⌃ means "to the clipboard", and every Margin shot is already copied.
 
+If a capture fails, the shelf says so: "Couldn't capture that window" (it closed before the click), "Couldn't capture this display" or "Couldn't capture the screen".
+
 ## What happens when you capture
 
 The moment you let go:

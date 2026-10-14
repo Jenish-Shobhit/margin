@@ -89,6 +89,8 @@ flowchart LR
 - `isCapturing`;
 - the callbacks `onCapture` and `onPermissionMissing`.
 
+`CaptureController` also has `onFailure`, outside the protocol: a short message for any failure but permission, which the coordinator shows as an error toast in the shelf.
+
 **`ShelfControlling`** (implemented by `ShelfController`):
 
 - `restore()` at launch, `add(_:thumbnail:flyInFrom:displayID:)` and `toggleTucked()`;

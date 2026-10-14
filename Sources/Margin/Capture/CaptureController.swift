@@ -17,6 +17,10 @@ private typealias FrameGrabber = @Sendable (CGDirectDisplayID, DisplayTarget?) a
 final class CaptureController: CaptureControlling {
     var onCapture: ((CaptureResult) -> Void)?
     var onPermissionMissing: (() -> Void)?
+    /// Called on the main actor with a short message when a capture fails for any reason but permission: the
+    /// window closed, a display ScreenCaptureKit can't capture… Not part of `CaptureControlling`: the
+    /// coordinator holds this class itself.
+    var onFailure: ((String) -> Void)?
     var isCapturing: Bool { session != nil }
 
     /// Latest timings in ms, for the DEBUG `dump-state` hook.
@@ -33,6 +37,14 @@ final class CaptureController: CaptureControlling {
     private var activatedForSession = false
     private var becameActiveDuringSession = false
     private var observers: [NSObjectProtocol] = []
+    /// What `onFailure` says.
+    private enum FailureText {
+        static let screen = "Couldn't capture the screen"
+        static let display = "Couldn't capture this display"
+        static let window = "Couldn't capture that window"
+        static let area = "Couldn't capture that area"
+    }
+
     /// Screen Recording confirmed (by preflight or a successful capture). `CGPreflightScreenCaptureAccess`
     /// costs 6–10 ms, too much for the hotkey path, so it only runs until access is confirmed; a revoked
     /// permission then shows up as a capture error instead.
@@ -158,6 +170,7 @@ final class CaptureController: CaptureControlling {
             if session.frozenCount == 0 {
                 CaptureLog.capture.error("freeze: no frame after 3 s, cancelling")
                 self.endSession()
+                self.onFailure?(FailureText.screen)
             } else if session.abandonPendingDisplays() > 0 {
                 CaptureLog.capture.error("freeze: a display gave no frame in 3 s; dimmed")
                 self.refreshWindows(for: session)
@@ -171,7 +184,7 @@ final class CaptureController: CaptureControlling {
             do {
                 try await cache.refresh()
             } catch {
-                fail(error, session: session)
+                fail(error, session: session, message: FailureText.screen)
                 return
             }
             guard self.session === session else { return }
@@ -199,7 +212,7 @@ final class CaptureController: CaptureControlling {
             case let .failure(error):
                 // Permission is all or nothing; any other failure costs only that display.
                 if ScreenGrabber.isPermissionDenial(error) {
-                    fail(error, session: session)
+                    fail(error, session: session, message: FailureText.screen)
                     return
                 }
                 CaptureLog.capture.error("freeze: display \(frame.displayID, privacy: .public) can't be captured: \(String(describing: error), privacy: .public)")
@@ -210,7 +223,7 @@ final class CaptureController: CaptureControlling {
         guard self.session === session else { return }
         timings.record("hotkeyToAllFrozen", clock.ms)
         guard session.frozenCount > 0 else {
-            fail(firstError ?? CaptureError.noImage, session: session)
+            fail(firstError ?? CaptureError.noImage, session: session, message: FailureText.screen)
             return
         }
         refreshWindows(for: session)
@@ -292,6 +305,7 @@ final class CaptureController: CaptureControlling {
                 Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
             } else {
                 CaptureLog.capture.error("area crop was empty: \(String(describing: pixelRect), privacy: .public)")
+                onFailure?(FailureText.area)
             }
             // Focus goes back only now: AppKit's deactivation work holds the main actor for ~15 ms, which
             // would otherwise sit between the crop and the hand-off to the shelf.
@@ -314,7 +328,7 @@ final class CaptureController: CaptureControlling {
                 let displayID = Displays.display(bestFor: window.frame)?.id ?? CGMainDisplayID()
                 onCapture?(CaptureResult(image: image.image, scale: scale, sourceRect: window.frame, displayID: displayID, kind: .window, date: Date()))
             } catch {
-                fail(error, session: nil)
+                fail(error, session: nil, message: FailureText.window)
             }
         }
     }
@@ -335,7 +349,7 @@ final class CaptureController: CaptureControlling {
                 permissionWorked()
                 onCapture?(CaptureResult(image: image.image, scale: target.scale, sourceRect: display.frame, displayID: display.id, kind: .screen, date: Date()))
             } catch {
-                fail(error, session: nil)
+                fail(error, session: nil, message: FailureText.display)
             }
         }
     }
@@ -383,8 +397,12 @@ final class CaptureController: CaptureControlling {
                 if !repeating {
                     Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
                 }
+            } catch CaptureError.emptyCrop where repeating {
+                // Nothing of the last area to crop from this display's image: choose again.
+                CaptureLog.capture.error("repeat area: empty crop of \(String(describing: rect), privacy: .public); choosing again")
+                beginInteractiveCapture()
             } catch {
-                fail(error, session: nil)
+                fail(error, session: nil, message: (error as? CaptureError) == .emptyCrop ? FailureText.area : FailureText.display)
             }
         }
     }
@@ -423,7 +441,10 @@ final class CaptureController: CaptureControlling {
         cache.stopObserving()
     }
 
-    private func fail(_ error: Error, session failed: OverlaySession?) {
+    /// Ends `failed` if it's still the live overlay. A missing permission goes to `onPermissionMissing`; any
+    /// other failure shows `message`, unless it belongs to an overlay already closed (Esc, a display change).
+    private func fail(_ error: Error, session failed: OverlaySession?, message: String) {
+        let closed = failed.map { $0 !== session } ?? false
         if let failed, session === failed { endSession() }
         if ScreenGrabber.isPermissionError(error) {
             permissionLost()
@@ -433,6 +454,7 @@ final class CaptureController: CaptureControlling {
             onPermissionMissing?()
         } else {
             CaptureLog.capture.error("capture failed: \(error.localizedDescription, privacy: .public)")
+            if !closed { onFailure?(message) }
         }
     }
 

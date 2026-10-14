@@ -25,6 +25,7 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] ⇧⌘2 falls back to ⇧⌘4 when there's no last area
 - [ ] ⇧⌘2 falls back to ⇧⌘4 when the last area's display is gone, or at another resolution
 - [ ] ⇧⌘2 captures the same part of the same display after the arrangement changes (another display added, removed or moved, or the lid closed)
+- [ ] A window closed between hover and click shows the toast "Couldn't capture that window"; ⇧⌘3 on a display ScreenCaptureKit can't capture shows "Couldn't capture this display"
 - [ ] ⌃⇧⌘4, ⌃⇧⌘3 and ⌃⇧⌘2 do the same as without ⌃
 - [ ] ⇧⌘1 tucks and shows the shelf
 - [ ] Shortcuts changed in Settings take effect immediately, ⌃ twins included; the old ones stop working
