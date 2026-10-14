@@ -17,7 +17,7 @@ Every capture is saved to disk, copied to the clipboard, and put on a shelf of t
 - **Window mode.** Press Space while selecting to capture a single window with transparent corners and no shadow (hold ⌥ to keep it).
 - **Repeat last area.** ⌘⇧2 captures the same rectangle again with no overlay.
 - **Stays out of the way.** No Dock icon, the shelf never takes focus, tucks away with ⌘⇧1, and never appears in its own screenshots.
-- **Undo.** ⌘Z brings back anything that left the shelf, including files you moved to the Trash from it.
+- **Undo.** ⌘Z (or Restore Last Removed in the menu bar) brings back anything that left the shelf, including files you moved to the Trash from it.
 
 ## Shortcuts
 
@@ -51,7 +51,7 @@ A small window walks you through three steps:
 2. **Hand over the shortcuts.** Turn off the four macOS screenshot shortcuts (⌘⇧3, ⌃⌘⇧3, ⌘⇧4, ⌃⌘⇧4) in System Settings › Keyboard › Keyboard Shortcuts › Screenshots, so Margin receives them. The checklist updates live.
 3. **Take your first shot.** Press ⌘⇧4. Launch at login is on; you can change it in Settings.
 
-Until step 2 is done, everything also works from the menu bar icon.
+Until step 2 is done, everything also works from the menu bar icon, and its menu shows "macOS still uses ⇧⌘4 — Fix…" to take you back to the checklist.
 
 ## Build from source
 
