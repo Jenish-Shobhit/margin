@@ -376,33 +376,28 @@ extension ShelfController {
         }
     }
 
-    /// Restores the newest step; when it's back, a ⌘Z that waited meanwhile runs.
+    /// Restores the newest step; when it's back, a ⌘Z that waited meanwhile runs. Files are checked first (off
+    /// the main thread), so a card whose file was deleted since doesn't come back only to fade away; the step is
+    /// used up either way, since those cards can't return.
     private func runUndo() {
         guard let step = undoStack.popLast() else {
             undoSequencer.reset()   // waiting ⌘Zs lost their steps (a failed save dropped them)
             return
         }
-        guard step.kind == .trash else {
-            bringBack(step.removals, thumbnails: step.thumbnails, failed: false)
-            undoFinished()
-            return
-        }
         let removals = step.removals
         let trashed = step.trashed
         let thumbnails = step.thumbnails
+        // A shot still being saved has no file to check yet (and its save updates only steps on the stack):
+        // its step comes back as it is.
+        if step.kind != .trash, removals.contains(where: { awaitingSave.contains($0.item.id) }) {
+            bringBack(removals, of: removals.count, kind: step.kind, thumbnails: thumbnails)
+            undoFinished()
+            return
+        }
         Task { [weak self] in
-            let restored = await Task.detached(priority: .userInitiated) { () -> [ShelfStore.Removal] in
-                removals.compactMap { r in
-                    guard let t = trashed[r.item.id], ShelfFiles.untrash(t) else { return nil }
-                    // Point the item back at its restored file before it rejoins the shelf.
-                    var item = r.item
-                    item.path = t.original.path
-                    item.refreshBookmark()
-                    return ShelfStore.Removal(index: r.index, item: item)
-                }
-            }.value
+            let back = step.kind == .trash ? await Self.untrash(removals, trashed) : await Self.stillThere(removals)
             guard let self else { return }
-            self.bringBack(restored, thumbnails: thumbnails, failed: restored.count < removals.count)
+            self.bringBack(back, of: removals.count, kind: step.kind, thumbnails: thumbnails)
             self.undoFinished()
         }
     }
@@ -411,10 +406,39 @@ extension ShelfController {
         if undoSequencer.finished() { runUndo() }
     }
 
-    /// Puts removed items back in their old places and shows them, with the panel.
-    private func bringBack(_ removals: [ShelfStore.Removal], thumbnails: [UUID: CGImage], failed: Bool) {
+    /// Moves trashed files back (off the main thread); returns the removals whose files are home again.
+    private static func untrash(_ removals: [ShelfStore.Removal], _ trashed: [UUID: ShelfUndoStep.Trashed]) async -> [ShelfStore.Removal] {
+        await Task.detached(priority: .userInitiated) { () -> [ShelfStore.Removal] in
+            removals.compactMap { r in
+                guard let t = trashed[r.item.id], ShelfFiles.untrash(t) else { return nil }
+                // Point the item back at its restored file before it rejoins the shelf.
+                var item = r.item
+                item.path = t.original.path
+                item.refreshBookmark()
+                return ShelfStore.Removal(index: r.index, item: item)
+            }
+        }.value
+    }
+
+    /// The removals whose files are still there, following files moved meanwhile. A file Margin can't see right
+    /// now counts as there, as everywhere else; one that's definitely gone can't come back.
+    private static func stillThere(_ removals: [ShelfStore.Removal]) async -> [ShelfStore.Removal] {
+        let results = await ShelfFiles.statuses(removals.map(\.item))
+        return zip(removals, results).compactMap { r, result in
+            switch result.status {
+            case .found(let fresh): ShelfStore.Removal(index: r.index, item: fresh)
+            case .unknown: r
+            case .gone: nil
+            }
+        }
+    }
+
+    /// Puts removed items back in their old places and shows them, with the panel. `removals` are the ones that
+    /// can come back, out of `total` in the step.
+    private func bringBack(_ removals: [ShelfStore.Removal], of total: Int, kind: ShelfUndoStep.Kind, thumbnails: [UUID: CGImage]) {
+        let trash = kind == .trash
         guard !removals.isEmpty else {
-            showToast("Couldn't restore", isError: true)
+            showToast(trash ? "Couldn't restore" : "File not found", isError: true)
             return
         }
         store.restore(removals)
@@ -432,7 +456,11 @@ extension ShelfController {
         // Tucked: the cards are back in the tucked shelf, like a new shot; the tab says so.
         if isTucked && !isPeeking { tab.bump() }
         refreshFiles()
-        showToast(failed ? "Some files couldn't be restored" : "Restored", isError: failed)
+        if removals.count < total {
+            showToast(trash ? "Some files couldn't be restored" : "Some files weren't found", isError: true)
+        } else {
+            showToast("Restored")
+        }
     }
 
     /// Restored items whose save hasn't been reported are pending until their file is on disk: either

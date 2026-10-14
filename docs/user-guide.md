@@ -196,7 +196,7 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 
 ## Undo
 
-**⌘Z** on the shelf brings back the card(s) that last left it. Right after ✕, Move to Trash or Clear shelf the shelf already has the keys; otherwise ⌘-click a card or click the pile first. It remembers up to 20 removals: drag-outs, dismissals, Clear shelf and Move to Trash (the file comes back from the Trash too).
+**⌘Z** on the shelf brings back the card(s) that last left it. Right after ✕, Move to Trash or Clear shelf the shelf already has the keys; otherwise ⌘-click a card or click the pile first. It remembers up to 20 removals: drag-outs, dismissals, Clear shelf and Move to Trash (the file comes back from the Trash too). A card whose file you've deleted since can't come back: ⌘Z says "File not found", and the next ⌘Z goes on to the removal before.
 
 **Restore Last Removed** in the menu bar does the same, without clicking the shelf first.
 
