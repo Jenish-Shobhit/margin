@@ -54,6 +54,8 @@ final class OverlaySession {
     private var anchor = CGPoint.zero
     private var lastDrag = CGPoint.zero
     private var spaceHeld = false
+    /// When the held arrow key began repeating (`NSEvent.timestamp`), for nudge acceleration.
+    private var nudgeRepeatStart: TimeInterval?
     private var modifiers: NSEvent.ModifierFlags = []
     private var snapFrames: [CGRect] = []
     private(set) var isFinished = false
@@ -285,7 +287,14 @@ final class OverlaySession {
                 toggleMode()
             }
         case Key.left, Key.right, Key.down, Key.up:
-            nudge(e.keyCode, big: e.modifierFlags.contains(.shift))
+            // Every repeat moves (the key repeat rate sets the pace), a little further the longer it's held.
+            let shift = e.modifierFlags.contains(.shift)
+            if e.isARepeat, !shift {
+                nudgeRepeatStart = nudgeRepeatStart ?? e.timestamp
+            } else {
+                nudgeRepeatStart = nil
+            }
+            nudge(e.keyCode, pixels: SelectionMath.nudgePixels(repeating: nudgeRepeatStart.map { e.timestamp - $0 }, shift: shift))
         default:
             break
         }
@@ -346,7 +355,7 @@ final class OverlaySession {
         return SelectionMath.dragRect(anchor: anchor, corner: corner, square: square, fromCenter: fromCenter, bounds: d.frame)
     }
 
-    private func nudge(_ key: UInt16, big: Bool) {
+    private func nudge(_ key: UInt16, pixels: CGFloat) {
         guard mode == .area, let sel = selection, let d = selectionDisplay, !sel.isEmpty else { return }
         switch phase {
         case .dragging:
@@ -357,7 +366,7 @@ final class OverlaySession {
         case .idle, .moving, .resizing:
             return
         }
-        let step = (big ? 10 : 1) / scale(d)
+        let step = pixels / scale(d)
         let v: CGVector
         switch key {
         case Key.left: v = CGVector(dx: -step, dy: 0)
@@ -365,7 +374,8 @@ final class OverlaySession {
         case Key.down: v = CGVector(dx: 0, dy: -step)
         default: v = CGVector(dx: 0, dy: step)
         }
-        selection = SelectionMath.move(sel, by: v, within: d.frame)
+        // Re-aligned so repeated steps never drift off the pixel grid (1/scale isn't exact at every scale).
+        selection = align(SelectionMath.move(sel, by: v, within: d.frame), on: d)
         guideX = nil
         guideY = nil
         updateCursor()
