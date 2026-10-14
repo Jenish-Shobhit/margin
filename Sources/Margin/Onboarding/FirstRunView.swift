@@ -18,7 +18,7 @@ struct FirstRunView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 6)
         .frame(width: 460, alignment: .leading)
-        .overlay { if model.finished { AllSet().transition(.opacity) } }
+        .overlay { if model.finished { AllSet(note: model.stillOnNote).transition(.opacity) } }
         .animation(.easeOut(duration: 0.2), value: model.finished)
     }
 
@@ -214,6 +214,9 @@ private struct Kbd: View {
 
 /// The brief "You're set" state before the window closes.
 private struct AllSet: View {
+    /// Shown when macOS still owns some of Margin's shortcuts.
+    let note: String?
+
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: "checkmark.circle.fill")
@@ -224,8 +227,18 @@ private struct AllSet: View {
             Text("Margin lives in the menu bar. Every shot waits on the shelf.")
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
+            if let note {
+                Text(note)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 4)
+            }
         }
+        .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
+        .accessibilityElement(children: .combine)
     }
 }

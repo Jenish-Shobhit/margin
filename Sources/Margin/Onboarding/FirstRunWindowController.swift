@@ -40,19 +40,23 @@ final class FirstRunWindowController: NSObject, NSWindowDelegate {
         startPolling()
     }
 
-    /// The coordinator calls this after every successful capture; the window closes after the first.
-    /// First run is done once permission and the shortcuts are sorted out too.
+    /// The coordinator calls this after every successful capture. The first one finishes first run (spec §7):
+    /// a capture proves permission, so first run is done even if some macOS shortcuts are still on (the
+    /// "You're set" moment mentions them). If the window is open, it shows "You're set" and closes.
     func captureSucceeded() {
-        let prefs = Preferences.shared
-        guard !prefs.firstRunDone else { return }
+        let prefs = model.prefs
+        let isOpen = window?.isVisible == true
+        guard !prefs.firstRunDone || isOpen else { return }
         model.capturedOnce = true
         model.refresh()
-        guard model.permissionDone, model.shortcutsDone else { return } // window stays open at step 2
-        prefs.firstRunDone = true
-        guard let window, window.isVisible else { return }
+        if !prefs.firstRunDone { prefs.firstRunDone = true }
+        guard isOpen, !model.finished else { return }
         model.finished = true
+        closeTask?.cancel()
+        // Leave time to read the extra line about macOS shortcuts that are still on.
+        let delay: Duration = model.stillOnNote == nil ? .seconds(1.6) : .seconds(4)
         closeTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(1.6))
+            try? await Task.sleep(for: delay)
             guard !Task.isCancelled else { return }
             self?.window?.close()
         }

@@ -36,6 +36,19 @@ final class FirstRunModel {
     var shortcutsDone: Bool { !shortcuts.isEmpty && conflictIDs.isEmpty }
     var allDone: Bool { permissionDone && shortcutsDone && capturedOnce }
 
+    /// The enabled macOS shortcuts that still take one of Margin's keys, as shown in System Settings ("⇧⌘4").
+    var systemKeysStillOn: [String] {
+        shortcuts.filter { conflictIDs.contains($0.id) }.map(\.keys)
+    }
+
+    /// The gentle line on "You're set" while macOS still owns some of Margin's keys.
+    var stillOnNote: String? {
+        let keys = systemKeysStillOn
+        guard !keys.isEmpty else { return nil }
+        let list = ListFormatter.localizedString(byJoining: keys)
+        return "macOS still uses \(list) — you can turn \(keys.count == 1 ? "it" : "them") off any time from the menu bar."
+    }
+
     func isDone(_ step: Step) -> Bool {
         switch step {
         case .permission: permissionDone
