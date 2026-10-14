@@ -448,20 +448,27 @@ extension ShelfController {
         let ids = items.map(\.id)
         guard ids.contains(id) else { return }
         let scale = panel.backingScaleFactor
-        var dragItems: [NSDraggingItem] = []
+        let keep = ShelfDragSource.optionHeld
         if items.count == 1, let only = items.first {
+            let thumb = card.thumbnail, size = card.bounds.size
+            let draw = { (keep: Bool) in ShelfDragImage.single(thumb, cardSize: size, scale: scale, keep: keep) }
+            let image = draw(keep)
             let di = NSDraggingItem(pasteboardWriter: only.url as NSURL)
-            let image = ShelfDragImage.single(card.thumbnail, cardSize: card.bounds.size, scale: scale)
             di.setDraggingFrame(card.bounds.insetBy(dx: -ShelfDragImage.pad, dy: -ShelfDragImage.pad), contents: image)
-            dragItems = [di]
+            let source = ShelfDragSource(ids: ids, controller: self, keep: keep, image: image, redraw: draw)
+            startSession([di], source: source, from: card, event: event)
         } else {
             // Front of the stack is the card under the pointer, then the newest others.
             let others = ids.reversed().filter { $0 != id }
             let thumbs = ([id] + others).compactMap { cards[$0]?.thumbnail }
-            let stack = ShelfDragImage.stack(thumbs, count: items.count, scale: scale)
-            dragItems = stackedItems(items, image: stack.image, anchor: stack.anchor, at: card.convert(event.locationInWindow, from: nil))
+            let count = items.count
+            let stack = ShelfDragImage.stack(thumbs, count: count, scale: scale, keep: keep)
+            let dragItems = stackedItems(items, image: stack.image, anchor: stack.anchor, at: card.convert(event.locationInWindow, from: nil))
+            let source = ShelfDragSource(ids: ids, controller: self, keep: keep, image: stack.image) {
+                ShelfDragImage.stack(thumbs, count: count, scale: scale, keep: $0).image
+            }
+            startSession(dragItems, source: source, from: card, event: event)
         }
-        startSession(dragItems, ids: ids, from: card, event: event)
     }
 
     /// Dragging the pile sends every shot folded into it.
@@ -469,10 +476,15 @@ extension ShelfController {
         guard dragSource == nil else { return }
         let items = store.items.prefix(layout.pileCount).filter { !pending.contains($0.id) }
         guard !items.isEmpty else { return }
-        let thumbs = items.reversed().prefix(3).compactMap { cards[$0.id]?.thumbnail }
-        let stack = ShelfDragImage.stack(Array(thumbs), count: items.count, scale: panel.backingScaleFactor)
+        let thumbs = Array(items.reversed().prefix(3).compactMap { cards[$0.id]?.thumbnail })
+        let count = items.count, scale = panel.backingScaleFactor
+        let keep = ShelfDragSource.optionHeld
+        let stack = ShelfDragImage.stack(thumbs, count: count, scale: scale, keep: keep)
         let dragItems = stackedItems(items, image: stack.image, anchor: stack.anchor, at: pileView.convert(event.locationInWindow, from: nil))
-        startSession(dragItems, ids: items.map(\.id), from: pileView, event: event)
+        let source = ShelfDragSource(ids: items.map(\.id), controller: self, keep: keep, image: stack.image) {
+            ShelfDragImage.stack(thumbs, count: count, scale: scale, keep: $0).image
+        }
+        startSession(dragItems, source: source, from: pileView, event: event)
         pileView.alphaValue = 0.4
     }
 
@@ -486,22 +498,22 @@ extension ShelfController {
         }
     }
 
-    private func startSession(_ dragItems: [NSDraggingItem], ids: [UUID], from view: NSView, event: NSEvent) {
-        let source = ShelfDragSource(ids: ids, controller: self)
+    private func startSession(_ dragItems: [NSDraggingItem], source: ShelfDragSource, from view: NSView, event: NSEvent) {
         dragSource = source
         let session = view.beginDraggingSession(with: dragItems, event: event, source: source)
         session.animatesToStartingPositionsOnCancelOrFail = true
         session.draggingFormation = .none
-        for id in ids { cards[id]?.setDragging(true) }
+        for id in source.ids { cards[id]?.setDragging(true) }
         pile.fan.setFanned(false, animated: true)
     }
 
     /// A non-empty operation without ⌥ means the drop landed: the card(s) leave. Otherwise they stay.
+    /// While ⌥ is held, the drag image says so ("Keep on shelf").
     func dragEnded(_ source: ShelfDragSource, operation: NSDragOperation) {
         guard dragSource === source else { return }
         dragSource = nil
         pile.alphaValue = 1
-        let keep = NSEvent.modifierFlags.contains(.option)
+        let keep = ShelfDragSource.optionHeld
         if !operation.isEmpty && !keep {
             removeItems(source.ids, kind: .dragOut, exit: .collapse)
         } else {
