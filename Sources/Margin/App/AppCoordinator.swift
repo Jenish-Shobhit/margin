@@ -28,9 +28,9 @@ final class AppCoordinator {
     private(set) var permissionGranted = false
 
     // Save pipeline state (see AppCoordinator+Save.swift).
-    /// Paths handed to the shelf whose PNG is still being encoded/written, so two captures in the
-    /// same second never get the same name.
-    var pendingPaths: Set<String> = []
+    /// Every path handed to the shelf this session, so two captures in the same second never get
+    /// the same name (names have one-second resolution, so this stays small).
+    var reservedPaths: Set<String> = []
     /// Increments per capture; only the newest capture may overwrite the clipboard.
     var captureSequence = 0
     var lastClipboardSequence = 0

@@ -49,19 +49,19 @@ extension AppCoordinator {
         // 1. Sound, immediately.
         if prefs.shutterSound { ShutterSound.play() }
 
-        // 2. The file name, reserved now so the shelf item can point at it.
-        let pending = pendingPaths
-        let url = FileNamer.uniqueURL(in: prefs.saveFolder, for: result.date) {
-            pending.contains($0.path) || FileManager.default.fileExists(atPath: $0.path)
-        }
-        pendingPaths.insert(url.path)
+        // 2. The file name, reserved now so the shelf item can point at it. No disk access on the
+        // main actor: the first touch of ~/Desktop can block on the Desktop-folder privacy prompt.
+        // A name already taken on disk is resolved by the writer (the rename never overwrites).
+        let reserved = reservedPaths
+        let url = FileNamer.uniqueURL(in: prefs.saveFolder, for: result.date) { reserved.contains($0.path) }
+        reservedPaths.insert(url.path)
 
         // 3–4. Thumbnail from the in-memory image, onto the shelf.
         let pixelSize = CGSize(width: result.image.width, height: result.image.height)
         let thumbStart = ContinuousClock.now
         let thumbnail = Self.makeThumbnail(result.image, pixelSize: pixelSize)
         let thumbnailMs = Self.milliseconds(since: thumbStart)
-        let item = ShelfItem(url: url, createdAt: result.date, pixelSize: pixelSize)
+        let item = Self.unsavedItem(at: url, createdAt: result.date, pixelSize: pixelSize)
         shelf.add(item, thumbnail: thumbnail, flyInFrom: result.sourceRect, displayID: result.displayID)
         let releaseToThumbnailMs = Date().timeIntervalSince(result.date) * 1000
         Self.signposter.endInterval("thumbnail", signpost)
@@ -99,8 +99,7 @@ extension AppCoordinator {
                 outcome.finishedAt = Date()
             }
             Self.signposter.endInterval("save", saveSignpost)
-            await self?.finishSave(
-                itemID: itemID, reservedPath: url.path, releaseDate: result.date, timings: timings, outcome: outcome)
+            await self?.finishSave(itemID: itemID, releaseDate: result.date, timings: timings, outcome: outcome)
         }
     }
 
@@ -118,11 +117,7 @@ extension AppCoordinator {
         }
     }
 
-    private func finishSave(
-        itemID: UUID, reservedPath: String, releaseDate: Date, timings: Timings, outcome: SaveOutcome
-    ) {
-        pendingPaths.remove(reservedPath)
-
+    private func finishSave(itemID: UUID, releaseDate: Date, timings: Timings, outcome: SaveOutcome) {
         var timings = timings
         timings.encodeMs = outcome.encodeMs
         timings.writeMs = outcome.writeMs
@@ -161,6 +156,16 @@ extension AppCoordinator {
         // 7. Bookkeeping.
         prefs.completedCaptures += 1
         FirstRunWindowController.shared.captureSucceeded()
+    }
+
+    /// `ShelfItem.init(url:…)` bookmarks the file, which touches the disk, and the file doesn't exist
+    /// yet. Build it from a harmless placeholder instead; it gets its bookmark once the PNG is written.
+    private static func unsavedItem(at url: URL, createdAt: Date, pixelSize: CGSize) -> ShelfItem {
+        let placeholder = URL(fileURLWithPath: "/var/empty/margin-unsaved.png")
+        var item = ShelfItem(url: placeholder, createdAt: createdAt, pixelSize: pixelSize)
+        item.path = url.path
+        item.bookmark = nil
+        return item
     }
 
     // MARK: - Off-main helpers
