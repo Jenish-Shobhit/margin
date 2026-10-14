@@ -38,6 +38,9 @@ final class CaptureController: CaptureControlling {
     private var becameActiveDuringSession = false
     /// When `takeFocus` last asked to activate Margin, and when AppKit's didBecomeActive said it had (`giveFocusBack`).
     private var activation: (requested: ContinuousClock.Instant, landed: ContinuousClock.Instant?)?
+    /// The app a `giveFocusBack` that's still waiting will hand focus to. A capture started meanwhile takes it as its
+    /// own previous app (Margin is frontmost by then), so a quick second ⌘⇧4 still ends with focus back there.
+    private var pendingFocusReturn: NSRunningApplication?
     /// The overlay's keys from the moment the capture starts, before it can be key (see `OverlayHotkeys`).
     private lazy var hotkeys = OverlayHotkeys { [weak self] event in
         guard let session = self?.session else { return }
@@ -189,7 +192,8 @@ final class CaptureController: CaptureControlling {
         }
         session.onCancel = { [weak self] in self?.endSession() }
         self.session = session
-        previousApp = NSWorkspace.shared.frontmostApplication
+        previousApp = pendingFocusReturn ?? NSWorkspace.shared.frontmostApplication
+        pendingFocusReturn = nil
         activatedForSession = false
         becameActiveDuringSession = false
         session.show()
@@ -324,14 +328,16 @@ final class CaptureController: CaptureControlling {
             Self.restoreFocus(to: previous)
             return
         }
+        pendingFocusReturn = previous
         Task { [weak self] in
             while self?.activation?.landed == nil, ContinuousClock.now - requested < .milliseconds(300) {
                 try? await Task.sleep(for: .milliseconds(5))
             }
             if let landed = self?.activation?.landed { try? await Task.sleep(until: landed + settle) }
-            // A new capture since then has the focus.
-            guard let self, self.session == nil else { return }
-            Self.restoreFocus(to: previous)
+            // A capture started since then has taken it over (`begin`).
+            guard let self, self.pendingFocusReturn === previous else { return }
+            self.pendingFocusReturn = nil
+            if self.session == nil { Self.restoreFocus(to: previous) }
         }
     }
 
