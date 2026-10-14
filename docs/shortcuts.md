@@ -53,7 +53,7 @@ The four macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4, ⌃⇧⌘4) m
 
 ## On the shelf
 
-Click the shelf first: it only takes keys after a click, and gives them back when you click elsewhere. Keys act on the selection if there is one, otherwise on the card under the pointer, otherwise on the last card you clicked.
+A plain click copies a card and leaves the keyboard with your app, so ⌘V right after it pastes there. The keys below reach the shelf only after you ⌘-click a card, click ✕ or the pile, or choose Rename…, Move to Trash or Clear shelf; Esc, a copy, tucking the shelf or a click elsewhere gives them back. Keys act on the selection if there is one, otherwise on the card under the pointer, otherwise on the last card you clicked.
 
 | Keys | Action |
 |---|---|
@@ -67,14 +67,14 @@ Click the shelf first: it only takes keys after a click, and gives them back whe
 | Space | Quick Look (Space or Esc closes it) |
 | ⌫ or ⌦ | Dismiss (the file stays on disk) |
 | Two-finger swipe right | Dismiss the card under the pointer |
-| Esc | Close Quick Look, or clear the selection |
+| Esc | Close Quick Look; otherwise clear the selection and give the keys back to your app |
 | ⌘Z | Bring back the card(s) last removed (up to 20 steps) |
 | Right-click or ⌃-click | The card's menu: Copy Path, Reveal in Finder, Rename…, Move to Trash |
 | Right-click the pile | Clear shelf |
 
-**Renaming** (Rename… in the card's menu): ↩ saves, Esc cancels and clicking elsewhere keeps the new name. ⌘X, ⌘C, ⌘V, ⌘A, ⌘Z and ⇧⌘Z edit the text; none of them reach the shelf.
+**Renaming** (Rename… in the card's menu): ↩ saves, Esc cancels and clicking elsewhere keeps the new name (so does tucking the shelf, or a new shot pushing the card into the pile). ⌘X, ⌘C, ⌘V, ⌘A, ⌘Z and ⇧⌘Z edit the text; none of them reach the shelf.
 
-**⌘Q and ⌘W** only act while one of Margin's windows (Settings, Welcome) is in front. After you click a card, ⌘Q doesn't quit Margin and ⌘W doesn't close anything; click back into your app to use them there.
+**⌘Q and ⌘W** only act while one of Margin's windows (Settings, Welcome) is in front. While the shelf has the keys (after a ⌘-click or ✕, say), ⌘Q doesn't quit Margin and ⌘W doesn't close anything; press Esc or click back into your app to use them there. After a plain click on a card they go to your app as usual.
 
 ## In Settings
 

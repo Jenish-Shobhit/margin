@@ -293,6 +293,69 @@ import Testing
         #expect(!ShelfItem.isInTrash(URL(fileURLWithPath: "/Users/me/Desktop/My.Trash/shot.png")))
     }
 
+    @Test func fileOnAMissingVolume() throws {
+        // Saved to an external disk that's now unplugged: its folder under /Volumes is gone.
+        let away = ShelfItem(url: URL(fileURLWithPath: "/Volumes/Margin test \(UUID().uuidString)/Shots/a.png"),
+                             createdAt: .now, pixelSize: CGSize(width: 1, height: 1))
+        #expect(away.bookmark == nil)
+        #expect(away.isOnUnmountedVolume)
+        // /Volumes itself is on the startup disk.
+        let volumes = ShelfItem(url: URL(fileURLWithPath: "/Volumes"), createdAt: .now, pixelSize: .zero)
+        #expect(!volumes.isOnUnmountedVolume)
+    }
+
+    @Test func fileOnTheStartupDiskIsNeverOnAnUnmountedVolume() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let url = try dir.file("a.png")
+        let item = ShelfItem(url: url, createdAt: .now, pixelSize: CGSize(width: 1, height: 1))
+        #expect(item.bookmark != nil)
+        #expect(!item.isOnUnmountedVolume)
+        // Deleted: gone for good, not "volume away".
+        try FileManager.default.removeItem(at: url)
+        #expect(!item.isOnUnmountedVolume)
+    }
+
+    /// The real thing: a disk image attached, then detached, as an unplugged SSD would be. It mounts a volume,
+    /// so it only runs with `MARGIN_DISK_IMAGE_TESTS=1 scripts/test.sh`.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["MARGIN_DISK_IMAGE_TESTS"] == "1"))
+    func fileOnADetachedDiskImage() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let image = dir.url.appendingPathComponent("disk.dmg").path
+        let mount = dir.url.appendingPathComponent("mnt", isDirectory: true)
+        try FileManager.default.createDirectory(at: mount, withIntermediateDirectories: true)
+        try hdiutil("create", "-quiet", "-size", "2m", "-fs", "HFS+", "-volname", "MarginTest", image)
+        try hdiutil("attach", "-quiet", "-nobrowse", "-mountpoint", mount.path, image)
+        var attached = true
+        defer { if attached { try? hdiutil("detach", "-force", "-quiet", mount.path) } }
+
+        let file = mount.appendingPathComponent("a.png")
+        try Data("png".utf8).write(to: file)
+        var item = ShelfItem(url: file, createdAt: .now, pixelSize: CGSize(width: 1, height: 1))
+        #expect(item.bookmark != nil)
+        #expect(!item.isOnUnmountedVolume)
+
+        try hdiutil("detach", "-quiet", mount.path)
+        attached = false
+        // Neither the bookmark nor the path finds the file now…
+        #expect(item.resolveFile() == nil)
+        #expect(!FileManager.default.fileExists(atPath: file.path))
+        // …because its volume is away, not because the file was deleted.
+        #expect(item.isOnUnmountedVolume)
+    }
+
+    private struct HdiutilFailed: Error { let arguments: [String] }
+
+    private func hdiutil(_ arguments: String...) throws {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
+        p.arguments = arguments
+        try p.run()
+        p.waitUntilExit()
+        guard p.terminationStatus == 0 else { throw HdiutilFailed(arguments: arguments) }
+    }
+
     @Test func pixelSizeTruncatesToInts() {
         let item = ShelfItem(url: URL(fileURLWithPath: "/nope.png"), createdAt: .now, pixelSize: CGSize(width: 99.9, height: 10))
         #expect(item.pixelWidth == 99 && item.pixelSize == CGSize(width: 99, height: 10))

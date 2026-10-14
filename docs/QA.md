@@ -147,7 +147,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **Tucking and toasts**
 
 - [ ] Tucking shows the tab with the count and the toast "Shelf tucked · ⇧⌘1"
-- [ ] An empty shelf doesn't tuck
+- [ ] An empty shelf doesn't tuck: ⇧⌘1 does nothing and the menu's Tuck Shelf is dimmed
 - [ ] Tucked: the shot flies into the tab, the count goes up, the shelf stays tucked
 - [ ] The tuck tab peeks on hover and shows the shelf on click
 - [ ] Toasts appear above the top card for 1.2 s, never as notifications
@@ -157,7 +157,9 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 
 **Focus**
 
-- [ ] The shelf never steals focus; keys work only after clicking it; clicking elsewhere gives focus back
+- [ ] The shelf never steals focus. In a terminal, click an older card and press ⌘V without clicking back: it pastes that shot (no beep), and ⌘Q, ⌘W and typing still go to the terminal
+- [ ] ⌘-click, ✕, the pile, Rename…, Move to Trash and Clear shelf give the shelf the keys (⌘Z, ⌫, Space, ⌘C, ⌘A work); Esc, a copy (click, ⌘C, Copy Path) or a click elsewhere gives them back
+- [ ] Copy Path (from ••• or a right-click), then ⌘V in a terminal: pastes the path
 
 **Dragging**
 
@@ -172,7 +174,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] ⌘-click toggles selection; dragging a selected card drags all selected (stacked image with a count badge)
 - [ ] ⌘A selects every card outside the pile; Esc clears the selection
 - [ ] ⌘C copies all selected cards as images (each with its file URL)
-- [ ] Click copies that shot, moves the ⌘V mark to it, and shows "Copied"; a double-click opens without copying
+- [ ] Click copies that shot at once (⌘V straight after the click pastes it), moves the ⌘V mark to it, and shows "Copied"; a double-click copies on its first click and opens on its second
 
 **Other actions**
 
@@ -182,16 +184,20 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] Double-click opens the file in the default app
 - [ ] ••• and right-click (or ⌃-click) offer Copy Path · Reveal in Finder · Rename… (renames on disk) · Move to Trash; Copy Paths for a multi-selection
 - [ ] ⌘Z restores the last removed card(s), up to 20 steps: drag-out, dismiss, clear and trash (the file comes back from the Trash)
+- [ ] On cards A, B, C (oldest first): dismiss A, Move B to Trash, then ⌘Z ⌘Z quickly: the shelf reads A, B, C again
+- [ ] Dismiss a card, delete its file in Finder, ⌘Z: "File not found", no card appears and fades; the next ⌘Z restores the removal before
+- [ ] Move to Trash, then Put Back in Finder, then ⌘Z: the card comes back with "Restored" (not "Couldn't restore")
 
 **Rename field**
 
 - [ ] ↩ saves, Esc cancels, and clicking elsewhere keeps the typed name
+- [ ] ⇧⌘3 while renaming the top visible card (a new shot folds it into the pile), or ⇧⌘1 while renaming: the rename ends with the typed name, and later typing doesn't go into a hidden field
 - [ ] ⌘X ⌘C ⌘V ⌘A edit the text, ⌘Z undoes typing and ⇧⌘Z redoes it
 - [ ] None of those keys reach the shelf (⌘Z while renaming never brings back a card)
 
 **⌘Q and ⌘W**
 
-- [ ] After clicking a card (shelf key, another app frontmost), ⌘Q does not quit Margin and ⌘W does not close anything
+- [ ] After a ⌘-click or ✕ on a card (shelf key, another app frontmost), ⌘Q does not quit Margin and ⌘W does not close anything
 - [ ] With Settings in front, ⌘Q quits and ⌘W closes the window
 
 **The ⌘V mark**
@@ -205,7 +211,9 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] A file deleted in Finder drops off the shelf (at launch, when the shelf appears, when a drag starts)
 - [ ] A file renamed in Finder stays on the shelf and drags under its new name
 - [ ] A file moved in Finder is followed (bookmark) and still drags
+- [ ] Renamed or moved while Margin was quit: after a relaunch the card shows its shot (not a grey box), and so do the pile fan and the drag image
 - [ ] A file moved to the Trash drops off the shelf
+- [ ] Shots saved to an external disk (or a disk image) stay on the shelf while it's ejected, through clicks and a relaunch, and work again once it's back (`MARGIN_DISK_IMAGE_TESTS=1 scripts/test.sh` covers the check itself)
 
 ## Paste into apps (⌘V after a capture)
 

@@ -47,6 +47,9 @@ extension ShelfController {
                     store.update(fresh)
                     cards[id]?.update(item: fresh)
                 }
+                // A card still without its shot (the file was renamed or moved before the thumbnail loaded from
+                // the old path, or was unreadable until now) loads it from where the file is.
+                if unchanged, let card = cards[id], card.thumbnail == nil { loadThumbnail(for: fresh) }
                 live.append(r)
             case .gone:
                 if unchanged, !dragging.contains(id) { gone.append(id) } else { live.append(r) }

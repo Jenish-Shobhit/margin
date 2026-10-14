@@ -92,7 +92,7 @@ To open the Unsaved folder and move those shots: `open ~/Library/Application\ Su
 
 ## Nothing pastes after a capture
 
-- **Did you just click a card?** The shelf takes keyboard focus when you click it, so ⌘C, ⌘Z and Space work there. Click into the app you want to paste into, then press ⌘V.
+- **Did you just ⌘-click a card, or click ✕?** Those give the shelf the keyboard, so ⌘Z, ⌫ and Space work there. Press Esc (or click into the app you want to paste into), then press ⌘V. A plain click on a card copies it and leaves the keyboard with your app.
 - **In a terminal:** ⌘V pastes only text. Margin puts the saved file on the clipboard next to the image, so:
   - In **Ghostty**, ⌘V pastes the file's path, and in **Claude Code** that attaches the screenshot.
   - In **Claude Code in any terminal**, press **Ctrl+V** to attach the image from the clipboard.

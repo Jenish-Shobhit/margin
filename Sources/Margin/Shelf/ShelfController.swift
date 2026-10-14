@@ -31,6 +31,8 @@ final class ShelfController: ShelfControlling {
     var focusedID: UUID?
     var hoveredID: UUID?
     var undoStack: [ShelfUndoStep] = []
+    /// ⌘Z one step at a time: a Trash step restores off the main thread, and the next mustn't overtake it.
+    var undoSequencer = UndoSequencer()
     var dragSource: ShelfDragSource?
     /// Where click/⌘C copies and Copy Path write. `.general` except in tests.
     var pasteboard: NSPasteboard = .general
@@ -47,8 +49,8 @@ final class ShelfController: ShelfControlling {
     var fileRefreshQueued = false
     /// Bumped by every copy; a slower read that finishes after a newer copy started doesn't write.
     var copyGeneration = 0
-    /// A single click's copy, waiting out the double-click interval.
-    var clickCopyTask: Task<Void, Never>?
+    /// The path each card's thumbnail is loading from. Only the latest load for a card lands.
+    var thumbnailLoads: [UUID: String] = [:]
     private(set) var isPeeking = false
     private(set) var layout = ShelfLayout.layout(heights: [], availableHeight: 0)
 
@@ -118,6 +120,7 @@ final class ShelfController: ShelfControlling {
         store.load()
         for card in cards.values { card.removeFromSuperview() }
         cards = [:]
+        thumbnailLoads = [:]
         selection = []
         for item in store.items {
             makeCard(item)
@@ -285,11 +288,18 @@ final class ShelfController: ShelfControlling {
         return card
     }
 
+    /// Loads a card's thumbnail from its file (off the main thread). Asking again for the same path while it
+    /// loads does nothing; a newer path (the file was found elsewhere) wins over an older load.
     func loadThumbnail(for item: ShelfItem) {
+        guard thumbnailLoads[item.id] != item.path else { return }
+        thumbnailLoads[item.id] = item.path
         Task { [weak self] in
-            guard let box = await ShelfThumbnails.load(url: item.url, pixelSize: item.pixelSize) else { return }
-            self?.cards[item.id]?.setThumbnail(box.image)
-            self?.refreshFan(force: true)
+            let box = await ShelfThumbnails.load(url: item.url, pixelSize: item.pixelSize)
+            guard let self, self.thumbnailLoads[item.id] == item.path else { return }
+            self.thumbnailLoads[item.id] = nil
+            guard let box else { return }
+            self.cards[item.id]?.setThumbnail(box.image)
+            self.refreshFan(force: true)
         }
     }
 
@@ -452,6 +462,9 @@ final class ShelfController: ShelfControlling {
 
     // MARK: - Tuck, tab, peek
 
+    /// Whether ⌘⇧1 would do anything: there's nothing to tuck on an empty shelf (for the menu bar item).
+    var canToggleTucked: Bool { isTucked || !store.items.isEmpty }
+
     /// ⌘⇧1. Tucking an empty shelf does nothing (later shots would otherwise fly into a bare tab).
     /// Without `animated`, the shelf snaps back into place (the tab still fades).
     func setTucked(_ on: Bool, animated: Bool = true) {
@@ -461,6 +474,9 @@ final class ShelfController: ShelfControlling {
         peekTask?.cancel()
         peekPoll?.cancel()
         if on {
+            // Out of sight, out of the way: a rename keeps what was typed, and the keys go back to the user's app.
+            for card in cards.values where card.isRenaming { card.endRename(commit: true) }
+            releaseKeys()
             holdPanelFull(for: 0.45)
             for card in cards.values { card.setHovered(false) }
             pile.fan.setFanned(false, animated: true)
@@ -555,6 +571,7 @@ final class ShelfController: ShelfControlling {
             startPeekPoll()
         } else {
             peekPoll?.cancel()
+            releaseKeys()   // the peek poll waits while a rename is open
             for card in cards.values { card.setHovered(false) }
             pile.fan.setFanned(false, animated: true)
             holdPanelFull(for: 0.4)

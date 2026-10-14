@@ -272,6 +272,9 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
 
     func setInPile(_ inPile: Bool, animated: Bool) {
         guard inPile != isInPile else { return }
+        // Folding away mid-rename (a new shot pushed it up): keep what was typed, as clicking elsewhere does,
+        // rather than leave an invisible field taking the keys.
+        if inPile, isRenaming { endRename(commit: true) }
         isInPile = inPile
         if inPile, isHovered { isHovered = false; ShelfMotion.fade(chrome, to: 0, duration: 0) }
         if !inPile { isHidden = false }
@@ -433,8 +436,9 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     private var didDrag = false
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    /// The panel becomes key on click (mouse-up), never on a press that turns into a drag,
-    /// so a drag into another app leaves that app's typing focus alone.
+    /// A press never makes the panel key: on mouse-up the controller decides (`focusShelf`), and only for the
+    /// clicks whose next step is a shelf key. A click (copy), a double-click (open) or a drag into another app
+    /// leaves that app's typing focus alone.
     override var needsPanelToBecomeKey: Bool { false }
 
     override func updateTrackingAreas() {
@@ -462,8 +466,6 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         if isHovered, closeHitRect.contains(p) { press = .close }
         else if isHovered, moreHitRect.contains(p) { press = .more }
         else { press = .card }
-        // The second press of a double-click: the first click's copy mustn't happen.
-        if press == .card, event.clickCount >= 2 { controller?.cancelClickCopy() }
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -479,12 +481,13 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         guard !didDrag else { return }
         let p = convert(event.locationInWindow, from: nil)
         guard bounds.insetBy(dx: -4, dy: -4).contains(p), press != .none else { return }
-        // Take key first, so the shelf keys (⌘Z after ✕, typing in Rename…) work right away.
-        controller?.focusShelf()
+        // Only ✕ and ⌘-click take the keys (⌘Z, ⌫, Space, ⌘C come next); the menu's Rename… and Move to Trash
+        // take them when chosen. A click copies and a double-click opens: the keyboard stays with the user's app.
         switch press {
         case .none:
             return
         case .close:
+            controller?.focusShelf()
             controller?.dismiss([id], exit: .collapse)
         case .more:
             if let menu = controller?.menu(for: self) {
@@ -492,6 +495,7 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
             }
         case .card:
             if event.modifierFlags.contains(.command) {
+                controller?.focusShelf()
                 controller?.toggleSelection(id)
             } else if event.clickCount == 2 {
                 controller?.open(id)

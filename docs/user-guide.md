@@ -28,7 +28,7 @@ Margin has no Dock icon. Everything is in its menu bar icon, a small rectangle w
 | Capture Window | Start a capture in window mode |
 | Capture Screen ⇧⌘3 | Capture the display under the pointer |
 | Repeat Last Area ⇧⌘2 | Capture the last area again |
-| Tuck Shelf / Show Shelf ⇧⌘1 | Tuck the shelf away, or bring it back |
+| Tuck Shelf / Show Shelf ⇧⌘1 | Tuck the shelf away, or bring it back (dimmed while the shelf is empty) |
 | Restore Last Removed | Bring back the card(s) that last left the shelf |
 | Open Screenshots Folder | Open the save folder in Finder (creating it if needed) |
 | Settings… | Open Settings |
@@ -156,7 +156,7 @@ The shelf sits at the bottom-right of the display you last captured on, clear of
 - **Toasts.** Short messages appear above the top card for about a second: "Copied", "Path copied", "Restored", "Shelf tucked · ⇧⌘1" and errors. They're never system notifications.
 - **Tucking.** **⇧⌘1** slides the shelf off the edge, leaving a narrow **tab** with the number of shots. Hover the tab to peek at the shelf, and click it (or press ⇧⌘1 again) to bring the shelf back. New shots fly into the tab while it's tucked, and the count goes up. An empty shelf can't be tucked.
 
-The shelf never takes focus from the app you're working in. It responds to keys only after you click it, and clicking anywhere else hands the keys back.
+The shelf never takes focus from the app you're working in. Clicking a card copies it and leaves the keyboard where it was, so ⌘V right after the click pastes the shot. The shelf's own keys (⌘Z, ⌫, Space, ⌘C, ⌘A) work after you ⌘-click a card, click ✕ or the pile, or choose Rename…, Move to Trash or Clear shelf. Esc, copying, tucking the shelf, or clicking anywhere else hands the keys back.
 
 The shelf survives quitting and restarting.
 
@@ -165,7 +165,7 @@ The shelf survives quitting and restarting.
 | Do this | To |
 |---|---|
 | Click | Copy the shot (shows "Copied" and moves the ⌘V mark) |
-| Double-click | Open it in its default app |
+| Double-click | Open it in its default app (its first click copies it, too) |
 | Drag | Send the file to another app |
 | ⌘-click | Add it to, or remove it from, the selection |
 | ⌘A | Select every card that isn't in the pile |
@@ -175,7 +175,7 @@ The shelf survives quitting and restarting.
 | Two-finger swipe right | Dismiss |
 | ✕ | Dismiss |
 | ••• or right-click (or ⌃-click) | Open the card's menu |
-| Esc | Close Quick Look, or clear the selection |
+| Esc | Close Quick Look; otherwise clear the selection and hand the keys back to your app |
 
 **Dragging out.** A card drags as a plain file, so any app that takes files takes it: Finder, Slack, Chrome, WhatsApp, Claude, Notes, a terminal (which types the path).
 
@@ -190,14 +190,14 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 
 - **Copy Path** (or **Copy Paths** for a selection): the path as plain text.
 - **Reveal in Finder.**
-- **Rename…**: edit the name in place on the card. ↩ saves (the file is renamed on disk), Esc cancels, and clicking elsewhere keeps what you typed. The usual text shortcuts (⌘X, ⌘C, ⌘V, ⌘A, ⌘Z, ⇧⌘Z) work while you type.
-- **Move to Trash**: the file goes to the Trash and the card leaves. ⌘Z puts both back.
+- **Rename…**: edit the name in place on the card. ↩ saves (the file is renamed on disk), Esc cancels, and clicking elsewhere keeps what you typed (so does tucking the shelf, or a new shot pushing the card into the pile). The usual text shortcuts (⌘X, ⌘C, ⌘V, ⌘A, ⌘Z, ⇧⌘Z) work while you type.
+- **Move to Trash**: the file goes to the Trash and the card leaves. ⌘Z puts both back (after Finder's Put Back, it just brings the card back).
 
-**Files changed outside Margin.** Cards follow files you rename or move in Finder. A card whose file was deleted or moved to the Trash drops off the shelf the next time Margin checks: at launch, when the shelf appears, and when you start dragging.
+**Files changed outside Margin.** Cards follow files you rename or move in Finder. A card whose file was deleted or moved to the Trash drops off the shelf the next time Margin checks: at launch, when the shelf appears, and when you start dragging. Shots on an external disk or a network share stay while it's disconnected, and work again once it's back.
 
 ## Undo
 
-**⌘Z** on the shelf (click it first) brings back the card(s) that last left it. It remembers up to 20 removals: drag-outs, dismissals, Clear shelf and Move to Trash (the file comes back from the Trash too).
+**⌘Z** on the shelf brings back the card(s) that last left it. Right after ✕, Move to Trash or Clear shelf the shelf already has the keys; otherwise ⌘-click a card or click the pile first. It remembers up to 20 removals: drag-outs, dismissals, Clear shelf and Move to Trash (the file comes back from the Trash too). A card whose file you've deleted since can't come back: ⌘Z says "File not found", and the next ⌘Z goes on to the removal before.
 
 **Restore Last Removed** in the menu bar does the same, without clicking the shelf first.
 

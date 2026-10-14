@@ -45,7 +45,7 @@ flowchart LR
 | `FileNamer.swift` | `Screenshot yyyy-MM-dd at HH.mm.ss.png` (en_US_POSIX, 24-hour, ASCII spaces) and ` (2)` collisions |
 | `Geometry.swift` | AppKit ↔ CG coordinate flips, point → pixel rects, snapping to window edges |
 | `ShelfLayout.swift` | Card sizes, slots, how many cards fit and the `+N older` pile |
-| `ShelfStore.swift` | `ShelfItem` (path, bookmark, date, pixel size) and the ordered, JSON-persisted list |
+| `ShelfStore.swift` | `ShelfItem` (path, bookmark, date, pixel size; whether its volume is mounted) and the ordered, JSON-persisted list |
 | `PNGWriter.swift` | One ImageIO encode (no filtering, colour profile, DPI) and the atomic write: temp file, then an exclusive rename |
 | `ClipboardMark.swift` | The ⌘V mark's change-count bookkeeping, and `ClipboardWriter` (PNG + file URL per item) |
 | `Preferences.swift` | `KeyCombo`, `ShortcutAction` (defaults, ⌃ twins, conflicts), `LastArea` and the `Preferences` store |
@@ -54,6 +54,7 @@ flowchart LR
 | `SystemShortcuts.swift` | Reading the macOS screenshot shortcuts (IDs 28–31) |
 | `SystemShortcuts+Write.swift` | Turning them off or on: the pure dictionary rewrite, `activateSettings -u`, and the check that it stuck |
 | `LoginItem.swift` | `SMAppService.mainApp` state and registration |
+| `ShelfUndo.swift` | `UndoSequencer`: the shelf's ⌘Z one step at a time, so a quick second ⌘Z waits for a slow first one. `TrashedFile.putBack`: a trashed shot back home (or already there, after Finder's Put Back) |
 | `ShutterSound.swift` | The system Screen Capture sound, honouring "Play user interface sound effects" |
 
 **`Sources/Margin/`**
@@ -221,7 +222,7 @@ Quitting while saves are in flight answers `.terminateLater`. Margin waits for t
 
 All of them join every Space and float over full-screen apps.
 
-**Focus.** The shelf becomes key only on a mouse-up on it, never on a press that turns into a drag, and never by activating Margin. Its keys (⌘C, ⌘Z, ⌘A, Space, ⌫, Esc) work after a click, while the menu bar still belongs to the other app.
+**Focus.** The shelf becomes key (`focusShelf`) only on a mouse-up whose next step is a shelf key: ⌘-click, ✕, the pile, Rename…, Move to Trash, Clear shelf. Never on a plain click (copy) or a double-click (open), so ⌘V right after a click reaches the user's app; never on a press that turns into a drag; and never by activating Margin. Its keys (⌘C, ⌘Z, ⌘A, Space, ⌫, Esc) then work while the menu bar still belongs to the other app. `releaseKeys` gives the keyboard back on Esc, after every copy (click, ⌘C, Copy Path) and when the shelf goes out of sight (tuck, end of a peek; a rename in progress is saved first): `NSApp.deactivate()` makes the other app's window key again, unless Margin itself is frontmost.
 
 `MainMenu` installs a hidden main menu, so text fields get their standard edit keys. Its ⌘Q acts only while Margin is really frontmost (`NSRunningApplication.current.isActive`), and its Undo goes to the rename field's own undo manager while it's editing.
 
@@ -234,7 +235,7 @@ All of them join every Space and float over full-screen apps.
 | `Preferences` | `UserDefaults`, domain `io.github.jenish-shobhit.margin` | `saveFolder`, `copyEachCapture`, `shutterSound`, `launchAtLogin`, `shortcut.<action>` (JSON `KeyCombo`), `lastArea` (JSON: rect relative to its display, display ID, display size), `firstRunDone`, `completedCaptures`, `hintCaptures.r<n>`, `loginItemConfigured` |
 | `ShelfStore` | `~/Library/Application Support/Margin/shelf.json` | The shelf, oldest first: `id`, `path`, `bookmark`, `createdAt`, `pixelWidth`, `pixelHeight`. Rewritten atomically on every change; an unreadable file means an empty shelf |
 | Fallback saves | `~/Library/Application Support/Margin/Unsaved/` | PNGs that couldn't go to the save folder |
-| Undo | Memory | Up to 20 steps. Thumbnails are kept for the newest 5 |
+| Undo | Memory | Up to 20 steps. Thumbnails are kept for the newest 5. Steps restore one at a time (`UndoSequencer`), since each goes back to the indices it had, which holds only once newer steps are back |
 | `RuntimeStatus` | Memory | Hotkey failures and revoked Screen Recording |
 
 More on how these behave:
@@ -242,7 +243,7 @@ More on how these behave:
 - **`Preferences.didChange`** is posted on every write. The hotkeys, Settings and the menu observe it, and `HotkeyCenter` re-registers only when the shortcuts actually changed.
 - **The hint bar** shows while `Preferences.showsCaptureHints` is on (the default; a Settings toggle).
 - **Bookmarks** let a card follow a file renamed or moved in Finder.
-- **When a shelf file counts as gone:** `ShelfFiles.status` tells a file that's definitely gone (`ENOENT`, or in a `.Trash` folder) from one Margin can't see right now (access denied). Only the first drops the card, so a folder Margin may not read never empties the shelf.
+- **When a shelf file counts as gone:** `ShelfFiles.status` tells a file that's definitely gone (`ENOENT` on a mounted volume, or in a `.Trash` folder) from one Margin can't see right now (access denied, or its volume isn't mounted: `ShelfItem.isOnUnmountedVolume` checks the mount point the bookmark recorded, or `/Volumes/<name>`). Only the first drops the card, so a folder Margin may not read, or an unplugged disk, never empties the shelf.
 - **When files are checked:** at launch, when the shelf appears, and on a mouse-down that may become a drag.
 
 ## Permissions

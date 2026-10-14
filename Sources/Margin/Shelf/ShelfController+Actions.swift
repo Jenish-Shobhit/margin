@@ -24,9 +24,19 @@ extension ShelfController {
     // MARK: - Focus and selection
 
     /// Makes the panel key without activating Margin, so the shelf keys work until the user clicks elsewhere.
+    /// Only for what needs those keys next (⌘-click, ✕, Rename…, Move to Trash, Clear shelf, the pile): a plain
+    /// click copies, and its ⌘V belongs to the app the user is in.
     func focusShelf() {
         if !panel.isKeyWindow { panel.makeKey() }
         if !(panel.firstResponder is NSTextView) { panel.makeFirstResponder(root) }
+    }
+
+    /// Gives the keyboard back to the app the user is in. The shelf took it without activating Margin, so
+    /// deactivating hands it straight back: that app's window is key again (checked on macOS 27). Not while
+    /// Margin itself is in front (Settings, Welcome), which would send the user to another app.
+    func releaseKeys() {
+        guard panel.isKeyWindow, !NSRunningApplication.current.isActive else { return }
+        NSApp.deactivate()
     }
 
     func cardHover(_ card: ShelfCardView, inside: Bool) {
@@ -59,10 +69,12 @@ extension ShelfController {
         }
     }
 
+    /// Esc closes Quick Look; otherwise it clears the selection and gives the keyboard back.
     func escape() {
         if root.isQuickLookOpen { root.closeQuickLook(); return }
         if cards.values.contains(where: { $0.isRenaming }) { return }
         clearSelection()
+        releaseKeys()
     }
 
     /// What the keys act on: the selection, else the hovered card, else the last clicked card.
@@ -75,35 +87,23 @@ extension ShelfController {
 
     // MARK: - Click, copy, open
 
-    /// Click: copy that shot (same clipboard write as a capture), move the ⌘V mark, toast "Copied".
-    /// Focus and selection change at once; the copy waits out the double-click interval, so a double-click
-    /// (open) never touches the clipboard.
+    /// Click: copy that shot (same clipboard write as a capture), move the ⌘V mark, toast "Copied". The copy
+    /// starts at once, so ⌘V straight after the click pastes it; a pending card's copy runs when its file lands.
+    /// The first click of a double-click copies too, and the second opens the file.
+    /// The click never takes the keyboard, and gives it back if the shelf had it (see `copyKeyTargets`).
     func click(_ id: UUID) {
         focusedID = id
         clearSelection()
-        clickCopyTask?.cancel()
-        clickCopyTask = ShelfMotion.after(NSEvent.doubleClickInterval) { [weak self] in
-            guard let self else { return }
-            self.clickCopyTask = nil
-            guard self.item(for: id) != nil else { return }
-            if self.pending.contains(id) {
-                self.queuedCopy = id   // copied as soon as the file lands
-            } else {
-                self.copy([id])
-            }
-        }
+        copy([id])
+        releaseKeys()
     }
 
-    /// A second click arrived: it's a double-click, so the first click's copy is off.
-    func cancelClickCopy() {
-        clickCopyTask?.cancel()
-        clickCopyTask = nil
-    }
-
+    /// ⌘C. A copy is for pasting elsewhere, so the keyboard goes back to the user's app, where ⌘V pastes.
     func copyKeyTargets() {
         let ids = keyTargets
         guard !ids.isEmpty else { NSSound.beep(); return }
         copy(ids)
+        releaseKeys()
     }
 
     /// Reads the files off the main thread, then puts the same bytes on the clipboard, each with its file's
@@ -141,7 +141,6 @@ extension ShelfController {
     }
 
     func open(_ id: UUID) {
-        cancelClickCopy()
         guard !pending.contains(id), let item = item(for: id) else { return }
         Task { [weak self] in
             let results = await ShelfFiles.check([item]) { $0 }
@@ -186,8 +185,9 @@ extension ShelfController {
         menu.autoenablesItems = false
         // Until the file is on disk there's nothing to act on.
         let saving = ids.contains { pending.contains($0) }
-        // Choosing an item counts as a click on the shelf (spec §5), so ⌘Z works right after Move to Trash.
-        menu.addItem(ShelfMenuItem(ids.count > 1 ? "Copy Paths" : "Copy Path") { [weak self] in self?.focusShelf(); self?.copyPaths(ids) })
+        // Move to Trash and Rename… take the keys (⌘Z, typing); Copy Path leaves them with the user's app,
+        // where its ⌘V pastes the path (spec §5).
+        menu.addItem(ShelfMenuItem(ids.count > 1 ? "Copy Paths" : "Copy Path") { [weak self] in self?.copyPaths(ids); self?.releaseKeys() })
         menu.addItem(ShelfMenuItem("Reveal in Finder") { [weak self] in self?.reveal(ids) })
         let rename = ShelfMenuItem("Rename…") { [weak self] in self?.beginRename(id) }
         rename.isEnabled = ids.count == 1
@@ -367,37 +367,78 @@ extension ShelfController {
 
     /// "Restore Last Removed" in the menu bar (`fromMenu: true`): never beeps. Works any time, even with the
     /// panel hidden: the cards come back and the panel shows. Trash moves the files back first (off main).
+    /// A ⌘Z pressed while a step is still restoring runs right after it, so steps land newest first.
     func undo(fromMenu: Bool) {
-        guard let step = undoStack.popLast() else {
-            if !fromMenu { NSSound.beep() }
-            return
+        switch undoSequencer.request(available: undoStack.count) {
+        case .run: runUndo()
+        case .wait: break
+        case .nothing: if !fromMenu { NSSound.beep() }
         }
-        guard step.kind == .trash else {
-            bringBack(step.removals, thumbnails: step.thumbnails, failed: false)
+    }
+
+    /// Restores the newest step; when it's back, a ⌘Z that waited meanwhile runs. Files are checked first (off
+    /// the main thread), so a card whose file was deleted since doesn't come back only to fade away; the step is
+    /// used up either way, since those cards can't return.
+    private func runUndo() {
+        guard let step = undoStack.popLast() else {
+            undoSequencer.reset()   // waiting ⌘Zs lost their steps (a failed save dropped them)
             return
         }
         let removals = step.removals
         let trashed = step.trashed
         let thumbnails = step.thumbnails
+        // A shot still being saved has no file to check yet (and its save updates only steps on the stack):
+        // its step comes back as it is.
+        if step.kind != .trash, removals.contains(where: { awaitingSave.contains($0.item.id) }) {
+            bringBack(removals, of: removals.count, kind: step.kind, thumbnails: thumbnails)
+            undoFinished()
+            return
+        }
         Task { [weak self] in
-            let restored = await Task.detached(priority: .userInitiated) { () -> [ShelfStore.Removal] in
-                removals.compactMap { r in
-                    guard let t = trashed[r.item.id], ShelfFiles.untrash(t) else { return nil }
-                    // Point the item back at its restored file before it rejoins the shelf.
-                    var item = r.item
-                    item.path = t.original.path
-                    item.refreshBookmark()
-                    return ShelfStore.Removal(index: r.index, item: item)
-                }
-            }.value
-            self?.bringBack(restored, thumbnails: thumbnails, failed: restored.count < removals.count)
+            let back = step.kind == .trash ? await Self.untrash(removals, trashed) : await Self.stillThere(removals)
+            guard let self else { return }
+            self.bringBack(back, of: removals.count, kind: step.kind, thumbnails: thumbnails)
+            self.undoFinished()
         }
     }
 
-    /// Puts removed items back in their old places and shows them, with the panel.
-    private func bringBack(_ removals: [ShelfStore.Removal], thumbnails: [UUID: CGImage], failed: Bool) {
+    private func undoFinished() {
+        if undoSequencer.finished() { runUndo() }
+    }
+
+    /// Moves trashed files back (off the main thread); returns the removals whose files are home again.
+    private static func untrash(_ removals: [ShelfStore.Removal], _ trashed: [UUID: ShelfUndoStep.Trashed]) async -> [ShelfStore.Removal] {
+        await Task.detached(priority: .userInitiated) { () -> [ShelfStore.Removal] in
+            removals.compactMap { r in
+                guard let t = trashed[r.item.id], ShelfFiles.untrash(t) else { return nil }
+                // Point the item back at its restored file before it rejoins the shelf.
+                var item = r.item
+                item.path = t.original.path
+                item.refreshBookmark()
+                return ShelfStore.Removal(index: r.index, item: item)
+            }
+        }.value
+    }
+
+    /// The removals whose files are still there, following files moved meanwhile. A file Margin can't see right
+    /// now counts as there, as everywhere else; one that's definitely gone can't come back.
+    private static func stillThere(_ removals: [ShelfStore.Removal]) async -> [ShelfStore.Removal] {
+        let results = await ShelfFiles.statuses(removals.map(\.item))
+        return zip(removals, results).compactMap { r, result in
+            switch result.status {
+            case .found(let fresh): ShelfStore.Removal(index: r.index, item: fresh)
+            case .unknown: r
+            case .gone: nil
+            }
+        }
+    }
+
+    /// Puts removed items back in their old places and shows them, with the panel. `removals` are the ones that
+    /// can come back, out of `total` in the step.
+    private func bringBack(_ removals: [ShelfStore.Removal], of total: Int, kind: ShelfUndoStep.Kind, thumbnails: [UUID: CGImage]) {
+        let trash = kind == .trash
         guard !removals.isEmpty else {
-            showToast("Couldn't restore", isError: true)
+            showToast(trash ? "Couldn't restore" : "File not found", isError: true)
             return
         }
         store.restore(removals)
@@ -415,7 +456,11 @@ extension ShelfController {
         // Tucked: the cards are back in the tucked shelf, like a new shot; the tab says so.
         if isTucked && !isPeeking { tab.bump() }
         refreshFiles()
-        showToast(failed ? "Some files couldn't be restored" : "Restored", isError: failed)
+        if removals.count < total {
+            showToast(trash ? "Some files couldn't be restored" : "Some files weren't found", isError: true)
+        } else {
+            showToast("Restored")
+        }
     }
 
     /// Restored items whose save hasn't been reported are pending until their file is on disk: either

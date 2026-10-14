@@ -153,30 +153,31 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - ✕ (top-right, red; since 0.0.6) to dismiss.
   - ••• (top-left, tooltip "Options"; since 0.0.6) for the menu.
   - A meta line at the bottom: `HH:mm · W × H`.
-- **Tuck.** ⌘⇧1 slides the shelf off the edge and leaves a 22 pt tab showing the count. Hovering the tab peeks the shelf; clicking it shows the shelf.
+- **Tuck.** ⌘⇧1 slides the shelf off the edge and leaves a 22 pt tab showing the count. Hovering the tab peeks the shelf; clicking it shows the shelf. Tucking (or the end of a peek) gives the keys back, and a rename in progress keeps what was typed.
 - **Toasts.** Inside the shelf, above the top card, never as notifications: "Copied", "Path copied", "Restored", and error messages. They last 1.2 s.
 - **Persistence.**
   - `~/Library/Application Support/Margin/shelf.json`.
   - Store items in order with **bookmark data**, so moved files are followed, plus the date and pixel size.
   - Items survive quit and reboot.
   - Drop any item whose file no longer resolves. Check at launch, whenever the shelf appears, and when a drag starts.
+  - A file on a volume that isn't mounted (an unplugged disk, a disconnected share) hasn't gone: keep its card.
 
 ## 5. Shelf interactions
 
-The shelf never steals focus. Keys work only after a click on the shelf (the panel becomes key without activating Margin), and clicking elsewhere gives focus back.
+The shelf never steals focus. A click (copy) or double-click (open) leaves the keyboard with the app you're in, so ⌘V right after a click pastes there. The shelf takes the keys (the panel becomes key without activating Margin) only when they're needed next: ⌘-click, ✕ (so ⌘Z brings the card back), Rename…, Move to Trash, Clear shelf, or a click on the pile. Esc, a copy (click, ⌘C, Copy Path), tucking or a click elsewhere gives them back.
 
 | Input | Result |
 |---|---|
 | Drag a card | Drags a **plain file URL** (`NSURL` pasteboard writer, `.copy` only, never `.move`). The card stays faint in its slot during the drag. If `operation` is non-empty at the end, the card collapses out and the rest settle. On cancel, it springs back |
 | ⌥ held when the drop lands | The card stays on the shelf |
 | ⌘-click | Toggle selection. Dragging a selected card drags all selected cards (stacked drag image with a count badge). ⌘C copies all selected cards as images |
-| Click | Copies that shot (same clipboard write as §3), moves the ⌘V mark to it, shows the toast "Copied" |
+| Click | Copies that shot at once (same clipboard write as §3), moves the ⌘V mark to it, shows the toast "Copied". The keyboard stays with the app you're in |
 | Space | Quick Look (`QLPreviewPanel`) for the focused card or the selection |
 | ⌫ | Dismiss. The file stays on disk |
 | Two-finger swipe right on a card | Dismiss |
-| Double-click | Open with the default app |
+| Double-click | Open with the default app (its first click has already copied the shot) |
 | ••• / right-click | Copy path · Reveal in Finder · Rename… (inline; renames on disk) · Move to Trash |
-| ⌘Z | Restore the last removed card(s). Keeps up to 20 steps, covering drag-out, dismiss, clear and trash (trash restores the file from the Trash) |
+| ⌘Z | Restore the last removed card(s). Keeps up to 20 steps, covering drag-out, dismiss, clear and trash (trash restores the file from the Trash; a file already back through Finder's Put Back counts as restored). Steps restore one at a time, newest first: a ⌘Z pressed while a file is still coming back from the Trash waits for it. Files are checked first: a card whose file was deleted meanwhile stays off the shelf ("File not found"), and that step is used up |
 
 - **Drop success.** Never delete or move the file because of a drag. "Success" means only that the card leaves the shelf.
   - If an app reports success wrongly, ⌘Z brings the card back.
@@ -194,7 +195,7 @@ The shelf never steals focus. Keys work only after a click on the shelf (the pan
   - Capture Screen ⌘⇧3
   - Repeat Last Area ⌘⇧2
   - —
-  - Tuck Shelf / Show Shelf ⌘⇧1
+  - Tuck Shelf / Show Shelf ⌘⇧1 (disabled while the shelf is empty)
   - Restore Last Removed (disabled when there's nothing to restore)
   - Open Screenshots Folder
   - —

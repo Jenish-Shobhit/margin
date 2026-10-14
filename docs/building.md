@@ -62,7 +62,8 @@ The tests cover `MarginKit`, the app's pure logic:
 - file names and collisions;
 - coordinate maths and snapping;
 - shelf layout and the pile;
-- `shelf.json` round trips, bookmarks and pruning;
+- the order ⌘Z restores steps in;
+- `shelf.json` round trips, bookmarks, pruning and unmounted volumes;
 - PNG encoding, DPI and atomic writes;
 - the clipboard items, including emulated Ghostty pastes;
 - key-combo display and conflicts;
@@ -70,7 +71,7 @@ The tests cover `MarginKit`, the app's pure logic:
 - the login item state;
 - parsing and rewriting the macOS screenshot shortcuts.
 
-They never touch real system state: they use temporary folders, throwaway `UserDefaults` suites, and fake executables in place of `activateSettings`.
+They never touch real system state: they use temporary folders, throwaway `UserDefaults` suites, and fake executables in place of `activateSettings`. One test is off by default because it mounts a volume: `MARGIN_DISK_IMAGE_TESTS=1 scripts/test.sh` also attaches and detaches a small disk image in a temporary folder, to check that a shot on an unplugged disk keeps its card.
 
 The app target (windows, capture, the shelf) is checked by hand with [docs/QA.md](QA.md) and the [debug hook](#the-debug-hook).
 

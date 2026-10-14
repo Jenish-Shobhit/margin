@@ -1,8 +1,9 @@
 import AppKit
 @preconcurrency import QuickLookUI
 
-/// Borderless, non-activating panel on the right edge. It becomes key only when the user clicks
-/// a card (see `ShelfCardView.needsPanelToBecomeKey`), never when it appears, and never activates Margin.
+/// Borderless, non-activating panel on the right edge. It becomes key only when a click needs the shelf keys
+/// next (`ShelfController.focusShelf`: ⌘-click, ✕, Rename…, Move to Trash, the pile), never on a plain click or
+/// when it appears, and never activates Margin.
 @MainActor
 final class ShelfPanel: NSPanel {
     init() {
@@ -46,7 +47,7 @@ final class ShelfRootView: NSView, QLPreviewPanelDataSource, QLPreviewPanelDeleg
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var needsPanelToBecomeKey: Bool { false }
 
-    // MARK: - Keys (only reach us while the panel is key, i.e. after a click on the shelf)
+    // MARK: - Keys (only reach us while the panel is key: see `ShelfController.focusShelf`)
 
     override func keyDown(with event: NSEvent) {
         guard let c = controller else { return super.keyDown(with: event) }

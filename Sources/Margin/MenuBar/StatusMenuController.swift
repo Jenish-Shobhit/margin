@@ -169,8 +169,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
                           combo: prefs.shortcut(for: .repeatArea)))
         menu.addItem(.separator())
         let tucked = coordinator?.isShelfTucked ?? false
-        menu.addItem(item(tucked ? "Show Shelf" : "Tuck Shelf", symbol: "sidebar.right", action: #selector(toggleShelf),
-                          combo: prefs.shortcut(for: .toggleShelf)))
+        let toggle = item(tucked ? "Show Shelf" : "Tuck Shelf", symbol: "sidebar.right", action: #selector(toggleShelf),
+                          combo: prefs.shortcut(for: .toggleShelf))
+        // An empty shelf has nothing to tuck (⇧⌘1 does nothing then either).
+        toggle.isEnabled = coordinator?.shelf.canToggleTucked ?? false
+        menu.addItem(toggle)
         let restore = item("Restore Last Removed", symbol: "arrow.uturn.backward", action: #selector(restoreLastRemoved))
         restore.isEnabled = coordinator?.canRestoreLastRemoved ?? false
         menu.addItem(restore)

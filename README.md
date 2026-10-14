@@ -122,7 +122,7 @@ All four global shortcuts can be changed in Settings. The full list is in [docs/
 | ↩ | Capture the adjusted selection |
 | Esc or right-click | Cancel |
 
-**On the shelf** (click it first)
+**On the shelf** (a click copies and leaves the keyboard with your app; the other keys work after a ⌘-click or ✕)
 
 | Keys | Action |
 |---|---|
