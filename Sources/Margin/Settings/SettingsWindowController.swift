@@ -14,6 +14,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let window = self.window ?? makeWindow()
         self.window = window
         model.reload()
+        model.refreshFolderInfo(force: true) // the folder may have been created or removed since
         if !window.isVisible {
             // The hosting controller sizes the window lazily; size it now so centering uses the real size.
             if let view = window.contentViewController?.view { window.setContentSize(view.fittingSize) }

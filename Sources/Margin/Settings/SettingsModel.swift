@@ -9,6 +9,10 @@ final class SettingsModel {
     @ObservationIgnored let prefs: Preferences
 
     private(set) var saveFolder: URL
+    /// The save folder's Finder icon; the generic folder icon until it's been read, or if the folder is missing.
+    private(set) var folderIcon: NSImage = SettingsModel.genericFolderIcon
+    /// Whether the save folder exists; nil until the first check finishes (`refreshFolderInfo`).
+    private(set) var saveFolderExists: Bool?
     private(set) var copyEachCapture: Bool
     private(set) var shutterSound: Bool
     private(set) var launchAtLogin: Bool
@@ -27,6 +31,10 @@ final class SettingsModel {
     @ObservationIgnored let status: RuntimeStatus
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     @ObservationIgnored private var monitor: Any?
+    @ObservationIgnored private var checkedFolder: URL?
+    @ObservationIgnored private var folderCheck: Task<Void, Never>?
+
+    static let genericFolderIcon = NSWorkspace.shared.icon(for: .folder)
 
     init(prefs: Preferences = .shared, status: RuntimeStatus = .shared) {
         self.prefs = prefs
@@ -66,6 +74,35 @@ final class SettingsModel {
         launchAtLogin = prefs.launchAtLogin
         loginNeedsApproval = LoginItem.requiresApproval
         shortcuts = Dictionary(uniqueKeysWithValues: ShortcutAction.allCases.map { ($0, prefs.shortcut(for: $0)) })
+        refreshFolderInfo()
+    }
+
+    // MARK: Save folder
+
+    /// Reads whether the save folder exists, and its icon, off the main thread. The first access to ~/Desktop
+    /// can wait on a privacy prompt, which must never freeze the app (and never happen in a view's `body`).
+    /// Only re-reads when the folder changed, unless `force` (e.g. each time the window opens).
+    func refreshFolderInfo(force: Bool = false) {
+        let folder = saveFolder
+        guard force || folder != checkedFolder else { return }
+        checkedFolder = folder
+        folderCheck?.cancel()
+        folderCheck = Task { [weak self] in
+            let info = await Task.detached(priority: .utility) { Self.readFolderInfo(folder) }.value
+            guard !Task.isCancelled, let self, self.saveFolder == folder else { return }
+            self.saveFolderExists = info.exists
+            self.folderIcon = info.icon ?? Self.genericFolderIcon
+        }
+    }
+
+    /// Touches the disk: call off the main thread only.
+    nonisolated private static func readFolderInfo(_ folder: URL) -> (exists: Bool, icon: NSImage?) {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return (false, nil)
+        }
+        let icon = (try? folder.resourceValues(forKeys: [.effectiveIconKey]))?.effectiveIcon as? NSImage
+        return (true, icon)
     }
 
     // MARK: Simple settings
@@ -89,8 +126,8 @@ final class SettingsModel {
         panel.allowsMultipleSelection = false
         panel.prompt = "Choose"
         panel.message = "Choose where Margin saves screenshots."
-        panel.directoryURL = FileManager.default.fileExists(atPath: saveFolder.path)
-            ? saveFolder : saveFolder.deletingLastPathComponent()
+        // Uses the last off-main check; never touches the disk here.
+        panel.directoryURL = saveFolderExists == true ? saveFolder : saveFolder.deletingLastPathComponent()
         let finish: (NSApplication.ModalResponse) -> Void = { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             self?.setSaveFolder(url)

@@ -13,7 +13,7 @@ struct SettingsView: View {
             Section {
                 LabeledContent("Save to") {
                     HStack(spacing: 8) {
-                        Image(nsImage: folderIcon)
+                        Image(nsImage: model.folderIcon)
                             .resizable()
                             .frame(width: 16, height: 16)
                         Text(model.saveFolderDisplay)
@@ -54,12 +54,6 @@ struct SettingsView: View {
         .scrollDisabled(true)
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var folderIcon: NSImage {
-        FileManager.default.fileExists(atPath: model.saveFolder.path)
-            ? NSWorkspace.shared.icon(forFile: model.saveFolder.path)
-            : NSWorkspace.shared.icon(for: .folder)
     }
 }
 
