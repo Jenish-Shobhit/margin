@@ -30,6 +30,10 @@ final class NotificationCounter: @unchecked Sendable {
 
     deinit {
         UserDefaults.standard.removePersistentDomain(forName: suite)
+        // Removing the domain leaves an empty plist behind.
+        let plist = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Preferences/\(suite).plist")
+        try? FileManager.default.removeItem(at: plist)
     }
 
     @Test func defaultsMatchTheSpec() {
