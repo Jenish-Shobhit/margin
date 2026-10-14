@@ -22,6 +22,18 @@ import Testing
         #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x0C, modifiers: cmd | control)) != nil) // ⌃⌘Q
     }
 
+    /// Menu shortcuts follow the layout: on QWERTZ, Redo is ⇧⌘ on key code 0x10 (labelled Z), and 0x06 (Y) is free.
+    @Test func menuShortcutsFollowTheKeyboardLayout() {
+        let qwertz = KeyboardLayoutTests.qwertz
+        #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x10, modifiers: cmd | shift), layout: qwertz)
+            == "⇧⌘Z is Redo. Choose another.")
+        #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x06, modifiers: cmd | shift), layout: qwertz) == nil)
+        // System shortcuts stay on their keys: ⌥⌘D is the Dock on key code 0x02 whatever it's labelled.
+        let everythingIsX = KeyboardLayout { _, _ in "x" }
+        #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x02, modifiers: cmd | option), layout: everythingIsX) != nil)
+        #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x0C, modifiers: cmd | control), layout: everythingIsX) == nil)
+    }
+
     @Test func marginDefaultsAndOrdinaryCombosAreAllowed() {
         for action in ShortcutAction.allCases {
             for combo in action.registeredCombos(for: action.defaultCombo) {
