@@ -21,12 +21,21 @@ public struct ClipboardMark: Equatable, Sendable {
         return true
     }
 
+    /// The marked item left the shelf: the mark goes with it.
     public mutating func itemRemoved(_ id: UUID) {
         if itemID == id { itemID = nil }
+    }
+
+    public mutating func clear() {
+        itemID = nil
     }
 }
 
 /// Puts screenshot images on the pasteboard the way macOS does.
+///
+/// Checked on macOS 27.0.1: `screencapture -c` leaves exactly one pasteboard item with one type,
+/// `public.png` (Display P3 profile, DPI 144 on Retina). No TIFF and no file URL, so Margin writes the
+/// same: the PNG bytes it saved to disk, as `public.png`.
 public enum ClipboardWriter {
     /// One pasteboard item per image. Returns the new changeCount.
     @MainActor @discardableResult

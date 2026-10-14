@@ -38,6 +38,12 @@ protocol CaptureControlling: AnyObject {
     var onCapture: ((CaptureResult) -> Void)? { get set }
     /// Called when a capture fails because Screen Recording permission is missing.
     var onPermissionMissing: (() -> Void)? { get set }
+    /// Menu "Capture Window": the interactive capture, starting in window mode. (Contract v2)
+    func beginWindowCapture()
+}
+
+extension CaptureControlling {
+    func beginWindowCapture() { beginInteractiveCapture() }
 }
 
 /// Implemented by Shelf/ShelfController.swift.
@@ -61,4 +67,27 @@ protocol ShelfControlling: AnyObject {
     var itemIDs: [UUID] { get }
     var isTucked: Bool { get }
     var markedItemID: UUID? { get }
+
+    // Contract v2 — save lifecycle and feedback.
+    //
+    // `add` happens before the PNG exists (thumbnail ≤ 100 ms, file ≤ 200 ms). Until `itemDidSave` arrives
+    // the item is *pending*: never prune it, and drag/copy/Quick Look must wait or be disabled for it.
+    // Always read path/bookmark from the shared `ShelfStore` by id rather than a cached copy.
+
+    /// The PNG is on disk. `item` carries the final path (may differ from the predicted one) and its bookmark;
+    /// the coordinator has already written it to the store.
+    func itemDidSave(_ item: ShelfItem)
+    /// Saving failed completely: drop the card (no undo) and show `message` as a toast.
+    func itemSaveFailed(_ id: UUID, message: String)
+    /// A short message inside the shelf (e.g. "Saved to Unsaved — folder not writable").
+    func showToast(_ text: String)
+    /// Remove every item (undoable with ⌘Z). Used by the pile's "Clear shelf" and the DEBUG `clear` command.
+    func clear()
+}
+
+extension ShelfControlling {
+    func itemDidSave(_ item: ShelfItem) {}
+    func itemSaveFailed(_ id: UUID, message: String) {}
+    func showToast(_ text: String) {}
+    func clear() {}
 }
