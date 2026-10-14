@@ -2,7 +2,7 @@ import AppKit
 import MarginKit
 
 /// The menu bar icon and its menu (spec §6). Rebuilt each time it opens, so shortcuts, the shelf's
-/// tuck state and the permission warning are always current.
+/// tuck state and the warnings are always current.
 @MainActor
 final class StatusMenuController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
@@ -11,6 +11,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private let warningDot = WarningDotView(frame: NSRect(x: 0, y: 0, width: dotDiameter, height: dotDiameter))
     private let glyph: NSImage
     private let badgedGlyph: NSImage
+    private var observers: [NSObjectProtocol] = []
     private(set) var showsWarning = false
 
     private static let dotDiameter: CGFloat = 6
@@ -39,18 +40,53 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.delegate = self
         menu.autoenablesItems = false
         statusItem.menu = menu
-        rebuild()
+        // Hotkey failures can change while the menu is closed (Settings re-registers them).
+        observers.append(NotificationCenter.default.addObserver(
+            forName: RuntimeStatus.didChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refresh() }
+        })
+        refresh()
     }
 
     /// Screen Recording missing: a dot on the icon, and the first item becomes "Allow Screen Recording…".
     func setWarning(_ on: Bool) {
         showsWarning = on
-        statusItem.button?.image = on ? badgedGlyph : glyph
-        warningDot.isHidden = !on
+        refresh()
+    }
+
+    /// Redraws the icon (a dot when something needs attention) and rebuilds the menu.
+    private func refresh() {
+        let hotkeyWarning = Self.hotkeyWarning(coordinator?.hotkeyFailures ?? [])
+        let attention = showsWarning || hotkeyWarning != nil
+        statusItem.button?.image = attention ? badgedGlyph : glyph
+        warningDot.isHidden = !attention
         layoutWarningDot()
-        statusItem.button?.toolTip = on ? "Margin — Screen Recording permission needed" : "Margin"
-        statusItem.button?.setAccessibilityLabel(statusItem.button?.toolTip)
+        let tip: String
+        if showsWarning {
+            tip = "Margin — Screen Recording permission needed"
+        } else if let hotkeyWarning {
+            tip = "Margin — \(hotkeyWarning)"
+        } else {
+            tip = "Margin"
+        }
+        statusItem.button?.toolTip = tip
+        statusItem.button?.setAccessibilityLabel(tip)
         rebuild()
+    }
+
+    /// "⇧⌘4 is used by another app", or nil when every shortcut registered.
+    static func hotkeyWarning(_ failures: [HotkeyCenter.Failure]) -> String? {
+        guard !failures.isEmpty else { return nil }
+        let keys = ListFormatter.localizedString(byJoining: failures.map(\.binding.combo.displayString))
+        let one = failures.count == 1
+        if failures.allSatisfy({ $0.reason == .taken }) {
+            return one ? "\(keys) is used by another app" : "\(keys) are used by other apps"
+        }
+        if failures.allSatisfy({ $0.reason == .duplicate }) {
+            return one ? "\(keys) is set for two actions" : "\(keys) are set for two actions"
+        }
+        return one ? "\(keys) isn't available" : "\(keys) aren't available"
     }
 
     /// The glyph with a transparent ring where the dot sits, so the badge reads as separate.
@@ -96,6 +132,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         let prefs = Preferences.shared
 
+        if let warning = Self.hotkeyWarning(coordinator?.hotkeyFailures ?? []) {
+            menu.addItem(item("\(warning) — Change in Settings…", symbol: "exclamationmark.triangle",
+                              action: #selector(openSettings)))
+            menu.addItem(.separator())
+        }
         if showsWarning {
             menu.addItem(item("Allow Screen Recording…", symbol: "exclamationmark.triangle", action: #selector(allowScreenRecording)))
         } else {

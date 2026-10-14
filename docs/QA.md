@@ -166,6 +166,7 @@ Check `log stream --predicate 'subsystem == "io.github.jenish-shobhit.margin" AN
 - [ ] Open Screenshots Folder creates the folder if missing and opens it in Finder
 - [ ] About shows the icon, version 0.0.1 (1) and "© 2026 Jenish Shobhit · MIT License"
 - [ ] Without Screen Recording permission: a warning dot on the icon, and the first item reads "Allow Screen Recording…" and opens First run step 1
+- [ ] A shortcut that fails to register shows a warning dot, and the menu's top item names it and opens Settings, e.g. "⇧⌘4 and ⌃⇧⌘4 are set for two actions — Change in Settings…" (other failures read "… is used by another app" or "… isn't available"). To force one, quit Margin, run `defaults write io.github.jenish-shobhit.margin shortcut.repeatArea -data 7b226b6579436f6465223a32312c226d6f64696669657273223a3736387d` (Repeat area = ⇧⌘4), relaunch, then fix it in Settings: the warning goes away at once. `dump-state` lists each OSStatus under `hotkeys`
 
 ## First run (§7)
 

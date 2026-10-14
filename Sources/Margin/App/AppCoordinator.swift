@@ -42,6 +42,8 @@ final class AppCoordinator {
     var hotkeyRegistrations: [(binding: HotkeyCenter.Binding, status: OSStatus)] {
         hotkeys?.registrationSummary ?? []
     }
+    /// Shortcuts that didn't register (also in `RuntimeStatus.hotkeyFailures`), for the menu bar warning.
+    var hotkeyFailures: [HotkeyCenter.Failure] { hotkeys?.failures ?? [] }
 
     init() {
         store = ShelfStore(fileURL: ShelfStore.defaultFileURL)
@@ -67,8 +69,9 @@ final class AppCoordinator {
             self?.lastHotkeyAction = action
             self?.perform(action)
         }
-        hotkeys.start()
+        // Assigned before `start()`, so the menu can read the failures when the first registration posts them.
         self.hotkeys = hotkeys
+        hotkeys.start()
 
         permissionGranted = CGPreflightScreenCaptureAccess()
         menuBar.setWarning(!permissionGranted)
