@@ -1,0 +1,135 @@
+#!/bin/bash
+# Builds Margin.app (arm64), signs it, and optionally installs, runs and zips it.
+#
+#   scripts/build.sh [--debug] [--install] [--run] [--zip]
+#
+#   --debug    debug configuration (includes the DEBUG control hook, see scripts/debug.sh)
+#   --install  quit any running Margin and replace /Applications/Margin.app
+#   --run      open the app (the installed copy when --install is given)
+#   --zip      write dist/Margin-<version>.zip
+#
+# Signing uses the "Margin Dev" identity when the keychain has it. It is self-signed, so
+# `security find-identity -v` hides it (CSSMERR_TP_NOT_TRUSTED), but codesign uses it fine, and
+# its stable certificate keeps the Screen Recording permission across rebuilds.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+ROOT=$(pwd)
+
+BUNDLE_ID="io.github.jenish-shobhit.margin"
+IDENTITY_NAME="Margin Dev"
+INSTALL_PATH="/Applications/Margin.app"
+
+CONFIG=release
+INSTALL=0
+RUN=0
+ZIP=0
+for arg in "$@"; do
+  case "$arg" in
+    --debug) CONFIG=debug ;;
+    --install) INSTALL=1 ;;
+    --run) RUN=1 ;;
+    --zip) ZIP=1 ;;
+    -h|--help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "build.sh: unknown option $arg" >&2; exit 2 ;;
+  esac
+done
+
+say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
+warn() { printf '\033[1;33m%s\033[0m\n' "$*" >&2; }
+
+PLIST_SRC="$ROOT/Resources/Info.plist"
+ICON_SRC="$ROOT/Resources/AppIcon.icns"
+VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST_SRC")
+
+# 1. Build ------------------------------------------------------------------------------------
+say "Building Margin $VERSION ($CONFIG, arm64)"
+SWIFT_FLAGS=(--build-system native -c "$CONFIG" --arch arm64)
+set +e
+swift build "${SWIFT_FLAGS[@]}" 2>&1 | grep -v "has been deprecated"
+STATUS=${PIPESTATUS[0]}
+set -e
+if [[ "$STATUS" != 0 ]]; then
+  echo "build.sh: swift build failed ($STATUS)" >&2
+  exit "$STATUS"
+fi
+BIN_DIR=$(swift build "${SWIFT_FLAGS[@]}" --show-bin-path 2>/dev/null | tail -1)
+BINARY="$BIN_DIR/Margin"
+if [[ ! -x "$BINARY" ]]; then
+  echo "build.sh: no binary at $BINARY" >&2
+  exit 1
+fi
+
+# 2. Assemble the bundle ----------------------------------------------------------------------
+OUT_DIR="$ROOT/.build/app/$CONFIG"
+APP="$OUT_DIR/Margin.app"
+say "Assembling $APP"
+rm -rf "$APP"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+cp "$BINARY" "$APP/Contents/MacOS/Margin"
+cp "$PLIST_SRC" "$APP/Contents/Info.plist"
+printf 'APPL????' > "$APP/Contents/PkgInfo"
+if [[ -f "$ICON_SRC" ]]; then
+  cp "$ICON_SRC" "$APP/Contents/Resources/AppIcon.icns"
+else
+  warn "No Resources/AppIcon.icns (run scripts/make-icon.swift). The app will have a generic icon."
+fi
+plutil -lint "$APP/Contents/Info.plist" >/dev/null
+
+# 3. Sign -------------------------------------------------------------------------------------
+# No -v: the self-signed identity is "not trusted" and -v would hide it.
+IDENTITY_HASH=$(security find-identity -p codesigning 2>/dev/null \
+  | awk -v name="\"$IDENTITY_NAME\"" 'index($0, name) { print $2; exit }')
+if [[ -n "$IDENTITY_HASH" ]]; then
+  say "Signing with \"$IDENTITY_NAME\" ($IDENTITY_HASH)"
+  codesign --force --options runtime --timestamp=none --sign "$IDENTITY_HASH" "$APP"
+else
+  warn "################################################################################"
+  warn "#  No \"$IDENTITY_NAME\" code-signing identity in the keychain: signing ad-hoc."
+  warn "#  macOS will ask for Screen Recording permission again after EVERY rebuild."
+  warn "#  Fix: Keychain Access > Certificate Assistant > Create a Certificate…,"
+  warn "#       name \"$IDENTITY_NAME\", type Code Signing, then rebuild."
+  warn "################################################################################"
+  codesign --force --options runtime --timestamp=none --sign - "$APP"
+fi
+codesign --verify --strict "$APP"
+
+# 4. Install ----------------------------------------------------------------------------------
+quit_running() {
+  # Ask every running copy (matched by bundle id) to quit, then force it after 5 s.
+  /usr/bin/osascript -l JavaScript - "$BUNDLE_ID" <<'JS' >/dev/null
+ObjC.import('AppKit');
+function run(argv) {
+  const id = argv[0];
+  const list = () => ObjC.unwrap($.NSRunningApplication.runningApplicationsWithBundleIdentifier(id)) || [];
+  list().forEach(a => a.terminate);
+  for (let i = 0; i < 50 && list().length > 0; i++) delay(0.1);
+  list().forEach(a => a.forceTerminate);
+  return list().length;
+}
+JS
+}
+
+if [[ "$INSTALL" == 1 ]]; then
+  say "Installing to $INSTALL_PATH"
+  quit_running
+  rm -rf "$INSTALL_PATH"
+  ditto "$APP" "$INSTALL_PATH"
+  APP="$INSTALL_PATH"
+fi
+
+# 5. Zip --------------------------------------------------------------------------------------
+if [[ "$ZIP" == 1 ]]; then
+  mkdir -p "$ROOT/dist"
+  ZIP_PATH="$ROOT/dist/Margin-$VERSION.zip"
+  rm -f "$ZIP_PATH"
+  ditto -c -k --keepParent "$APP" "$ZIP_PATH"
+  say "Wrote $ZIP_PATH"
+fi
+
+# 6. Run --------------------------------------------------------------------------------------
+if [[ "$RUN" == 1 ]]; then
+  say "Opening $APP"
+  open "$APP"
+fi
+
+say "Done: $APP"
