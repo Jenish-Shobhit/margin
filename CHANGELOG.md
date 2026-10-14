@@ -2,6 +2,19 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.11 — 2026-10-15
+
+### Fixed
+
+- Space, Esc and the other capture keys pressed right after ⇧⌘4, before the screen froze, went to the app in front: Space typed into your document, Esc took a full-screen app out of full screen. They now reach the capture screen.
+- After Esc, the app you were in sometimes got its window back without focus, so typing went nowhere until you clicked. It now gets its focus and caret back every time, also after a quick second ⇧⌘4.
+- The crosshair showed as an arrow until you moved the mouse. It now shows as soon as the screen freezes.
+- Snapping and window mode used where windows were a moment ago, so a window moved or opened just before ⇧⌘4 snapped to its old position. They now follow it.
+- Margin's own Settings, welcome and About windows were missing from your shots. They now appear and can be picked in window mode. The shelf still never shows in a shot.
+- The capture screen stayed up, frozen on an old picture, after a Space switch, sleep or a user switch. It now cancels.
+- Settings and the menu named shortcut keys after a US keyboard, so ⌃⌥⌘Z on a German keyboard read ⌃⌥⌘Y. Keys are now named the way your keyboard layout labels them, and the shortcuts Settings refuses (⇧⌘Z Redo and the like) follow your layout too.
+- Margin could crash when an app went full screen during a capture.
+
 ## 0.0.10 — 2026-10-15
 
 ### Fixed
