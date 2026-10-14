@@ -71,12 +71,28 @@ import Testing
         #expect(KeyCombo(keyCode: 0x3F, modifiers: cmd).displayString == "⌘#63")
     }
 
-    @Test func requiredModifier() {
+    @Test func requiredModifierIsCommandOrControl() {
         #expect(!KeyCombo(keyCode: 0x15, modifiers: 0).hasRequiredModifier)
         #expect(!KeyCombo(keyCode: 0x15, modifiers: shift).hasRequiredModifier)
         #expect(KeyCombo(keyCode: 0x15, modifiers: cmd).hasRequiredModifier)
         #expect(KeyCombo(keyCode: 0x15, modifiers: control).hasRequiredModifier)
-        #expect(KeyCombo(keyCode: 0x15, modifiers: option | shift).hasRequiredModifier)
+        #expect(KeyCombo(keyCode: 0x15, modifiers: cmd | shift).hasRequiredModifier)
+        #expect(KeyCombo(keyCode: 0x15, modifiers: control | option).hasRequiredModifier)
+        #expect(KeyCombo(keyCode: 0x15, modifiers: cmd | option | shift).hasRequiredModifier)
+    }
+
+    /// ⌥ and ⌥⇧ combos type characters and don't work reliably as global hotkeys.
+    @Test func optionOnlyCombosAreRejected() {
+        #expect(!KeyCombo(keyCode: 0x15, modifiers: option).hasRequiredModifier)
+        #expect(!KeyCombo(keyCode: 0x15, modifiers: option | shift).hasRequiredModifier)
+        #expect(!KeyCombo(keyCode: 0x31, cocoaModifiers: [.option]).hasRequiredModifier)
+        #expect(!KeyCombo(keyCode: 0x00, cocoaModifiers: [.option, .shift, .capsLock]).hasRequiredModifier)
+    }
+
+    @Test func defaultShortcutsHaveTheRequiredModifier() {
+        for action in ShortcutAction.allCases {
+            #expect(action.defaultCombo.hasRequiredModifier)
+        }
     }
 
     @Test func controlTwin() {

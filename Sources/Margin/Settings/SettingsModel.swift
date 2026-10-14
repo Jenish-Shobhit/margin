@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import MarginKit
 import Observation
 
@@ -20,20 +21,42 @@ final class SettingsModel {
     private(set) var heldModifiers: UInt32 = 0
     /// An inline message under one recorder (rejected combo).
     private(set) var message: (action: ShortcutAction, text: String)?
+    /// Shortcuts the hotkey center couldn't register, with the Carbon status (`RuntimeStatus.hotkeyFailures`).
+    private(set) var hotkeyFailures: [ShortcutAction: Int32] = [:]
 
+    @ObservationIgnored let status: RuntimeStatus
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     @ObservationIgnored private var monitor: Any?
 
-    init(prefs: Preferences = .shared) {
+    init(prefs: Preferences = .shared, status: RuntimeStatus = .shared) {
         self.prefs = prefs
+        self.status = status
         saveFolder = prefs.saveFolder
         copyEachCapture = prefs.copyEachCapture
         shutterSound = prefs.shutterSound
         launchAtLogin = prefs.launchAtLogin
         reload()
-        observers.append(NotificationCenter.default.addObserver(forName: Preferences.didChange, object: prefs, queue: .main) { [weak self] _ in
+        hotkeyFailures = status.hotkeyFailures
+        let center = NotificationCenter.default
+        observers.append(center.addObserver(forName: Preferences.didChange, object: prefs, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.reload() }
         })
+        observers.append(center.addObserver(forName: RuntimeStatus.didChange, object: status, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.hotkeyFailures = self.status.hotkeyFailures
+            }
+        })
+    }
+
+    /// Why `action`'s shortcut isn't working right now, if it isn't. Hidden while that recorder is listening
+    /// (hotkeys are paused then) or showing its own message.
+    func failureText(for action: ShortcutAction) -> String? {
+        guard recording != action, message?.action != action, let code = hotkeyFailures[action] else { return nil }
+        switch OSStatus(code) {
+        case OSStatus(eventHotKeyExistsErr): return "Another app uses this shortcut. Choose another."
+        default: return "macOS didn’t accept this shortcut. Choose another."
+        }
     }
 
     func reload() {
@@ -123,7 +146,7 @@ final class SettingsModel {
         default:
             let combo = KeyCombo(keyCode: keyCode, cocoaModifiers: flags)
             if !combo.hasRequiredModifier {
-                message = (action, "Use ⌘, ⌃ or ⌥ with the key. ⇧ alone isn’t enough.")
+                message = (action, "Use ⌘ or ⌃ with the key. ⇧ and ⌥ alone aren’t enough.")
             } else if KeyCombo.keyName(for: combo.keyCode) == nil {
                 message = (action, "That key can’t be used for a shortcut.")
             } else {

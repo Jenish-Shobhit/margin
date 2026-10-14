@@ -18,8 +18,10 @@ extension KeyCombo {
         return s
     }
 
-    /// True when the combo has ⌘, ⌃ or ⌥ (⇧ alone isn't enough for a global shortcut).
-    public var hasRequiredModifier: Bool { modifiers & (Self.cmd | Self.control | Self.option) != 0 }
+    /// True when the combo has ⌘ or ⌃, which a global shortcut needs.
+    /// ⇧ and ⌥ alone aren't enough: ⌥/⌥⇧ + key types characters (å, Ø), macOS 15.0–15.1 refused such hotkeys,
+    /// and macOS still drops them while Secure Input is on (password fields, Terminal's Secure Keyboard Entry).
+    public var hasRequiredModifier: Bool { modifiers & (Self.cmd | Self.control) != 0 }
 
     /// The same combo with ⌃ added (the "twin" that capture actions also register).
     public var withControl: KeyCombo { KeyCombo(keyCode: keyCode, modifiers: modifiers | Self.control) }

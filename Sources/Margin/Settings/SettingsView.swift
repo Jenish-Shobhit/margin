@@ -77,13 +77,19 @@ private struct ShortcutRow: View {
                     .font(.caption)
                     .foregroundStyle(.red)
                     .transition(.opacity)
+            } else if let failure = model.failureText(for: action) {
+                Label(failure, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(Color(nsColor: .systemOrange))
+                    .transition(.opacity)
             }
         }
         .animation(.easeOut(duration: 0.15), value: model.message?.text)
+        .animation(.easeOut(duration: 0.15), value: model.failureText(for: action))
     }
 }
 
-/// Click to record; the next key with ⌘, ⌃ or ⌥ becomes the shortcut. Esc cancels, Delete resets.
+/// Click to record; the next key with ⌘ or ⌃ becomes the shortcut. Esc cancels, Delete resets.
 private struct ShortcutRecorder: View {
     let model: SettingsModel
     let action: ShortcutAction
@@ -112,7 +118,12 @@ private struct ShortcutRecorder: View {
         .help(isRecording ? "Press the new shortcut. Esc cancels, Delete resets to \(action.defaultCombo.displayString)."
                           : "Click to record a new shortcut.")
         .accessibilityLabel("\(SettingsModel.title(for: action)) shortcut")
-        .accessibilityValue(isRecording ? "Recording" : model.shortcut(for: action).displayString)
+        .accessibilityValue(isRecording ? "Recording" : accessibilityValue)
+    }
+
+    private var accessibilityValue: String {
+        let keys = model.shortcut(for: action).displayString
+        return model.failureText(for: action).map { "\(keys), not working: \($0)" } ?? keys
     }
 
     private var label: String {
