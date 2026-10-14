@@ -21,6 +21,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         }
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)
+        // A menu bar app launched in the background can be refused activation (macOS 14+ cooperative
+        // activation), which would leave the window behind the frontmost app.
+        window.orderFrontRegardless()
     }
 
     private func makeWindow() -> NSWindow {
