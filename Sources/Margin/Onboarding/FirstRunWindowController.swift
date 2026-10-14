@@ -107,6 +107,7 @@ final class FirstRunWindowController: NSObject, NSWindowDelegate {
         closeTask?.cancel()
         closeTask = nil
         model.finished = false
+        model.clearTurnOffError()
     }
 
     private func relaunch() {
