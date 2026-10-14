@@ -221,7 +221,7 @@ Quitting while saves are in flight answers `.terminateLater`. Margin waits for t
 
 All of them join every Space and float over full-screen apps.
 
-**Focus.** The shelf becomes key only on a mouse-up on it, never on a press that turns into a drag, and never by activating Margin. Its keys (⌘C, ⌘Z, ⌘A, Space, ⌫, Esc) work after a click, while the menu bar still belongs to the other app.
+**Focus.** The shelf becomes key (`focusShelf`) only on a mouse-up whose next step is a shelf key: ⌘-click, ✕, the pile, Rename…, Move to Trash, Clear shelf. Never on a plain click (copy) or a double-click (open), so ⌘V right after a click reaches the user's app; never on a press that turns into a drag; and never by activating Margin. Its keys (⌘C, ⌘Z, ⌘A, Space, ⌫, Esc) then work while the menu bar still belongs to the other app. `releaseKeys` gives the keyboard back on Esc and after every copy (click, ⌘C, Copy Path): `NSApp.deactivate()` makes the other app's window key again, unless Margin itself is frontmost.
 
 `MainMenu` installs a hidden main menu, so text fields get their standard edit keys. Its ⌘Q acts only while Margin is really frontmost (`NSRunningApplication.current.isActive`), and its Undo goes to the rename field's own undo manager while it's editing.
 

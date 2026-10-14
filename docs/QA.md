@@ -157,7 +157,9 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 
 **Focus**
 
-- [ ] The shelf never steals focus; keys work only after clicking it; clicking elsewhere gives focus back
+- [ ] The shelf never steals focus. In a terminal, click an older card and press ⌘V without clicking back: it pastes that shot (no beep), and ⌘Q, ⌘W and typing still go to the terminal
+- [ ] ⌘-click, ✕, the pile, Rename…, Move to Trash and Clear shelf give the shelf the keys (⌘Z, ⌫, Space, ⌘C, ⌘A work); Esc, a copy (click, ⌘C, Copy Path) or a click elsewhere gives them back
+- [ ] Copy Path (from ••• or a right-click), then ⌘V in a terminal: pastes the path
 
 **Dragging**
 
@@ -191,7 +193,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 
 **⌘Q and ⌘W**
 
-- [ ] After clicking a card (shelf key, another app frontmost), ⌘Q does not quit Margin and ⌘W does not close anything
+- [ ] After a ⌘-click or ✕ on a card (shelf key, another app frontmost), ⌘Q does not quit Margin and ⌘W does not close anything
 - [ ] With Settings in front, ⌘Q quits and ⌘W closes the window
 
 **The ⌘V mark**

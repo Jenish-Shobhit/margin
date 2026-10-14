@@ -24,9 +24,19 @@ extension ShelfController {
     // MARK: - Focus and selection
 
     /// Makes the panel key without activating Margin, so the shelf keys work until the user clicks elsewhere.
+    /// Only for what needs those keys next (⌘-click, ✕, Rename…, Move to Trash, Clear shelf, the pile): a plain
+    /// click copies, and its ⌘V belongs to the app the user is in.
     func focusShelf() {
         if !panel.isKeyWindow { panel.makeKey() }
         if !(panel.firstResponder is NSTextView) { panel.makeFirstResponder(root) }
+    }
+
+    /// Gives the keyboard back to the app the user is in. The shelf took it without activating Margin, so
+    /// deactivating hands it straight back: that app's window is key again (checked on macOS 27). Not while
+    /// Margin itself is in front (Settings, Welcome), which would send the user to another app.
+    func releaseKeys() {
+        guard panel.isKeyWindow, !NSRunningApplication.current.isActive else { return }
+        NSApp.deactivate()
     }
 
     func cardHover(_ card: ShelfCardView, inside: Bool) {
@@ -59,10 +69,12 @@ extension ShelfController {
         }
     }
 
+    /// Esc closes Quick Look; otherwise it clears the selection and gives the keyboard back.
     func escape() {
         if root.isQuickLookOpen { root.closeQuickLook(); return }
         if cards.values.contains(where: { $0.isRenaming }) { return }
         clearSelection()
+        releaseKeys()
     }
 
     /// What the keys act on: the selection, else the hovered card, else the last clicked card.
@@ -78,16 +90,20 @@ extension ShelfController {
     /// Click: copy that shot (same clipboard write as a capture), move the ⌘V mark, toast "Copied". The copy
     /// starts at once, so ⌘V straight after the click pastes it; a pending card's copy runs when its file lands.
     /// The first click of a double-click copies too, and the second opens the file.
+    /// The click never takes the keyboard, and gives it back if the shelf had it (see `copyKeyTargets`).
     func click(_ id: UUID) {
         focusedID = id
         clearSelection()
         copy([id])
+        releaseKeys()
     }
 
+    /// ⌘C. A copy is for pasting elsewhere, so the keyboard goes back to the user's app, where ⌘V pastes.
     func copyKeyTargets() {
         let ids = keyTargets
         guard !ids.isEmpty else { NSSound.beep(); return }
         copy(ids)
+        releaseKeys()
     }
 
     /// Reads the files off the main thread, then puts the same bytes on the clipboard, each with its file's
@@ -169,8 +185,9 @@ extension ShelfController {
         menu.autoenablesItems = false
         // Until the file is on disk there's nothing to act on.
         let saving = ids.contains { pending.contains($0) }
-        // Choosing an item counts as a click on the shelf (spec §5), so ⌘Z works right after Move to Trash.
-        menu.addItem(ShelfMenuItem(ids.count > 1 ? "Copy Paths" : "Copy Path") { [weak self] in self?.focusShelf(); self?.copyPaths(ids) })
+        // Move to Trash and Rename… take the keys (⌘Z, typing); Copy Path leaves them with the user's app,
+        // where its ⌘V pastes the path (spec §5).
+        menu.addItem(ShelfMenuItem(ids.count > 1 ? "Copy Paths" : "Copy Path") { [weak self] in self?.copyPaths(ids); self?.releaseKeys() })
         menu.addItem(ShelfMenuItem("Reveal in Finder") { [weak self] in self?.reveal(ids) })
         let rename = ShelfMenuItem("Rename…") { [weak self] in self?.beginRename(id) }
         rename.isEnabled = ids.count == 1

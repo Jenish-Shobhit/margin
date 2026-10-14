@@ -97,7 +97,8 @@ enum MainMenu {
 
     /// ⌘Q quits only while Margin is the frontmost app (Settings or the welcome window in front). The shelf
     /// becomes key *without* activating Margin, and the menu bar still shows the other app's menus: after a
-    /// click on a card, ⌘Q is meant for that app, so it must not quit Margin.
+    /// ⌘-click or ✕ on a card (which give the shelf the keys; a plain click doesn't), ⌘Q is meant for that
+    /// app, so it must not quit Margin.
     ///
     /// `NSApp.isActive` can't tell these apart: it turns true as soon as the non-activating panel is key.
     /// `NSRunningApplication.current.isActive` stays false then (checked on macOS 27), and is true only

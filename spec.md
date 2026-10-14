@@ -161,14 +161,14 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
 
 ## 5. Shelf interactions
 
-The shelf never steals focus. Keys work only after a click on the shelf (the panel becomes key without activating Margin), and clicking elsewhere gives focus back.
+The shelf never steals focus. A click (copy) or double-click (open) leaves the keyboard with the app you're in, so ⌘V right after a click pastes there. The shelf takes the keys (the panel becomes key without activating Margin) only when they're needed next: ⌘-click, ✕ (so ⌘Z brings the card back), Rename…, Move to Trash, Clear shelf, or a click on the pile. Esc, a copy (click, ⌘C, Copy Path) or a click elsewhere gives them back.
 
 | Input | Result |
 |---|---|
 | Drag a card | Drags a **plain file URL** (`NSURL` pasteboard writer, `.copy` only, never `.move`). The card stays faint in its slot during the drag. If `operation` is non-empty at the end, the card collapses out and the rest settle. On cancel, it springs back |
 | ⌥ held when the drop lands | The card stays on the shelf |
 | ⌘-click | Toggle selection. Dragging a selected card drags all selected cards (stacked drag image with a count badge). ⌘C copies all selected cards as images |
-| Click | Copies that shot at once (same clipboard write as §3), moves the ⌘V mark to it, shows the toast "Copied" |
+| Click | Copies that shot at once (same clipboard write as §3), moves the ⌘V mark to it, shows the toast "Copied". The keyboard stays with the app you're in |
 | Space | Quick Look (`QLPreviewPanel`) for the focused card or the selection |
 | ⌫ | Dismiss. The file stays on disk |
 | Two-finger swipe right on a card | Dismiss |
