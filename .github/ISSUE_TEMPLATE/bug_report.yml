@@ -1,0 +1,93 @@
+name: Bug report
+description: Something in Margin doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please check [Troubleshooting](https://github.com/Jenish-Shobhit/margin/blob/main/docs/troubleshooting.md) first: Gatekeeper, permissions, the macOS shortcuts and pasting into terminals are covered there.
+        Security problems go through a [private advisory](https://github.com/Jenish-Shobhit/margin/security/advisories/new), not here.
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      description: Apple menu › About This Mac.
+      placeholder: macOS 26.1 (25B78)
+    validations:
+      required: true
+  - type: input
+    id: margin
+    attributes:
+      label: Margin version
+      description: Margin's menu bar icon › About Margin.
+      placeholder: 0.0.7 (7)
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Capture (area, window, screen, repeat)
+        - Saving or the clipboard
+        - The shelf
+        - Shortcuts
+        - First run or Settings
+        - Menu bar
+        - Install or launch
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Exactly what you did, one step per line.
+      placeholder: |
+        1. Press ⇧⌘4
+        2. Drag over a window on the second display
+        3. Release
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: What you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+      description: What happened instead. Include any toast or menu bar message word for word.
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or recordings
+      description: Drag images or videos here. `screencapture -x` shows the shelf, which Margin leaves out of its own shots.
+  - type: textarea
+    id: setup
+    attributes:
+      label: Setup
+      description: Anything that may matter, such as the number and kind of displays, full-screen apps or Spaces, the app you pasted or dragged into, and Reduce Motion or Reduce Transparency.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Optional. Run this shortly after the problem:
+        `log show --last 10m --info --predicate 'subsystem == "io.github.jenish-shobhit.margin"'`
+        Logs contain your screenshots' file names and paths; remove anything private.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I'm on the latest release.
+          required: true
+        - label: I searched the existing issues.
+          required: true
