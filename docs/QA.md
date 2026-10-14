@@ -188,6 +188,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **Rename field**
 
 - [ ] ↩ saves, Esc cancels, and clicking elsewhere keeps the typed name
+- [ ] ⇧⌘3 while renaming the top visible card (a new shot folds it into the pile), or ⇧⌘1 while renaming: the rename ends with the typed name, and later typing doesn't go into a hidden field
 - [ ] ⌘X ⌘C ⌘V ⌘A edit the text, ⌘Z undoes typing and ⇧⌘Z redoes it
 - [ ] None of those keys reach the shelf (⌘Z while renaming never brings back a card)
 

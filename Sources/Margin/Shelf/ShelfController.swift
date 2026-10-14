@@ -459,6 +459,9 @@ final class ShelfController: ShelfControlling {
         peekTask?.cancel()
         peekPoll?.cancel()
         if on {
+            // Out of sight, out of the way: a rename keeps what was typed, and the keys go back to the user's app.
+            for card in cards.values where card.isRenaming { card.endRename(commit: true) }
+            releaseKeys()
             holdPanelFull(for: 0.45)
             for card in cards.values { card.setHovered(false) }
             pile.fan.setFanned(false, animated: true)
@@ -553,6 +556,7 @@ final class ShelfController: ShelfControlling {
             startPeekPoll()
         } else {
             peekPoll?.cancel()
+            releaseKeys()   // the peek poll waits while a rename is open
             for card in cards.values { card.setHovered(false) }
             pile.fan.setFanned(false, animated: true)
             holdPanelFull(for: 0.4)

@@ -151,7 +151,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - ✕ (top-right, red; since 0.0.6) to dismiss.
   - ••• (top-left, tooltip "Options"; since 0.0.6) for the menu.
   - A meta line at the bottom: `HH:mm · W × H`.
-- **Tuck.** ⌘⇧1 slides the shelf off the edge and leaves a 22 pt tab showing the count. Hovering the tab peeks the shelf; clicking it shows the shelf.
+- **Tuck.** ⌘⇧1 slides the shelf off the edge and leaves a 22 pt tab showing the count. Hovering the tab peeks the shelf; clicking it shows the shelf. Tucking (or the end of a peek) gives the keys back, and a rename in progress keeps what was typed.
 - **Toasts.** Inside the shelf, above the top card, never as notifications: "Copied", "Path copied", "Restored", and error messages. They last 1.2 s.
 - **Persistence.**
   - `~/Library/Application Support/Margin/shelf.json`.
@@ -161,7 +161,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
 
 ## 5. Shelf interactions
 
-The shelf never steals focus. A click (copy) or double-click (open) leaves the keyboard with the app you're in, so ⌘V right after a click pastes there. The shelf takes the keys (the panel becomes key without activating Margin) only when they're needed next: ⌘-click, ✕ (so ⌘Z brings the card back), Rename…, Move to Trash, Clear shelf, or a click on the pile. Esc, a copy (click, ⌘C, Copy Path) or a click elsewhere gives them back.
+The shelf never steals focus. A click (copy) or double-click (open) leaves the keyboard with the app you're in, so ⌘V right after a click pastes there. The shelf takes the keys (the panel becomes key without activating Margin) only when they're needed next: ⌘-click, ✕ (so ⌘Z brings the card back), Rename…, Move to Trash, Clear shelf, or a click on the pile. Esc, a copy (click, ⌘C, Copy Path), tucking or a click elsewhere gives them back.
 
 | Input | Result |
 |---|---|

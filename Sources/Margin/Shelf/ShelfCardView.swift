@@ -272,6 +272,9 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
 
     func setInPile(_ inPile: Bool, animated: Bool) {
         guard inPile != isInPile else { return }
+        // Folding away mid-rename (a new shot pushed it up): keep what was typed, as clicking elsewhere does,
+        // rather than leave an invisible field taking the keys.
+        if inPile, isRenaming { endRename(commit: true) }
         isInPile = inPile
         if inPile, isHovered { isHovered = false; ShelfMotion.fade(chrome, to: 0, duration: 0) }
         if !inPile { isHidden = false }
