@@ -42,9 +42,6 @@ protocol CaptureControlling: AnyObject {
     func beginWindowCapture()
 }
 
-extension CaptureControlling {
-    func beginWindowCapture() { beginInteractiveCapture() }
-}
 
 /// Implemented by Shelf/ShelfController.swift.
 @MainActor
@@ -85,9 +82,3 @@ protocol ShelfControlling: AnyObject {
     func clear()
 }
 
-extension ShelfControlling {
-    func itemDidSave(_ item: ShelfItem) {}
-    func itemSaveFailed(_ id: UUID, message: String) {}
-    func showToast(_ text: String) {}
-    func clear() {}
-}
