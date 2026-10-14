@@ -72,6 +72,10 @@ final class SettingsModel {
         observers.append(center.addObserver(forName: Preferences.didChange, object: prefs, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.reload() }
         })
+        // Another keyboard layout names the keys differently (Y and Z swap on a German one).
+        observers.append(center.addObserver(forName: KeyboardLayout.didChange, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.reload() }
+        })
         observers.append(center.addObserver(forName: RuntimeStatus.didChange, object: status, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
