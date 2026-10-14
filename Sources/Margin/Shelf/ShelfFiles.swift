@@ -115,10 +115,10 @@ enum ShelfFiles {
         return result.map { .init(original: url, trashed: $0 as URL) }
     }
 
-    /// Moves a trashed file back, unless something else took its place meanwhile. Blocking.
+    /// Moves a trashed file back, unless something else took its place meanwhile. A file already put back
+    /// (Finder's Put Back) counts as restored. Blocking.
     static func untrash(_ t: ShelfUndoStep.Trashed) -> Bool {
-        guard !FileManager.default.fileExists(atPath: t.original.path) else { return false }
-        return (try? FileManager.default.moveItem(at: t.trashed, to: t.original)) != nil
+        TrashedFile.putBack(t.trashed, to: t.original)
     }
 
     /// True when something exists at `path` (blocking). Unreadable counts as not there.

@@ -49,3 +49,27 @@ public struct UndoSequencer: Equatable, Sendable {
         waiting = 0
     }
 }
+
+/// ⌘Z after Move to Trash: the file goes back where it was.
+public enum TrashedFile {
+    /// Moves the file at `trashed` back to `original`. Blocking. True when the file is home: moved back now, or
+    /// already (Finder's Put Back, say: the Trash copy is gone and `original` exists). False when something
+    /// else took its place while the Trash copy is still there, when both are gone, or when the move fails.
+    public static func putBack(_ trashed: URL, to original: URL) -> Bool {
+        if exists(original.path) {
+            return isAbsent(trashed.path)
+        }
+        return (try? FileManager.default.moveItem(at: trashed, to: original)) != nil
+    }
+
+    private static func exists(_ path: String) -> Bool {
+        var st = stat()
+        return lstat(path, &st) == 0
+    }
+
+    /// Definitely not there (an unreadable Trash doesn't count as empty).
+    private static func isAbsent(_ path: String) -> Bool {
+        var st = stat()
+        return lstat(path, &st) != 0 && errno == ENOENT
+    }
+}

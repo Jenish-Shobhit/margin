@@ -3,6 +3,61 @@ import Foundation
 import MarginKit
 import Testing
 
+/// A stand-in Trash folder: `putBack` only moves a file between two paths.
+@Suite struct TrashedFileTests {
+    struct Setup {
+        let dir: TempDir
+        let home: URL
+        let trashed: URL
+
+        init() throws {
+            dir = try TempDir()
+            for sub in ["Shots", "Trash"] {
+                try FileManager.default.createDirectory(at: dir.url.appendingPathComponent(sub), withIntermediateDirectories: true)
+            }
+            home = dir.url.appendingPathComponent("Shots/shot.png")
+            trashed = dir.url.appendingPathComponent("Trash/shot.png")
+        }
+
+        func exists(_ url: URL) -> Bool { FileManager.default.fileExists(atPath: url.path) }
+        func contents(_ url: URL) throws -> String { String(decoding: try Data(contentsOf: url), as: UTF8.self) }
+    }
+
+    @Test func movesTheFileBack() throws {
+        let s = try Setup()
+        defer { s.dir.remove() }
+        try Data("shot".utf8).write(to: s.trashed)
+        #expect(TrashedFile.putBack(s.trashed, to: s.home))
+        #expect(try s.contents(s.home) == "shot")
+        #expect(!s.exists(s.trashed))
+    }
+
+    @Test func alreadyPutBackInFinderCountsAsRestored() throws {
+        let s = try Setup()
+        defer { s.dir.remove() }
+        try Data("shot".utf8).write(to: s.home)   // Put Back moved it home; the Trash copy is gone
+        #expect(TrashedFile.putBack(s.trashed, to: s.home))
+        #expect(try s.contents(s.home) == "shot")
+    }
+
+    @Test func somethingElseTookItsPlace() throws {
+        let s = try Setup()
+        defer { s.dir.remove() }
+        try Data("shot".utf8).write(to: s.trashed)
+        try Data("another".utf8).write(to: s.home)
+        #expect(!TrashedFile.putBack(s.trashed, to: s.home))
+        #expect(try s.contents(s.home) == "another")   // neither file is touched
+        #expect(try s.contents(s.trashed) == "shot")
+    }
+
+    @Test func goneFromTheTrashAndNotHome() throws {
+        let s = try Setup()
+        defer { s.dir.remove() }
+        #expect(!TrashedFile.putBack(s.trashed, to: s.home))   // the Trash was emptied
+        #expect(!s.exists(s.home))
+    }
+}
+
 @Suite struct UndoSequencerTests {
     /// Feeds ⌘Zs (`.ask(available)`) and step completions (`.finish`) to a sequencer; returns what it said.
     enum Event { case ask(Int), finish }
