@@ -373,6 +373,7 @@ final class ShelfController: ShelfControlling {
         positionToast(animated: animated)
         updateVisibility()
         retargetFlights()
+        NSAccessibility.post(element: panel, notification: .layoutChanged)
     }
 
     /// Sizes the panel: the full stage, or just the tab while tucked and idle.
@@ -611,6 +612,7 @@ final class ShelfController: ShelfControlling {
     /// message needs longer (up to three lines).
     func showToast(_ text: String, isError: Bool, duration: TimeInterval = ShelfToastView.defaultDuration) {
         toast.show(text, isError: isError, anchorRight: 0, bottom: 0, maxWidth: stageWidth - 12, duration: duration)
+        announce(text)
         positionToast()
         if !panel.isVisible { showPanel() }
         applyGeometry(deferShrink: false)

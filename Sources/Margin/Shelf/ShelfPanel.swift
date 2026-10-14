@@ -23,10 +23,19 @@ final class ShelfPanel: NSPanel {
         acceptsMouseMovedEvents = true
         // Margin is almost never the active app; without this the card tooltips ("Options") never show.
         allowsToolTipsWhenApplicationIsInactive = true
+        // Never drawn (borderless); it names the window for VoiceOver.
+        title = "Margin Shelf"
     }
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    /// An assistive app raising the shelf (VoiceOver can, moving to it) mustn't take the keyboard: the shelf is
+    /// always in front anyway, and AppKit's raise would make it key. Its actions take the keys where a click does.
+    override func accessibilityPerformRaise() -> Bool {
+        MainActor.assumeIsolated { orderFrontRegardless() }
+        return true
+    }
 }
 
 /// The panel's content view. First responder for the shelf keys, and the Quick Look controller.
@@ -46,6 +55,11 @@ final class ShelfRootView: NSView, QLPreviewPanelDataSource, QLPreviewPanelDeleg
     override var acceptsFirstResponder: Bool { true }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var needsPanelToBecomeKey: Bool { false }
+
+    /// The pile, cards and tab, in reading order (see `ShelfAccessibility.swift`).
+    override func accessibilityChildren() -> [Any]? {
+        controller?.accessibilityElements ?? super.accessibilityChildren()
+    }
 
     // MARK: - Keys (only reach us while the panel is key: see `ShelfController.focusShelf`)
 

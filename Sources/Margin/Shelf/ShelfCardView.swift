@@ -30,13 +30,15 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     private(set) var isInPile = false
     private(set) var isDragging = false
     private var isNew = false
-    private var isLeaving = false
+    private(set) var isLeaving = false
     private var placed = false
     /// False until the card has been put in a slot once (a fresh card never animates in from nowhere).
     var isPlaced: Bool { placed }
     private var swipeX: CGFloat = 0
     private var newRingTask: Task<Void, Never>?
     private var tracking: NSTrackingArea?
+    /// ✕ and ••• for assistive apps (`ShelfAccessibility.swift`).
+    private(set) lazy var accessibilityParts = [ShelfCardPart(card: self, kind: .close), ShelfCardPart(card: self, kind: .options)]
 
     init(item: ShelfItem) {
         self.item = item
@@ -417,13 +419,13 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     // MARK: - Hit areas
 
     /// ✕, top-right. Each hit area is a square centered on its button, larger than the button.
-    private var closeHitRect: CGRect {
+    var closeHitRect: CGRect {
         let s = Self.buttonHitSize, edge = Self.buttonInset + Self.buttonDiameter / 2 + s / 2
         return CGRect(x: bounds.width - edge, y: bounds.height - edge, width: s, height: s)
     }
 
     /// Options, top-left.
-    private var moreHitRect: CGRect {
+    var moreHitRect: CGRect {
         let s = Self.buttonHitSize, edge = Self.buttonInset + Self.buttonDiameter / 2 + s / 2
         return CGRect(x: edge - s, y: bounds.height - edge, width: s, height: s)
     }
@@ -522,8 +524,7 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         case .none:
             return
         case .close:
-            controller?.focusShelf()
-            controller?.dismiss([id], exit: .collapse)
+            controller?.removeFromShelf(id)
         case .more:
             if let menu = controller?.menu(for: self) {
                 menu.popUp(positioning: nil, at: moreMenuAnchor, in: self)

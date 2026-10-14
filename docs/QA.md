@@ -270,6 +270,11 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] Dark mode
 - [ ] Reduce motion: no fly-in; cards appear in place
 - [ ] Reduce transparency: glass (pile, tab, toasts) falls back to solid
+- [ ] VoiceOver (or Accessibility Inspector) on the shelf:
+  - [ ] window "Margin Shelf"; the pile, then the cards top to bottom; only the tab while tucked
+  - [ ] a card reads "Screenshot, HH:mm, W × H" (+ "selected", "copied, ready to paste", "saving"), with the file name as help
+  - [ ] its actions (Copy, Open, Quick Look, Show in Finder, Copy Path, Rename, Remove from shelf, Move to Trash) work; Press copies and leaves the keyboard with your app; ✕ and ••• are buttons inside it
+  - [ ] toasts are announced; moving the VoiceOver cursor onto the shelf never takes the keyboard from your app
 
 ## Menu bar (§6)
 

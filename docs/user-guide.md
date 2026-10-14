@@ -236,5 +236,6 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 - **Light and dark mode** are both supported.
 - **Reduce Motion:** there's no fly-in; new cards appear in place, and cards stop springing.
 - **Reduce Transparency:** the pile, the tab and the toasts use a solid background instead of Liquid Glass.
+- **VoiceOver.** The shelf is the window "Margin Shelf". Each card reads as a button, like "Screenshot, 14:32, 3024 × 1964, copied, ready to paste". Pressing it (VO-Space) copies the shot; its actions (VO-⌘-Space) are Copy, Open, Quick Look, Show in Finder, Copy Path, Rename, Remove from shelf and Move to Trash. The pile reads "12 older screenshots" (with Clear shelf), the tab "Show shelf, 5 screenshots", and toasts are spoken.
 
 Margin's own windows (the shelf, the overlay, toasts, the fly-in) never appear in its captures. To check what the shelf looks like on screen, use macOS's `screencapture -x`, which does see it.

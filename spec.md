@@ -156,6 +156,11 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - A meta line at the bottom: `HH:mm · W × H`.
 - **Tuck.** ⌘⇧1 slides the shelf off the edge and leaves a 22 pt tab showing the count. Hovering the tab peeks the shelf; clicking it shows the shelf. Tucking (or the end of a peek) gives the keys back. Tucking keeps what a rename in progress has typed; a peek doesn't end while a rename is open.
 - **Toasts.** Inside the shelf, above the top card, never as notifications: "Copied", "Path copied", "Restored", and error messages. They last 1.2 s. A message too long for one line wraps (up to three lines); the Unsaved warning (§3) stays 4 s.
+- **VoiceOver.** The shelf window is "Margin Shelf". Its elements, top to bottom: the pile (button "12 older screenshots"; press = a click, which gives the shelf the keys; action Clear shelf), each visible card, and the tab while tucked (button "Show shelf, 5 screenshots"; only the tab while tucked and not peeking).
+  - A card is a button labelled "Screenshot, 14:32, 3024 × 1964", plus "selected", "copied, ready to paste" (the ⌘V mark) and "saving" (pending) as they apply; its help is the file name. Press copies, as a click does; Show Menu opens the ••• menu.
+  - Its actions: Copy, Open, Quick Look, Show in Finder, Copy Path, Rename, Remove from shelf, Move to Trash (only Copy and Remove from shelf while saving). Each does what its mouse twin does, keys included: only Quick Look, Rename, Remove from shelf and Move to Trash give the shelf the keys.
+  - ✕ ("Remove from shelf") and ••• ("Options", a menu button) are buttons inside the card, there whether or not the pointer is over it.
+  - Toasts are posted as announcements (`announcementRequested`, high priority). The panel stays non-activating, and VoiceOver's cursor never makes it key (focusing an element, or raising the window: `accessibilityPerformRaise` only orders it front).
 - **Persistence.**
   - `~/Library/Application Support/Margin/shelf.json`.
   - Store items in order with **bookmark data**, so moved files are followed, plus the date and pixel size.
