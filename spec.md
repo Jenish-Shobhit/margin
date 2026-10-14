@@ -1,0 +1,312 @@
+# Margin — build spec for v0.0.1
+
+Margin is a native macOS screenshot app. Every capture is saved to disk, copied to the clipboard, and put on a shelf of thumbnails at the right edge of the screen. A thumbnail stays there until you drag it into another app or dismiss it.
+
+This file is the source of truth for building it. For visuals, see `dev_artifacts/ideation_v2.1.html` (local and gitignored, so it may be missing in a fresh clone). If the two disagree, this file wins.
+
+## 0. Ground rules
+
+- **Version.** The first release is `0.0.1` (`CFBundleShortVersionString` 0.0.1, `CFBundleVersion` 1, git tag `v0.0.1`).
+- **License.** MIT. The copyright holder is `git config user.name`.
+- **Bundle ID.** `io.github.jenish-shobhit.margin`. Never change it, because Screen Recording permission (TCC) is keyed to it.
+- **Platform.** Minimum macOS 26 (Tahoe), Apple silicon (arm64) only. Dev machine: macOS 27, Swift 6.4, Command Line Tools only.
+  - There is no Xcode, no `xcodebuild`, no `actool` and no XCTest.
+  - Use SwiftPM and **Swift Testing** (`import Testing`).
+- **No third-party dependencies.**
+  - Hotkeys use Carbon `RegisterEventHotKey`. It needs no permission. The shortcut recorder is a small SwiftUI view.
+  - Reading sindresorhus/KeyboardShortcuts (MIT) for reference is fine.
+  - Never copy from Mio (GPL).
+- **Swift 6 language mode.** UI code is `@MainActor`. Capture and encoding run off the main thread.
+- **Scope.** Ship exactly §2–§9. Anything under "Not in 0.0.1" stays out, even if it's easy.
+- **Commits.**
+  - Use Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `perf:`).
+  - Commit at the end of every milestone in §11, and at every working sub-step in between (aim for one or more commits per hour of work).
+  - Every commit builds and passes `scripts/test.sh`.
+  - Never commit `.build/`, `dev_artifacts/`, `*.app`, `*.zip`, or certificates.
+
+## 1. Repository layout
+
+```
+Package.swift                 swift-tools-version 6.2+, platforms [.macOS(.v26)]
+Sources/MarginKit/            pure logic, no AppKit windows, fully unit-tested
+  FileNamer.swift             names, collisions
+  Geometry.swift              point↔pixel, coordinate flips, rounding, snapping math
+  ShelfLayout.swift           card sizes, slot positions, visible vs pile
+  ShelfStore.swift            Codable model + JSON persistence (bookmarks)
+  PNGWriter.swift             ImageIO encode, DPI, atomic write
+  SystemShortcuts.swift       parse com.apple.symbolichotkeys (IDs 28–31)
+  ClipboardMark.swift         change-count bookkeeping
+Sources/Margin/               the app (AppKit + SwiftUI)
+  App/  Capture/  Overlay/  Shelf/  Hotkeys/  MenuBar/  Onboarding/  Settings/  Debug/
+Tests/MarginKitTests/
+Resources/Info.plist
+scripts/build.sh              build → assemble Margin.app → sign → (--install) → (--run)
+scripts/make-icon.swift       draws the app icon → AppIcon.icns via iconutil
+scripts/debug.sh              drives DEBUG builds (see §10)
+docs/QA.md                    manual test checklist (§12)
+README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
+```
+
+## 2. Capture
+
+### Shortcuts (defaults; rebindable in Settings)
+
+| Keys | Action |
+|---|---|
+| ⌘⇧4 | Area capture on a frozen screen. Press Space for window mode |
+| ⌘⇧3 | Full screen: the display under the pointer |
+| ⌘⇧2 | Repeat the last area, with no overlay. Falls back to ⌘⇧4 if there's no last area or its display is gone |
+| ⌃⌘⇧4 · ⌃⌘⇧3 · ⌃⌘⇧2 | Same as without ⌃ (every shot is already copied) |
+| ⌘⇧1 | Tuck or show the shelf |
+
+### Freeze (area mode)
+1. On the hotkey, **immediately** show a transparent full-screen overlay on every display and switch the cursor to a crosshair. The overlay is one borderless `NSPanel` per display at level `.screenSaver + 1`, on all Spaces, `.fullScreenAuxiliary`.
+2. In parallel (a `TaskGroup`), capture every display with `SCScreenshotManager.captureImage(contentFilter:configuration:)`.
+   - Filter: `SCContentFilter(display:excludingApplications:[Margin]…)`.
+   - Configuration: full pixel size via `SCShareableContent.info(for:).pointPixelScale`, `showsCursor = false`, best resolution.
+   - When each image arrives, draw it into that display's overlay. Margin's own windows are excluded from the capture, so overlay order doesn't matter and nothing visibly jumps.
+3. Keep `SCShareableContent` cached and **prewarm** at launch with one tiny capture. Refresh the cache on display or app changes, never on the hotkey path.
+
+### Selecting
+- Drag to select. **Releasing the mouse captures immediately.**
+- A drag under 4×4 px is ignored, and you stay in selection mode.
+- A selection is limited to the display where the drag started.
+- While dragging:
+  - ⇧ makes a square.
+  - ⌥ draws from the center.
+  - Holding Space moves the selection.
+- To fine-tune instead of releasing: drag a handle (8 handles) or nudge with the arrow keys (⇧ = 10 px), then press ↩ to capture.
+- The size pill reads `W × H` in **pixels**.
+- **Snapping.** Selection edges snap to window edges within 8 pt (window frames come from the cached `SCShareableContent`). Show the "Snapped to window" pill and thin guides while snapped.
+- **Loupe.** An 11×11 pixel grid that follows the cursor, with a label `x, y · #RRGGBB`. Pixel coordinates are display-local.
+- **HUD hint bar** at the top center: Space Window · ⇧ Square · ⌥ From center · ←↑→↓ Nudge · ↩ Capture · Esc Cancel. It is hidden after the 5th successful capture (stored setting).
+- **Esc cancels.** Nothing is saved, no sound plays, and the clipboard is unchanged.
+- A display change during selection cancels.
+
+### Window mode
+- Space (from area mode) toggles it.
+- Hovering highlights the window under the pointer and shows the pill `App · W × H`.
+- Clicking captures that window with `SCContentFilter(desktopIndependentWindow:)`. That gives just the window, even if it's partly covered, with rounded corners and a transparent background.
+- There is **no shadow** (`ignoreShadowsSingleWindow = true`). Holding ⌥ while clicking keeps the shadow.
+
+### Full screen (⌘⇧3) and repeat area (⌘⇧2)
+- Both capture directly with no overlay. They use the same filter, so the shelf never appears in the shot.
+- ⌘⇧2 briefly flashes the area outline (150 ms) *after* capturing.
+
+## 3. Save, copy, sound — the moment of release
+
+Release starts three things in parallel. The in-memory image feeds the shelf thumbnail right away, and **one** PNG encode feeds both the file and the clipboard.
+
+- **Folder.** `~/Desktop/Screenshots` by default (Settings can change it). Create it if missing.
+  - If the folder can't be written, save to `~/Library/Application Support/Margin/Unsaved/` and show the shelf toast "Saved to Unsaved — folder not writable".
+- **Name.** `Screenshot yyyy-MM-dd 'at' HH.mm.ss.png`.
+  - Use the `en_US_POSIX` locale and the local time zone, 24-hour time and plain ASCII spaces.
+  - On a collision, add ` (2)`, ` (3)` and so on before `.png`.
+- **PNG.**
+  - Use ImageIO with `kCGImagePropertyPNGDictionary: [kCGImagePropertyPNGCompressionFilter: IMAGEIO_PNG_FILTER_NONE]`.
+  - Keep the display's color profile.
+  - Set DPI to 72 × scale (144 on Retina), as macOS does.
+  - Write to a hidden temp file in the same folder, then `rename(2)`, so no app sees a half-written file.
+- **Clipboard** (on by default; Settings › Copy each capture). `clearContents()`, then write the PNG data (the same bytes as the file).
+  - Before finalising, run `screencapture -c` once on the dev machine, list `NSPasteboard.general.types`, and write the same *image* types macOS writes. Don't add a file URL to the clipboard.
+  - Record `changeCount` for the ⌘V mark (§5).
+- **Sound.** Play the system "Screen Capture" sound via `AudioServicesPlaySystemSound`, so it follows the alert volume.
+  - Skip it when `com.apple.sound.uiaudio.enabled` is 0 or Settings › Sound is off.
+  - Play only on a successful capture.
+- **Timing targets** (measure on the dev machine; log with `os.Logger` and signposts):
+  - Hotkey to first frozen frame on screen: ≤ 80 ms.
+  - Release to thumbnail visible: ≤ 100 ms.
+  - Release to PNG renamed into place: ≤ 200 ms.
+
+## 4. The shelf
+
+- **Panel.**
+  - A borderless, **non-activating** `NSPanel` on the right edge of the `visibleFrame` of the display of the most recent capture (the main display at launch).
+  - Level `.screenSaver`, below the capture overlay.
+  - Collection behavior: `.canJoinAllSpaces`, `.fullScreenAuxiliary`, `.stationary`.
+  - Hidden when empty. No Dock icon (`LSUIElement`).
+  - Rebuild the panel position on every display change.
+- **Never in a shot.** Every capture uses the exclusion filter. The overlay level is above the shelf.
+- **Cards.**
+  - 176 pt wide. Height follows the shot's aspect ratio, clamped to 64–176 pt, with aspect-fill.
+  - 10 pt gap, 14 pt from the screen edge and the bottom of the visible frame.
+  - Corner radius 10, a subtle 1 px border and a soft shadow.
+  - Thumbnails are downsampled to 2× the card size (`CGImageSourceCreateThumbnailAtIndex` for persisted items; the in-memory image for new ones).
+- **Order.** The newest is at the bottom, and older cards slide up with a spring.
+- **Pile.** Show at most **4** cards, or fewer if they don't fit vertically. Older items fold into a pile above them labelled `+N older`.
+  - Hovering the pile fans it out.
+  - Dragging the pile sends all of its items.
+  - Right-clicking the pile offers "Clear shelf" (undoable).
+- **Material.** The pile, tuck tab and toasts use Liquid Glass (`NSGlassEffectView` or SwiftUI `.glassEffect()`). Cards are plain image cards.
+- **Fly-in.** On release, a temporary transparent panel animates the image from the selection rect to its slot (about 0.45 s, spring), then hands off to the real card.
+  - The new card gets a 2 pt accent ring for 1.5 s.
+  - If the shelf is tucked, the shot flies into the tab and the count goes up. The shelf stays tucked.
+- **Hover.** The card scales to 1.04 and shows:
+  - ✕ (top-left) to dismiss.
+  - ••• (top-right) for the menu.
+  - A meta line at the bottom: `HH:mm · W × H`.
+- **Tuck.** ⌘⇧1 slides the shelf off the edge and leaves a 22 pt tab showing the count. Hovering the tab peeks the shelf; clicking it shows the shelf.
+- **Toasts.** Inside the shelf, above the top card, never as notifications: "Copied", "Path copied", "Restored", and error messages. They last 1.2 s.
+- **Persistence.**
+  - `~/Library/Application Support/Margin/shelf.json`.
+  - Store items in order with **bookmark data**, so moved files are followed, plus the date and pixel size.
+  - Items survive quit and reboot.
+  - Drop any item whose file no longer resolves. Check at launch, whenever the shelf appears, and when a drag starts.
+
+## 5. Shelf interactions
+
+The shelf never steals focus. Keys work only after a click on the shelf (the panel becomes key without activating Margin), and clicking elsewhere gives focus back.
+
+| Input | Result |
+|---|---|
+| Drag a card | Drags a **plain file URL** (`NSURL` pasteboard writer, `.copy` only, never `.move`). The card stays faint in its slot during the drag. If `operation` is non-empty at the end, the card collapses out and the rest settle. On cancel, it springs back |
+| ⌥ held when the drop lands | The card stays on the shelf |
+| ⌘-click | Toggle selection. Dragging a selected card drags all selected cards (stacked drag image with a count badge). ⌘C copies all selected cards as images |
+| Click | Copies that shot (same clipboard write as §3), moves the ⌘V mark to it, shows the toast "Copied" |
+| Space | Quick Look (`QLPreviewPanel`) for the focused card or the selection |
+| ⌫ | Dismiss. The file stays on disk |
+| Two-finger swipe right on a card | Dismiss |
+| Double-click | Open with the default app |
+| ••• / right-click | Copy path · Reveal in Finder · Rename… (inline; renames on disk) · Move to Trash |
+| ⌘Z | Restore the last removed card(s). Keeps up to 20 steps, covering drag-out, dismiss, clear and trash (trash restores the file from the Trash) |
+
+- **Drop success.** Never delete or move the file because of a drag. "Success" means only that the card leaves the shelf.
+  - If an app reports success wrongly, ⌘Z brings the card back.
+  - If an app reports failure wrongly, the card stays and ⌫ removes it.
+- **⌘V mark.** A small accent pill reading "⌘V" sits at the bottom-right of the card whose image is on the clipboard.
+  - Poll `NSPasteboard.general.changeCount` about once a second. If it differs from the count recorded after Margin's last write, clear the mark.
+  - If the marked card is removed, the mark goes with it.
+
+## 6. Menu bar
+
+- Template icon: SF Symbol `rectangle.righthalf.inset.filled`, with `sidebar.right` as a fallback.
+- Menu items:
+  - Capture Area ⌘⇧4
+  - Capture Window
+  - Capture Screen ⌘⇧3
+  - Repeat Last Area ⌘⇧2
+  - —
+  - Show/Tuck Shelf ⌘⇧1
+  - Open Screenshots Folder
+  - —
+  - Settings…
+  - About Margin 0.0.1
+  - Quit
+- If Screen Recording permission is missing, the icon gets a warning dot and the first item becomes "Allow Screen Recording…", which opens First run step 1.
+
+## 7. First run
+
+One window with three steps. It shows on first launch or whenever permission is missing, and closes itself after the first successful capture.
+
+1. **Allow Screen Recording.**
+   - Check with `CGPreflightScreenCaptureAccess()`; request with `CGRequestScreenCaptureAccess()`.
+   - Afterwards, deep-link to Privacy & Security › Screen & System Audio Recording.
+   - Poll once a second. If access is granted but needs a relaunch, show "Relaunch Margin".
+2. **Hand over the shortcuts.** A live checklist of the four macOS screenshot shortcuts.
+   - Read `AppleSymbolicHotKeys` from `com.apple.symbolichotkeys` with `CFPreferencesCopyAppValue` (call `CFPreferencesAppSynchronize` before each poll, once a second).
+   - The IDs are:
+     - **28** Save picture of screen as a file, ⌘⇧3.
+     - **29** Copy picture of screen to the clipboard, ⌃⌘⇧3.
+     - **30** Save picture of selected area as a file, ⌘⇧4.
+     - **31** Copy picture of selected area to the clipboard, ⌃⌘⇧4.
+   - A **missing entry means enabled.**
+   - A button opens Keyboard › Keyboard Shortcuts. **Never write** to these preferences.
+   - Show the note: ⌘⇧5 stays with macOS for screen recording.
+3. **Take your first shot:** "Press ⌘⇧4". It also notes that launch at login is on.
+
+## 8. Settings
+
+There are exactly five settings, in one small SwiftUI window:
+- **Save to** (folder picker).
+- **Copy each capture** (on).
+- **Shutter sound** (on).
+- **Launch at login** (on; `SMAppService.mainApp`).
+- **Shortcuts:** recorders for Area, Screen, Repeat area and Tuck shelf. Window mode is always Space from area mode, and the ⌃ twins follow automatically.
+
+## 9. Not in 0.0.1
+
+- Pin to screen, OCR/QR, timer, history.
+- Annotate, blur, scrolling capture, recording/GIF, file-name tokens.
+- A general file shelf (dropping other files onto the shelf).
+- Cloud/uploads, accounts, AI.
+- Intel builds, auto-update, notarization.
+
+## 10. Build, sign, debug
+
+- **`scripts/build.sh [--debug] [--install] [--run]`**
+  1. `swift build -c release --arch arm64`.
+  2. Assemble `Margin.app`:
+     - `Contents/MacOS/Margin`
+     - `Contents/Info.plist`: `LSUIElement` true, `LSMinimumSystemVersion` 26.0, the version strings, `NSHumanReadableCopyright`
+     - `Contents/Resources/AppIcon.icns`
+  3. Sign: `codesign --force --options runtime --sign "Margin Dev"`.
+     - Detect the identity with `security find-identity -p codesigning` **without `-v`**. "Margin Dev" is self-signed and untrusted (`CSSMERR_TP_NOT_TRUSTED`), so `-v` hides it, but codesign uses it fine. The designated requirement pins the certificate leaf hash, which is what keeps the TCC permission across rebuilds.
+     - If that identity is missing, fall back to ad-hoc (`-`) with a loud warning that Screen Recording permission will be asked again after every rebuild.
+  4. `--install`: quit the running copy, replace `/Applications/Margin.app`, and keep that path stable for TCC.
+  5. `--run`: launch it.
+- **Release artifact:** `ditto -c -k --keepParent Margin.app dist/Margin-0.0.1.zip`.
+- **DEBUG-only control hook** (`#if DEBUG`, absent from release builds). It's a `DistributedNotificationCenter` observer, driven by `scripts/debug.sh`:
+  - `capture-area x y w h` — global points, no overlay.
+  - `capture-screen`
+  - `dump-state` — writes shelf items, mark and tuck state, and the last timings to `/tmp/margin-state.json`.
+  - `clear`
+  - Use it to verify the pipeline, files, clipboard and timings without a mouse.
+  - Add `screencapture -x` of the screen to check visuals. Margin must never appear in Margin's own captures, but it *does* appear in `screencapture`, which is how you verify the shelf.
+
+## 11. Milestones (commit at the end of each, plus in between)
+
+| # | Deliverable | Done when |
+|---|---|---|
+| M0 | Scaffold: package, both targets, Info.plist, build script, signing check, menu bar icon, LICENSE, README stub, `docs/QA.md` | The app launches from `/Applications`, shows the menu bar icon, and `swift test` runs |
+| M1 | MarginKit: FileNamer, Geometry, ShelfLayout, ShelfStore, PNGWriter, SystemShortcuts, ClipboardMark, with tests | Tests cover names, collisions, flips, scale rounding, layout or pile counts, JSON round-trip, symbolic hotkey parsing (including missing-means-on), and PNG DPI |
+| M2 | Capture core: permission, prewarm, freeze, basic area selection, Esc, save, copy, sound, timing logs | ⌘⇧4 → drag → file in the folder plus image on the clipboard; Margin is not in the image; timings logged |
+| M3 | Overlay polish: handles, nudge, ↩, ⇧/⌥/Space, loupe, snapping, guides, HUD | Every key in §2 works on one display and on two |
+| M4 | Window mode, full screen, repeat area, ⌃ twins | Window shots have transparent corners and no shadow (⌥ keeps it); ⌘⇧2 needs no overlay |
+| M5 | Shelf: panel, cards, layout, fly-in, ring, ⌘V mark, pile, persistence, placement, excluded from capture | Five captures give 4 cards plus `+1 older`; it survives a relaunch; it never appears in a shot |
+| M6 | Shelf interactions: all of §5, tuck, tab, peek, toasts | Drag to Finder, Chrome, Slack, WhatsApp and Terminal works or degrades as §5 describes; ⌘Z restores |
+| M7 | First run, Settings, launch at login, menu-bar warning state | A fresh account (or reset prefs) goes through First run in under a minute |
+| M8 | Hardening: display add/remove, Spaces, full-screen apps, sleep/wake, permission revoked, unwritable folder, 50-item shelf, timing targets met | Everything in `docs/QA.md` passes |
+| M9 | Release: icon, README, CHANGELOG, version 0.0.1, zip, tag, public GitHub repo, GitHub release | §13 done |
+
+## 12. QA checklist (`docs/QA.md`)
+
+Write it at M0 and grow it with each milestone. It must cover at least these:
+- Every row of §2 and §5.
+- The three timing targets.
+- No Margin UI in any capture (shelf visible, tucked, during fly-in).
+- Two displays with different scales.
+- A full-screen app in front.
+- Switching Spaces.
+- Sleep/wake.
+- Revoking permission while running.
+- A file deleted, renamed or moved in Finder while it's on the shelf.
+- Pasting into WhatsApp, Claude (web and desktop), Chrome, Slack, Notes and Terminal (Claude Code: Ctrl+V).
+- Dragging into all of the same apps.
+- Light and dark mode.
+- Reduce motion: no fly-in, so cards appear in place.
+- Reduce transparency: glass falls back to solid.
+
+## 13. Open-source release
+
+- **README.md** covers:
+  - One-line pitch, a GIF or screenshot placeholder, the features list, and the shortcuts table.
+  - **Install:**
+    1. Download the zip from Releases.
+    2. Move Margin.app to /Applications.
+    3. On first open, macOS blocks it because 0.0.1 isn't notarized. Go to System Settings › Privacy & Security › Open Anyway.
+  - **Build from source:**
+    1. `git clone`.
+    2. Optionally create a self-signed "Code Signing" certificate named "Margin Dev" in Keychain Access, so permission persists across builds.
+    3. `scripts/build.sh --install --run`.
+  - First-run steps, a privacy note (no network, no analytics; files stay local), and the license.
+- **CHANGELOG.md**: `## 0.0.1 — first public preview`.
+- **Publish:**
+  1. `gh repo create Jenish-Shobhit/margin --public --source . --push --description "Screenshots that wait in the margin of your screen until you drag them where they belong. Native macOS."`.
+  2. Add topics: macos, screenshot, swift, menubar-app, screencapturekit.
+  3. Create an annotated tag `v0.0.1`.
+  4. `gh release create v0.0.1 dist/Margin-0.0.1.zip --title "Margin 0.0.1" --notes-file <CHANGELOG section>`.
+
+## Deviations
+
+- **Build system.** Swift 6.4's default SwiftPM build system needs Xcode ("Unknown error parsing property list"). Always build with `swift build --build-system native` (scripts already do this).
+- **Tests.** Run `scripts/test.sh`, not plain `swift test`: it adds the Command Line Tools path for `Testing.framework`.

@@ -1,0 +1,9 @@
+dev_artifacts/
+.DS_Store
+.build/
+.swiftpm/
+.claude/worktrees/
+dist/
+*.app
+*.p12
+*.pem
