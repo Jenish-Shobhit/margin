@@ -4,6 +4,7 @@
 #   scripts/debug.sh capture-area <x> <y> <w> <h>   capture a rect (AppKit global points), no overlay
 #   scripts/debug.sh capture-screen                 capture the display under the pointer
 #   scripts/debug.sh toggle-shelf                   tuck / show the shelf
+#   scripts/debug.sh clear                          remove every item from the shelf (undoable)
 #   scripts/debug.sh dump-state                     print the app state (shelf, mark, timings…) as JSON
 #
 # Commands are posted as the distributed notification io.github.jenish-shobhit.margin.debug with the
@@ -14,7 +15,7 @@ NAME="io.github.jenish-shobhit.margin.debug"
 STATE="/tmp/margin-state.json"
 
 if [[ $# -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
-  sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'
   exit $(( $# == 0 ? 2 : 0 ))
 fi
 

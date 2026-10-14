@@ -5,9 +5,11 @@ import os
 
 /// Global hotkeys via Carbon `RegisterEventHotKey` (needs no permission).
 ///
-/// Registers every `ShortcutAction` from `Preferences.shared.shortcut(for:)`, plus a ⌃ twin for the
-/// capture actions, and re-registers when the shortcuts change. While macOS's own ⌘⇧3/⌘⇧4 are still
-/// enabled, the system gets those keys first; registration still succeeds.
+/// Registers `Preferences.shared.registeredCombos()` (each action's shortcut plus the ⌃ twins of the
+/// capture actions) and re-registers when the shortcuts change. Everything is unregistered while a
+/// Settings shortcut recorder is listening (`Preferences.isRecordingShortcut`), otherwise Carbon would
+/// swallow the keys before the recorder sees them. While macOS's own ⌘⇧3/⌘⇧4 are still enabled, the
+/// system gets those keys first; registration still succeeds.
 @MainActor
 final class HotkeyCenter {
     struct Binding: Equatable {
@@ -28,12 +30,13 @@ final class HotkeyCenter {
     /// The instance the Carbon callback dispatches to.
     private static weak var active: HotkeyCenter?
 
+    private let prefs: Preferences
     private let onAction: (ShortcutAction) -> Void
     private var handlerRef: EventHandlerRef?
     private var registrations: [UInt32: Registration] = [:]
     private var bindings: [Binding] = []
-    private var preferencesObserver: NSObjectProtocol?
-    /// True while hotkeys are paused (e.g. a shortcut recorder is listening).
+    private var observers: [NSObjectProtocol] = []
+    /// True while hotkeys are paused because a shortcut recorder is listening.
     private(set) var isSuspended = false
 
     /// For the DEBUG state dump: each binding and the OSStatus of its registration.
@@ -41,67 +44,71 @@ final class HotkeyCenter {
         registrations.keys.sorted().compactMap { registrations[$0] }.map { ($0.binding, $0.status) }
     }
 
-    init(onAction: @escaping (ShortcutAction) -> Void) {
+    init(prefs: Preferences = .shared, onAction: @escaping (ShortcutAction) -> Void) {
+        self.prefs = prefs
         self.onAction = onAction
     }
 
     func start() {
         Self.active = self
         installHandler()
+        isSuspended = prefs.isRecordingShortcut
         reregisterIfNeeded(force: true)
-        preferencesObserver = NotificationCenter.default.addObserver(
-            forName: Preferences.didChange, object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.reregisterIfNeeded() }
-        }
+        let center = NotificationCenter.default
+        observers = [
+            center.addObserver(forName: Preferences.didChange, object: prefs, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.reregisterIfNeeded() }
+            },
+            center.addObserver(forName: Preferences.recordingShortcutDidChange, object: prefs, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.setSuspended(self.prefs.isRecordingShortcut)
+                }
+            },
+        ]
     }
 
     func stop() {
-        if let preferencesObserver { NotificationCenter.default.removeObserver(preferencesObserver) }
-        preferencesObserver = nil
+        for observer in observers { NotificationCenter.default.removeObserver(observer) }
+        observers = []
         unregisterAll()
         if let handlerRef { RemoveEventHandler(handlerRef) }
         handlerRef = nil
         if Self.active === self { Self.active = nil }
     }
 
-    /// Pauses every hotkey (so a shortcut recorder can receive the keys) and resumes them.
+    /// Pauses every hotkey (unregistered, so the keys reach the app) and resumes them.
     func setSuspended(_ suspended: Bool) {
         guard suspended != isSuspended else { return }
         isSuspended = suspended
+        Self.log.info("Hotkeys \(suspended ? "suspended" : "resumed", privacy: .public)")
         if suspended { unregisterAll() } else { reregisterIfNeeded(force: true) }
     }
 
     // MARK: - Registration
 
     /// The bindings the current preferences ask for.
-    static func desiredBindings(_ prefs: Preferences = .shared) -> [Binding] {
-        var result: [Binding] = []
-        for action in ShortcutAction.allCases {
-            let combo = prefs.shortcut(for: action)
-            result.append(Binding(action: action, combo: combo, isControlTwin: false))
-            if action.hasControlTwin, combo.modifiers & KeyCombo.control == 0 {
-                let twin = KeyCombo(keyCode: combo.keyCode, modifiers: combo.modifiers | KeyCombo.control)
-                result.append(Binding(action: action, combo: twin, isControlTwin: true))
-            }
+    private func desiredBindings() -> [Binding] {
+        prefs.registeredCombos().map { entry in
+            Binding(action: entry.action, combo: entry.combo, isControlTwin: entry.combo != prefs.shortcut(for: entry.action))
         }
-        return result
     }
 
     /// `Preferences.didChange` fires for every setting (and every capture's counter), so only
     /// touch Carbon when the shortcuts actually changed.
     private func reregisterIfNeeded(force: Bool = false) {
         guard !isSuspended else { return }
-        let desired = Self.desiredBindings()
+        let desired = desiredBindings()
         guard force || desired != bindings else { return }
         unregisterAll()
         bindings = desired
         var seen = Set<KeyCombo>()
         for (index, binding) in desired.enumerated() {
             let id = UInt32(index + 1)
+            let keys = binding.combo.displayString
             if !seen.insert(binding.combo).inserted {
                 Self.log.error(
-                    "Shortcut \(Self.describe(binding.combo), privacy: .public) for \(binding.action.rawValue, privacy: .public) is already used by another action")
+                    "Shortcut \(keys, privacy: .public) for \(binding.action.rawValue, privacy: .public) is already used by another action")
                 registrations[id] = Registration(binding: binding, ref: nil, status: OSStatus(eventHotKeyExistsErr))
                 continue
             }
@@ -111,11 +118,10 @@ final class HotkeyCenter {
                 binding.combo.keyCode, binding.combo.modifiers, hotKeyID, GetApplicationEventTarget(), 0, &ref)
             registrations[id] = Registration(binding: binding, ref: ref, status: status)
             if status == noErr {
-                Self.log.info(
-                    "Registered \(Self.describe(binding.combo), privacy: .public) → \(binding.action.rawValue, privacy: .public)")
+                Self.log.info("Registered \(keys, privacy: .public) → \(binding.action.rawValue, privacy: .public)")
             } else {
                 Self.log.error(
-                    "RegisterEventHotKey \(Self.describe(binding.combo), privacy: .public) → \(binding.action.rawValue, privacy: .public) failed: OSStatus \(status)")
+                    "RegisterEventHotKey \(keys, privacy: .public) → \(binding.action.rawValue, privacy: .public) failed: OSStatus \(status)")
             }
         }
     }
@@ -145,16 +151,6 @@ final class HotkeyCenter {
         else { return false }
         center.onAction(registration.binding.action)
         return true
-    }
-
-    /// `⌃⌥⇧⌘` + key, for logs.
-    static func describe(_ combo: KeyCombo) -> String {
-        var s = ""
-        if combo.modifiers & KeyCombo.control != 0 { s += "⌃" }
-        if combo.modifiers & KeyCombo.option != 0 { s += "⌥" }
-        if combo.modifiers & KeyCombo.shift != 0 { s += "⇧" }
-        if combo.modifiers & KeyCombo.cmd != 0 { s += "⌘" }
-        return s + String(format: "key 0x%02X", combo.keyCode)
     }
 }
 

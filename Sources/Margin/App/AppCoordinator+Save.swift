@@ -24,44 +24,41 @@ extension AppCoordinator {
     /// The result of encoding + writing one capture off the main actor.
     struct SaveOutcome: Sendable {
         var data: Data?
-        var url: URL?
-        var bookmark: Data?
+        /// The item with its final path and a fresh bookmark (nil when nothing was written).
+        var saved: ShelfItem?
         var usedFallback = false
         var error: String?
         var encodeMs: Double?
         var writeMs: Double?
         var finishedAt: Date?
     }
+
+    static let saveFailedMessage = "Couldn't save the screenshot"
+    static let fallbackToast = "Saved to Unsaved — folder not writable"
 }
 
-/// The moment of release (spec §3): sound, name, thumbnail on the shelf, then one PNG encode
-/// off the main actor that feeds both the file and the clipboard.
+/// The moment of release (spec §3): sound, name, thumbnail on the shelf, then one PNG encode off the
+/// main actor that feeds both the file and the clipboard. The main actor never touches the save
+/// folder: the first access to ~/Desktop can block on the Desktop-folder privacy prompt.
 extension AppCoordinator {
-    /// `~/Library/Application Support/Margin/Unsaved/`, used when the save folder can't be written.
-    nonisolated static var unsavedFolder: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Margin/Unsaved", isDirectory: true)
-    }
-
     func handleCapture(_ result: CaptureResult) {
         let signpost = Self.signposter.beginInterval("thumbnail")
 
         // 1. Sound, immediately.
         if prefs.shutterSound { ShutterSound.play() }
 
-        // 2. The file name, reserved now so the shelf item can point at it. No disk access on the
-        // main actor: the first touch of ~/Desktop can block on the Desktop-folder privacy prompt.
-        // A name already taken on disk is resolved by the writer (the rename never overwrites).
+        // 2. The predicted file name, reserved in memory so two captures in the same second differ.
+        // A name already taken on disk is resolved by the writer, and the shelf hears the final path.
         let reserved = reservedPaths
         let url = FileNamer.uniqueURL(in: prefs.saveFolder, for: result.date) { reserved.contains($0.path) }
         reservedPaths.insert(url.path)
 
-        // 3–4. Thumbnail from the in-memory image, onto the shelf.
+        // 3–4. Thumbnail from the in-memory image, onto the shelf (pending until `itemDidSave`).
         let pixelSize = CGSize(width: result.image.width, height: result.image.height)
         let thumbStart = ContinuousClock.now
         let thumbnail = Self.makeThumbnail(result.image, pixelSize: pixelSize)
         let thumbnailMs = Self.milliseconds(since: thumbStart)
-        let item = Self.unsavedItem(at: url, createdAt: result.date, pixelSize: pixelSize)
+        let item = Self.pendingItem(at: url, createdAt: result.date, pixelSize: pixelSize)
         shelf.add(item, thumbnail: thumbnail, flyInFrom: result.sourceRect, displayID: result.displayID)
         let releaseToThumbnailMs = Date().timeIntervalSince(result.date) * 1000
         Self.signposter.endInterval("thumbnail", signpost)
@@ -76,8 +73,7 @@ extension AppCoordinator {
 
         captureSequence += 1
         let sequence = captureSequence
-        let itemID = item.id
-        let fallbackFolder = Self.unsavedFolder
+        let fallbackFolder = Preferences.fallbackSaveFolder
 
         // 5. Encode + write off the main actor; the clipboard gets the same bytes as soon as they exist.
         Task.detached(priority: .userInitiated) { [weak self] in
@@ -92,14 +88,14 @@ extension AppCoordinator {
             outcome.encodeMs = Self.milliseconds(since: encodeStart)
 
             if let data = outcome.data {
-                await self?.copyCapture(data, itemID: itemID, sequence: sequence)
+                await self?.copyCapture(data, itemID: item.id, sequence: sequence)
                 let writeStart = ContinuousClock.now
-                Self.write(data, preferredURL: url, date: result.date, fallbackFolder: fallbackFolder, into: &outcome)
+                Self.write(data, item: item, date: result.date, fallbackFolder: fallbackFolder, into: &outcome)
                 outcome.writeMs = Self.milliseconds(since: writeStart)
                 outcome.finishedAt = Date()
             }
             Self.signposter.endInterval("save", saveSignpost)
-            await self?.finishSave(itemID: itemID, releaseDate: result.date, timings: timings, outcome: outcome)
+            await self?.finishSave(itemID: item.id, releaseDate: result.date, timings: timings, outcome: outcome)
         }
     }
 
@@ -111,8 +107,9 @@ extension AppCoordinator {
         if shelf.itemIDs.contains(itemID) {
             mark.didWrite(itemID: itemID, changeCount: changeCount)
             shelf.setClipboardMark(itemID)
-        } else if mark.observe(changeCount: changeCount) {
-            // The card was dismissed before its PNG was ready; the old mark is stale now.
+        } else if mark.itemID != nil {
+            // The card was dismissed before its PNG was ready; whatever was marked isn't on the clipboard now.
+            mark.clear()
             shelf.setClipboardMark(nil)
         }
     }
@@ -124,33 +121,38 @@ extension AppCoordinator {
         timings.usedFallback = outcome.usedFallback
         timings.error = outcome.error
 
-        guard let savedURL = outcome.url else {
-            Self.log.error("Capture not saved: \(outcome.error ?? "unknown error", privacy: .public)")
-            // TODO(contract): ShelfControlling has no way to drop the card or show an error toast.
+        guard let saved = outcome.saved else {
             lastTimings = timings
+            Self.log.error("Capture not saved: \(outcome.error ?? "unknown error", privacy: .public)")
+            // The image may already be on the clipboard; the mark mustn't point at a card that's going away.
+            if mark.itemID == itemID {
+                mark.clear()
+                shelf.setClipboardMark(nil)
+            }
+            shelf.itemSaveFailed(itemID, message: Self.saveFailedMessage)
             return
         }
 
-        lastSavedPath = savedURL.path
+        lastSavedPath = saved.path
         let releaseToFileMs = (outcome.finishedAt ?? Date()).timeIntervalSince(releaseDate) * 1000
         timings.releaseToFileMs = releaseToFileMs
-        timings.savedPath = savedURL.path
+        timings.savedPath = saved.path
         lastTimings = timings
         Self.timingLog.notice(
-            "release→file \(releaseToFileMs, format: .fixed(precision: 1)) ms (encode \(outcome.encodeMs ?? 0, format: .fixed(precision: 1)) ms, write \(outcome.writeMs ?? 0, format: .fixed(precision: 1)) ms) \(savedURL.lastPathComponent, privacy: .public)")
+            "release→file \(releaseToFileMs, format: .fixed(precision: 1)) ms (encode \(outcome.encodeMs ?? 0, format: .fixed(precision: 1)) ms, write \(outcome.writeMs ?? 0, format: .fixed(precision: 1)) ms) \(saved.url.lastPathComponent, privacy: .public)")
 
-        if outcome.usedFallback {
-            // TODO(contract): spec §3 wants the shelf toast "Saved to Unsaved — folder not writable",
-            // but ShelfControlling has no toast API yet.
-            Self.log.error(
-                "Saved to Unsaved — folder not writable (\(outcome.error ?? "", privacy: .public)): \(savedURL.path, privacy: .public)")
+        // The file exists: give the store the final path and bookmark, then tell the shelf it's real.
+        // (If the card was dismissed while pending, the file stays on disk and there's nothing to update.)
+        if var current = store.items.first(where: { $0.id == itemID }) {
+            current.path = saved.path
+            current.bookmark = saved.bookmark
+            store.update(current)
+            shelf.itemDidSave(current)
         }
-
-        // Now the file exists: point the item at its final path and give it a bookmark.
-        if var item = store.items.first(where: { $0.id == itemID }) {
-            item.path = savedURL.path
-            item.bookmark = outcome.bookmark ?? item.bookmark
-            store.update(item)
+        if outcome.usedFallback {
+            Self.log.error(
+                "Saved to Unsaved — folder not writable (\(outcome.error ?? "", privacy: .public)): \(saved.path, privacy: .public)")
+            shelf.showToast(Self.fallbackToast)
         }
 
         // 7. Bookkeeping.
@@ -158,10 +160,11 @@ extension AppCoordinator {
         FirstRunWindowController.shared.captureSucceeded()
     }
 
-    /// `ShelfItem.init(url:…)` bookmarks the file, which touches the disk, and the file doesn't exist
-    /// yet. Build it from a harmless placeholder instead; it gets its bookmark once the PNG is written.
-    private static func unsavedItem(at url: URL, createdAt: Date, pixelSize: CGSize) -> ShelfItem {
-        let placeholder = URL(fileURLWithPath: "/var/empty/margin-unsaved.png")
+    /// `ShelfItem.init(url:…)` checks the disk for the file (to bookmark it), and the file doesn't exist
+    /// yet. Build it from a harmless placeholder so the main actor never touches the save folder; it gets
+    /// its real bookmark (`refreshBookmark()`) once the PNG is written.
+    private static func pendingItem(at url: URL, createdAt: Date, pixelSize: CGSize) -> ShelfItem {
+        let placeholder = URL(fileURLWithPath: "/var/empty/margin-pending.png")
         var item = ShelfItem(url: placeholder, createdAt: createdAt, pixelSize: pixelSize)
         item.path = url.path
         item.bookmark = nil
@@ -170,41 +173,40 @@ extension AppCoordinator {
 
     // MARK: - Off-main helpers
 
-    /// Writes into the preferred folder (a fresh ` (n)` name if another capture took this one),
-    /// falling back to the Unsaved folder when the preferred folder can't be written.
+    /// Writes to the predicted name (keeps names stable when several captures share a second), moving
+    /// to the next free name if it's taken on disk, and falls back to the Unsaved folder when the save
+    /// folder can't be written. On success `outcome.saved` has the final path and a fresh bookmark.
     nonisolated static func write(
-        _ data: Data, preferredURL: URL, date: Date, fallbackFolder: URL, into outcome: inout SaveOutcome
+        _ data: Data, item: ShelfItem, date: Date, fallbackFolder: URL, into outcome: inout SaveOutcome
     ) {
+        let predicted = item.url
         do {
-            let url = try writeUnique(data, first: preferredURL, date: date)
-            outcome.url = url
-            outcome.bookmark = try? url.bookmarkData()
+            let url: URL
+            do {
+                try PNGWriter.writeAtomically(data, to: predicted)
+                url = predicted
+            } catch let error as POSIXError where error.code == .EEXIST {
+                url = try PNGWriter.writeUnique(data, in: predicted.deletingLastPathComponent(), date: date)
+            }
+            outcome.saved = savedItem(item, at: url)
             return
         } catch {
-            outcome.error = "\(preferredURL.deletingLastPathComponent().path): \(error.localizedDescription)"
+            outcome.error = "\(predicted.deletingLastPathComponent().path): \(error.localizedDescription)"
         }
         do {
-            let first = FileNamer.uniqueURL(in: fallbackFolder, for: date)
-            let url = try writeUnique(data, first: first, date: date)
-            outcome.url = url
-            outcome.bookmark = try? url.bookmarkData()
+            let url = try PNGWriter.writeUnique(data, in: fallbackFolder, date: date)
+            outcome.saved = savedItem(item, at: url)
             outcome.usedFallback = true
         } catch {
             outcome.error = (outcome.error ?? "") + "; Unsaved: \(error.localizedDescription)"
         }
     }
 
-    private nonisolated static func writeUnique(_ data: Data, first: URL, date: Date) throws -> URL {
-        var url = first
-        for _ in 0..<20 {
-            do {
-                try PNGWriter.writeAtomically(data, to: url)
-                return url
-            } catch let error as POSIXError where error.code == .EEXIST {
-                url = FileNamer.uniqueURL(in: first.deletingLastPathComponent(), for: date)
-            }
-        }
-        throw POSIXError(.EEXIST)
+    private nonisolated static func savedItem(_ item: ShelfItem, at url: URL) -> ShelfItem {
+        var saved = item
+        saved.path = url.path
+        saved.refreshBookmark()
+        return saved
     }
 
     /// Downsampled to cover the shelf card at 2× (aspect-fill), from the in-memory image.

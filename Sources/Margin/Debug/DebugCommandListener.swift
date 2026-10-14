@@ -10,6 +10,7 @@ import os
 ///   capture-area x y w h   capture a rect in AppKit global points, no overlay
 ///   capture-screen         the display under the pointer
 ///   toggle-shelf           tuck / show the shelf
+///   clear                  remove every item from the shelf (undoable)
 ///   dump-state             write the state as JSON to /tmp/margin-state.json
 @MainActor
 final class DebugCommandListener: NSObject {
@@ -50,6 +51,8 @@ final class DebugCommandListener: NSObject {
             coordinator.captureScreen()
         case "toggle-shelf":
             coordinator.toggleShelf()
+        case "clear":
+            coordinator.clearShelf()
         case "dump-state":
             dumpState(coordinator)
         default:
@@ -83,7 +86,7 @@ final class DebugCommandListener: NSObject {
                     "keyCode": Int(entry.binding.combo.keyCode),
                     "modifiers": Int(entry.binding.combo.modifiers),
                     "controlTwin": entry.binding.isControlTwin,
-                    "display": HotkeyCenter.describe(entry.binding.combo),
+                    "display": entry.binding.combo.displayString,
                     "status": Int(entry.status),
                 ] as [String: Any]
             },

@@ -67,7 +67,7 @@ scripts/build.sh --install --run
 
 **Optional, recommended:** create a self-signed code-signing certificate named **Margin Dev** (Keychain Access › Certificate Assistant › Create a Certificate…, type *Code Signing*). The build script uses it when present, so the Screen Recording permission survives rebuilds. Without it the app is signed ad-hoc and macOS asks for permission again after every build.
 
-Run the tests with `scripts/test.sh`. Debug builds also listen for `scripts/debug.sh` commands (`capture-area x y w h`, `capture-screen`, `toggle-shelf`, `dump-state`).
+Run the tests with `scripts/test.sh`. Debug builds also listen for `scripts/debug.sh` commands (`capture-area x y w h`, `capture-screen`, `toggle-shelf`, `clear`, `dump-state`).
 
 The icon is drawn by `swift scripts/make-icon.swift`, which writes `Resources/AppIcon.icns`.
 

@@ -1,6 +1,6 @@
 # Margin QA checklist
 
-Manual checks for every release (spec §12). Run them on the installed build (`scripts/build.sh --install --run`) unless a step says otherwise. Debug builds can drive captures without a mouse: `scripts/debug.sh capture-area x y w h`, `capture-screen`, `toggle-shelf`, `dump-state`.
+Manual checks for every release (spec §12). Run them on the installed build (`scripts/build.sh --install --run`) unless a step says otherwise. Debug builds can drive captures without a mouse: `scripts/debug.sh capture-area x y w h`, `capture-screen`, `toggle-shelf`, `clear`, `dump-state`.
 
 Before starting: turn off the four macOS screenshot shortcuts (System Settings › Keyboard › Keyboard Shortcuts › Screenshots) so Margin receives ⌘⇧3/⌘⇧4.
 

@@ -120,10 +120,16 @@ final class AppCoordinator {
         }
     }
 
-    /// ⌘⇧4. Window mode is Space from inside it, so "Capture Window" uses this too.
+    /// ⌘⇧4. Space switches to window mode from inside it.
     func captureArea() {
         guard canStartCapture() else { return }
         capture.beginInteractiveCapture()
+    }
+
+    /// Menu "Capture Window": the interactive capture, starting in window mode.
+    func captureWindow() {
+        guard canStartCapture() else { return }
+        capture.beginWindowCapture()
     }
 
     func captureScreen() {
@@ -143,6 +149,9 @@ final class AppCoordinator {
     }
 
     func toggleShelf() { shelf.toggleTucked() }
+
+    /// DEBUG `clear`: everything off the shelf (undoable).
+    func clearShelf() { shelf.clear() }
 
     func openScreenshotsFolder() {
         let folder = prefs.saveFolder
@@ -255,9 +264,12 @@ final class AppCoordinator {
         guard !defaults.bool(forKey: Self.loginItemConfiguredKey) else { return }
         guard Bundle.main.bundlePath.hasPrefix("/Applications/") else { return }
         defaults.set(true, forKey: Self.loginItemConfiguredKey)
-        if prefs.launchAtLogin, !LoginItem.isEnabled {
-            LoginItem.setEnabled(true)
-            Self.log.notice("Registered launch at login")
+        guard prefs.launchAtLogin else { return }
+        LoginItem.setEnabled(true)
+        if LoginItem.requiresApproval {
+            Self.log.notice("Launch at login needs approval in System Settings › General › Login Items")
+        } else {
+            Self.log.notice("Launch at login \(LoginItem.isEnabled ? "registered" : "not registered", privacy: .public)")
         }
     }
 }

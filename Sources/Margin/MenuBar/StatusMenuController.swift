@@ -151,7 +151,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     @objc private func allowScreenRecording() { coordinator?.showPermissionStep() }
     @objc private func captureArea() { afterMenuCloses { [weak self] in self?.coordinator?.captureArea() } }
-    @objc private func captureWindow() { afterMenuCloses { [weak self] in self?.coordinator?.captureArea() } }
+    @objc private func captureWindow() { afterMenuCloses { [weak self] in self?.coordinator?.captureWindow() } }
     @objc private func captureScreen() { afterMenuCloses { [weak self] in self?.coordinator?.captureScreen() } }
     @objc private func repeatArea() { afterMenuCloses { [weak self] in self?.coordinator?.repeatArea() } }
     @objc private func toggleShelf() { coordinator?.toggleShelf() }
