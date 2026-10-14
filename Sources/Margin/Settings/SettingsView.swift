@@ -2,7 +2,7 @@ import AppKit
 import MarginKit
 import SwiftUI
 
-/// The five settings (spec §8) in a grouped form.
+/// The settings (spec §8) in a grouped form.
 struct SettingsView: View {
     @Bindable var model: SettingsModel
     /// The hosting window, for the folder sheet.
@@ -26,6 +26,7 @@ struct SettingsView: View {
                 }
                 Toggle("Copy each capture", isOn: Binding(get: { model.copyEachCapture }, set: model.setCopyEachCapture))
                 Toggle("Shutter sound", isOn: Binding(get: { model.shutterSound }, set: model.setShutterSound))
+                Toggle("Show key hints while capturing", isOn: Binding(get: { model.showsCaptureHints }, set: model.setShowsCaptureHints))
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: model.setLaunchAtLogin))
                     if model.loginNeedsApproval {

@@ -59,7 +59,7 @@ Every capture is saved to disk, copied to the clipboard and put on a shelf of th
 
 **The app**
 
-- Menu bar only, with no Dock icon. A three-step first-run guide, five settings and launch at login.
+- Menu bar only, with no Dock icon. A three-step first-run guide, six settings and launch at login.
 - Supports light and dark mode, Reduce Motion and Reduce Transparency.
 
 ## Install
@@ -164,6 +164,7 @@ Open **Settings…** from the menu bar icon.
 | Save to | `~/Desktop/Screenshots` | Created when missing |
 | Copy each capture | On | Off leaves the clipboard alone; click a card to copy it |
 | Shutter sound | On | Silent when "Play user interface sound effects" is off in System Settings › Sound |
+| Show key hints while capturing | On | The bar of keys at the top of the screen while you select |
 | Launch at login | On | Shows what macOS really has, including "waiting for approval" |
 | Shortcuts | ⇧⌘4 · ⇧⌘3 · ⇧⌘2 · ⇧⌘1 | Capture area, Capture screen, Repeat last area, Show or tuck shelf |
 

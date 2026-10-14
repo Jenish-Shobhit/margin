@@ -79,7 +79,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 - The size pill reads `W × H` in **pixels**.
 - **Snapping.** Selection edges snap to window edges within 8 pt (window frames come from the cached `SCShareableContent`). Show the "Snapped to window" pill and thin guides while snapped.
 - **Loupe** (since 0.0.7: off by default, Z toggles it for the current capture). An 11×11 pixel grid that follows the cursor, with a label `x, y · #RRGGBB`. Pixel coordinates are display-local.
-- **HUD hint bar** at the top center: Space Window · ⇧ Square · ⌥ From center · ←↑→↓ Nudge · ↩ Capture · Esc Cancel. It shows for the first 5 captures, and again for 5 whenever its hints change (`Preferences.hintsRevision`).
+- **HUD hint bar** at the top center: Space Window · ⇧ Square · ⌥ From center · ←↑→↓ Nudge · ↩ Capture · Esc Cancel. It always shows, unless **Show key hints while capturing** is off in Settings.
 - **Esc cancels.** Nothing is saved, no sound plays, and the clipboard is unchanged.
 - A display change during selection cancels.
 
@@ -219,10 +219,11 @@ One window with three steps. It shows on first launch or whenever permission is 
 
 ## 8. Settings
 
-There are exactly five settings, in one small SwiftUI window:
+There are six settings, in one small SwiftUI window:
 - **Save to** (folder picker).
 - **Copy each capture** (on).
 - **Shutter sound** (on).
+- **Show key hints while capturing** (on): the hint bar at the top of the capture overlay.
 - **Launch at login** (on; `SMAppService.mainApp`).
 - **Shortcuts:** recorders for Area, Screen, Repeat area and Tuck shelf. Window mode is always Space from area mode, and the ⌃ twins follow automatically.
 

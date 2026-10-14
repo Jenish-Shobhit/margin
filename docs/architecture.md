@@ -180,7 +180,7 @@ Back on the main actor, `finishSave`:
 
 1. Writes the clipboard, if **Copy each capture** is on and this is still the newest capture (a copy from the shelf since then wins). It writes one item per shot: `public.png`, plus `public.file-url` pointing at the *final* path. It records the pasteboard's `changeCount` and puts the ⌘V mark on the card.
 2. Stores the final path and bookmark, and calls `shelf.itemDidSave`.
-3. Shows the "Saved to Unsaved" toast if needed, bumps the capture counters (which drive the hint bar), and tells first run.
+3. Shows the "Saved to Unsaved" toast if needed, bumps the capture counter, and tells first run.
 
 If saving fails completely, the card goes with "Couldn't save the screenshot". The clipboard gets the PNG alone, if it's still the newest capture.
 
@@ -238,7 +238,7 @@ All of them join every Space and float over full-screen apps.
 More on how these behave:
 
 - **`Preferences.didChange`** is posted on every write. The hotkeys, Settings and the menu observe it, and `HotkeyCenter` re-registers only when the shortcuts actually changed.
-- **The hint bar** shows while `hintCaptures.r<n>` is below 5. Bumping `Preferences.hintsRevision` when the hints change shows it again.
+- **The hint bar** shows while `Preferences.showsCaptureHints` is on (the default; a Settings toggle).
 - **Bookmarks** let a card follow a file renamed or moved in Finder.
 - **When a shelf file counts as gone:** `ShelfFiles.status` tells a file that's definitely gone (`ENOENT`, or in a `.Trash` folder) from one Margin can't see right now (access denied). Only the first drops the card, so a folder Margin may not read never empties the shelf.
 - **When files are checked:** at launch, when the shelf appears, and on a mouse-down that may become a drag.

@@ -105,23 +105,17 @@ public final class Preferences {
         set { set(newValue, "launchAtLogin") }
     }
 
-    /// Successful captures so far (HUD hides after 5; first run closes after 1).
+    /// Successful captures so far (first run closes after 1).
     public var completedCaptures: Int {
         get { defaults.integer(forKey: "completedCaptures") }
         set { set(newValue, "completedCaptures") }
     }
 
-    /// Bumped whenever the capture hint bar gains or changes keys, so it shows again after an update.
-    public static let hintsRevision = 3
-
-    /// Successful captures since the hint bar last changed. The HUD shows for the first 5.
-    public var capturesSinceHintsChanged: Int {
-        get { defaults.integer(forKey: "hintCaptures.r\(Self.hintsRevision)") }
-        set { set(newValue, "hintCaptures.r\(Self.hintsRevision)") }
+    /// Whether the capture overlay shows its hint bar (Space, ⇧, ⌥, Nudge, Z, ↩, Esc). On unless turned off in Settings.
+    public var showsCaptureHints: Bool {
+        get { defaults.object(forKey: "showsCaptureHints") as? Bool ?? true }
+        set { set(newValue, "showsCaptureHints") }
     }
-
-    /// Whether the capture overlay shows its hint bar: the first 5 captures after install or after the hints change.
-    public var showsCaptureHints: Bool { capturesSinceHintsChanged < 5 }
 
     public var firstRunDone: Bool {
         get { defaults.bool(forKey: "firstRunDone") }

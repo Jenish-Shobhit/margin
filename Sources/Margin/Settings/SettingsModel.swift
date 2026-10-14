@@ -15,6 +15,7 @@ final class SettingsModel {
     private(set) var saveFolderExists: Bool?
     private(set) var copyEachCapture: Bool
     private(set) var shutterSound: Bool
+    private(set) var showsCaptureHints: Bool
     /// The login item's real state (`LoginItem.state`), not the preference: on once registered.
     private(set) var launchAtLogin = false
     /// Registered, but the user still has to allow it in System Settings › General › Login Items.
@@ -59,6 +60,7 @@ final class SettingsModel {
         saveFolder = prefs.saveFolder
         copyEachCapture = prefs.copyEachCapture
         shutterSound = prefs.shutterSound
+        showsCaptureHints = prefs.showsCaptureHints
         reload()
         refreshLoginItem()
         refreshSystemShortcuts()
@@ -89,6 +91,7 @@ final class SettingsModel {
         saveFolder = prefs.saveFolder
         copyEachCapture = prefs.copyEachCapture
         shutterSound = prefs.shutterSound
+        showsCaptureHints = prefs.showsCaptureHints
         shortcuts = Dictionary(uniqueKeysWithValues: ShortcutAction.allCases.map { ($0, prefs.shortcut(for: $0)) })
         refreshFolderInfo()
     }
@@ -126,6 +129,7 @@ final class SettingsModel {
     func setSaveFolder(_ url: URL) { prefs.saveFolder = url }
     func setCopyEachCapture(_ on: Bool) { prefs.copyEachCapture = on }
     func setShutterSound(_ on: Bool) { prefs.shutterSound = on }
+    func setShowsCaptureHints(_ on: Bool) { prefs.showsCaptureHints = on }
 
     // MARK: Launch at login
 

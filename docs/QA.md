@@ -62,7 +62,7 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 
 - [ ] No magnifier by default
 - [ ] Z shows it, with an 11×11 pixel grid and `x, y · #RRGGBB` in display-local pixels; Z again hides it, for that capture only
-- [ ] The hint bar shows at the top centre for 5 captures, and again for 5 after an update that changes its hints
+- [ ] The hint bar shows at the top centre on every capture, and never after Settings › Show key hints while capturing is turned off
 - [ ] Its items: Space Window (Move while dragging) · ⇧ Square · ⌥ From center · ←↑→↓ Nudge · Z Magnifier · ↩ Capture · Esc Cancel
 
 **Cancelling**
@@ -311,7 +311,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 
 **The settings**
 
-- [ ] Five settings (Save to, Copy each capture, Shutter sound, Launch at login, Shortcuts), plus the macOS screenshot shortcuts row
+- [ ] Six settings (Save to, Copy each capture, Shutter sound, Show key hints while capturing, Launch at login, Shortcuts), plus the macOS screenshot shortcuts row
 - [ ] Save to: the folder picker changes where the next capture lands
 
 **Launch at login**

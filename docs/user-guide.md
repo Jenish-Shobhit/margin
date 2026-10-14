@@ -97,7 +97,7 @@ While dragging:
 
 **Magnifier.** Press **Z** to show an 11 × 11 pixel grid around the pointer, labelled with the pixel's position on that display and its colour, e.g. `812, 344 · #1E1E24`. Press Z again to hide it. It's off at the start of every capture.
 
-**Hint bar.** For your first five captures, and again for five after an update changes its keys, a bar at the top of the screen lists the keys: Space Window, ⇧ Square, ⌥ From center, ←↑→↓ Nudge, Z Magnifier, ↩ Capture, Esc Cancel. The key you're holding is highlighted. While you drag, "Space Window" becomes "Space Move". The bar steps aside if your selection reaches under it.
+**Hint bar.** A bar at the top of the screen lists the keys (turn it off with Settings › Show key hints while capturing): Space Window, ⇧ Square, ⌥ From center, ←↑→↓ Nudge, Z Magnifier, ↩ Capture, Esc Cancel. The key you're holding is highlighted. While you drag, "Space Window" becomes "Space Move". The bar steps aside if your selection reaches under it.
 
 **Cancelling.** Press **Esc** or right-click. Nothing is saved, no sound plays and the clipboard is unchanged. Switching apps with ⌘Tab, or a display change, also cancels.
 
@@ -207,6 +207,7 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 | Save to | Where screenshots go. **Choose…** picks a folder; it's created if missing |
 | Copy each capture | Put every capture on the clipboard (on by default) |
 | Shutter sound | Play the capture sound (on by default) |
+| Show key hints while capturing | Show the bar of keys at the top of the screen while you capture (on by default) |
 | Launch at login | Open Margin when you log in (on by default). If macOS wants your approval, a line with **Open Login Items** appears |
 | Shortcuts | Capture area, Capture screen, Repeat last area, Show or tuck shelf |
 | macOS screenshot shortcuts | Shows whether macOS still owns ⇧⌘3 / ⇧⌘4, with **Turn off macOS screenshot shortcuts** or, once they're all off, **Restore macOS screenshot shortcuts** |
