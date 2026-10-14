@@ -31,6 +31,21 @@ struct OverlayFrame {
     var mouseDisplayID: CGDirectDisplayID?
     var showsLoupe = false
     var showsHUD = false
+    /// Drawing a new selection: Space moves it instead of switching to window mode.
+    var drawing = false
+    /// Keys held right now that change what happens: highlighted in the HUD and named next to the selection
+    /// (or on the window pill).
+    var held: HUDView.Held = []
+
+    /// The pill next to the selection while ⇧ or ⌥ shapes it.
+    var modeText: String? {
+        switch (held.contains(.square), held.contains(.fromCenter)) {
+        case (true, true): "Square · From center"
+        case (true, false): "Square"
+        case (false, true): "From center"
+        case (false, false): nil
+        }
+    }
 }
 
 /// The overlay for one display: the frozen screen plus the selection UI. Forwards input to the session.
@@ -59,6 +74,8 @@ final class OverlayView: NSView {
     private let windowLayer = CALayer()
     private let sizePill = PillView(style: .dark)
     private let snapPill = PillView(style: .accent)
+    /// "Square", "From center" or both, while ⇧ / ⌥ shape the selection.
+    private let modePill = PillView(style: .accent)
     private let windowPill = PillView(style: .dark)
     private let loupe = LoupeView(frame: .zero)
     private let loupeLabel = PillView(style: .dark)
@@ -106,7 +123,7 @@ final class OverlayView: NSView {
             h.bounds = CGRect(x: 0, y: 0, width: OverlayStyle.handleSize, height: OverlayStyle.handleSize)
             root.addSublayer(h)
         }
-        for v in [unavailablePill, windowPill, snapPill, sizePill, loupe, loupeLabel, hud] as [NSView] { addSubview(v) }
+        for v in [unavailablePill, windowPill, modePill, snapPill, sizePill, loupe, loupeLabel, hud] as [NSView] { addSubview(v) }
         layoutCanvas()
         reset()
     }
@@ -137,7 +154,7 @@ final class OverlayView: NSView {
         holeLayer.contents = nil
         for l in handleLayers + [unavailableLayer, dimLayer, holeLayer, borderLayer, guideXLayer, guideYLayer, windowLayer] { l.isHidden = true }
         CATransaction.commit()
-        for v in [unavailablePill, windowPill, snapPill, sizePill, loupe, loupeLabel, hud] as [NSView] { v.isHidden = true }
+        for v in [unavailablePill, windowPill, modePill, snapPill, sizePill, loupe, loupeLabel, hud] as [NSView] { v.isHidden = true }
     }
 
     /// Marks this display as one that can't be captured (or clears that when its frame turns up late).
@@ -168,14 +185,17 @@ final class OverlayView: NSView {
         frame.mouse = CGPoint(x: f.midX, y: f.midY)
         frame.mouseDisplayID = display.id
         frame.showsHUD = true
+        frame.drawing = true
+        frame.held = [.square, .fromCenter]
         render(frame)
         frame.mode = .window
         frame.window = frame.selection
         frame.windowText = "Margin · 400 × 400"
+        frame.held = [.keepShadow]
         render(frame)
         loupeLabel.setText("0, 0 · #000000")
         unavailablePill.setText(Self.unavailableText)
-        for v in [unavailablePill, windowPill, snapPill, sizePill, loupeLabel, hud] as [NSView] { v.isHidden = false }
+        for v in [unavailablePill, windowPill, modePill, snapPill, sizePill, loupeLabel, hud] as [NSView] { v.isHidden = false }
         displayIfNeeded()
         reset()
     }
@@ -248,24 +268,32 @@ final class OverlayView: NSView {
             guideYLayer.isHidden = true
         }
 
-        // Size pill and "Snapped to window", right-aligned 7 pt below the selection.
+        // The active mode, "Snapped to window" and the size, in a row right-aligned 7 pt below the selection.
         if let r = selectionHere, let text = f.sizeText {
             sizePill.setText(text)
             let snapped = f.guideX != nil || f.guideY != nil
             if snapped { snapPill.setText("Snapped to window") }
+            let mode = f.modeText
+            if let mode { modePill.setText(mode) }
+            let row = (mode != nil ? [modePill] : []) + (snapped ? [snapPill] : []) + [sizePill]
             let h = sizePill.frame.height
-            let total = sizePill.frame.width + (snapped ? snapPill.frame.width + 6 : 0)
+            let total = row.reduce(-6) { $0 + $1.frame.width + 6 }
             var y = r.minY - 7 - h
             if y < 4 { y = r.maxY + 7 }
             if y + h > b.maxY - 4 { y = r.minY + 7 }
             let right = min(max(r.maxX, total + 4), b.maxX - 4)
-            sizePill.setFrameOrigin(CGPoint(x: right - sizePill.frame.width, y: y))
+            var x = right - total
+            for pill in row {
+                pill.setFrameOrigin(CGPoint(x: x, y: y))
+                x += pill.frame.width + 6
+            }
             sizePill.isHidden = false
-            snapPill.setFrameOrigin(CGPoint(x: right - total, y: y))
             snapPill.isHidden = !snapped
+            modePill.isHidden = mode == nil
         } else {
             sizePill.isHidden = true
             snapPill.isHidden = true
+            modePill.isHidden = true
         }
 
         // Window highlight.
@@ -274,7 +302,7 @@ final class OverlayView: NSView {
             windowLayer.frame = r
             windowLayer.isHidden = false
             if f.mouseDisplayID == here, let text = f.windowText {
-                windowPill.setText(text)
+                windowPill.setText(f.held.contains(.keepShadow) ? text + " · shadow" : text)
                 let visible = r.intersection(b)
                 let s = windowPill.frame.size
                 let x = min(max(r.minX + 10, visible.minX + 6), visible.maxX - s.width - 6)
@@ -320,7 +348,7 @@ final class OverlayView: NSView {
 
         // Hint bar at the top center, below the menu bar and the notch.
         if f.showsHUD, f.mouseDisplayID == here {
-            hud.setItems(f.mode == .area ? HUDView.areaItems : HUDView.windowItems)
+            hud.setItems(f.mode == .area ? HUDView.areaItems(drawing: f.drawing, held: f.held) : HUDView.windowItems(held: f.held))
             var top: CGFloat = 24
             if let screen = Displays.screen(for: here) {
                 top = max(top, screen.safeAreaInsets.top, screen.frame.maxY - screen.visibleFrame.maxY)

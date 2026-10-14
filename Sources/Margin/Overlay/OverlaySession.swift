@@ -281,6 +281,7 @@ final class OverlaySession {
             case .dragging:
                 spaceHeld = true
                 lastDrag = selectionDisplay.map { SelectionMath.clamp(mouse, to: $0.frame) } ?? mouse
+                render()
             case .moving, .resizing, .pinned:
                 break
             case .idle, .adjusting:
@@ -305,16 +306,20 @@ final class OverlaySession {
         if e.keyCode == Key.space, spaceHeld {
             spaceHeld = false
             lastDrag = selectionDisplay.map { SelectionMath.clamp(mouse, to: $0.frame) } ?? mouse
+            render()
         }
     }
 
     func flagsChanged(_ e: NSEvent) {
         guard !isFinished else { return }
+        let before = held
         modifiers = e.modifierFlags
         // ⇧ / ⌥ apply immediately, without waiting for the next mouse move.
         if case .dragging = phase, !spaceHeld, let d = selectionDisplay {
             selection = dragRect(to: lastDrag, on: d)
             render()
+        } else if held != before {
+            render()  // ⌥ in window mode: "Keep shadow"
         }
     }
 
@@ -474,7 +479,21 @@ final class OverlaySession {
             f.showsLoupe = mode == .area
         }
         f.showsHUD = showsHUD
+        f.held = held
+        if case .dragging = phase { f.drawing = true }
         for p in panels { p.overlayView.render(f) }
+    }
+
+    /// The keys held right now that change what happens: ⇧ / ⌥ shape a selection being drawn (Space moves it
+    /// instead), and ⌥ keeps the shadow in window mode.
+    private var held: HUDView.Held {
+        if mode == .window { return modifiers.contains(.option) ? .keepShadow : [] }
+        guard case .dragging = phase else { return [] }
+        if spaceHeld { return .move }
+        var h: HUDView.Held = []
+        if modifiers.contains(.shift) { h.insert(.square) }
+        if modifiers.contains(.option) { h.insert(.fromCenter) }
+        return h
     }
 
     // MARK: Cursor
