@@ -12,7 +12,12 @@ final class FirstRunModel {
     static let screenRecordingSettings = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_ScreenCapture")!
     static let keyboardSettings = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!
 
+    /// Screen Recording works: preflight says yes and no capture has failed for lack of permission since launch.
     private(set) var hasPermission = false
+    /// A capture failed for lack of permission since launch (`RuntimeStatus.screenRecordingRevoked`).
+    /// `CGPreflightScreenCaptureAccess` is cached per process and can still say yes, so only a relaunch
+    /// (or a capture that works again) clears this.
+    private(set) var permissionRevoked = false
     /// The user clicked "Allow…" in this session.
     private(set) var requestedPermission = false
     private(set) var shortcuts: [SystemScreenshotShortcut] = []
@@ -28,11 +33,12 @@ final class FirstRunModel {
 
     // Sources, swappable for visual checks.
     @ObservationIgnored var preflight: () -> Bool = { CGPreflightScreenCaptureAccess() }
+    @ObservationIgnored var revoked: () -> Bool = { RuntimeStatus.shared.screenRecordingRevoked }
     @ObservationIgnored var request: () -> Void = { _ = CGRequestScreenCaptureAccess() }
     @ObservationIgnored var readShortcuts: () -> [SystemScreenshotShortcut] = { SystemShortcuts.current() }
     @ObservationIgnored var prefs: Preferences = .shared
 
-    var permissionDone: Bool { hasPermission || capturedOnce }
+    var permissionDone: Bool { !permissionRevoked && (hasPermission || capturedOnce) }
     var shortcutsDone: Bool { !shortcuts.isEmpty && conflictIDs.isEmpty }
     var allDone: Bool { permissionDone && shortcutsDone && capturedOnce }
 
@@ -69,7 +75,8 @@ final class FirstRunModel {
     }
 
     func refresh() {
-        hasPermission = preflight()
+        permissionRevoked = revoked()
+        hasPermission = preflight() && !permissionRevoked
         shortcuts = readShortcuts()
         conflictIDs = Set(SystemShortcuts.conflicts(shortcuts, with: prefs.registeredCombos().map(\.combo)).map(\.id))
         areaShortcut = prefs.shortcut(for: .captureArea).displayString

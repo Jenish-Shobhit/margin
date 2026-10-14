@@ -31,7 +31,16 @@ struct FirstRunView: View {
         case .pending:
             Detail("Needed to see the screen. macOS asks once.")
         case .now:
-            if !model.requestedPermission {
+            if model.permissionRevoked {
+                // macOS keeps answering "allowed" until Margin relaunches, so asking again can't help.
+                Detail("Margin lost access to the screen. Turn Margin back on in Privacy & Security › Screen & System Audio Recording, then relaunch it.")
+                HStack(spacing: 8) {
+                    Button("Open Privacy Settings") { model.openScreenRecordingSettings() }
+                    Button("Relaunch Margin", action: relaunch)
+                        .buttonStyle(.borderedProminent)
+                }
+                .padding(.top, 8)
+            } else if !model.requestedPermission {
                 Detail("Needed to see the screen. macOS asks once.")
                 Button("Allow…") { model.requestPermission() }
                     .buttonStyle(.borderedProminent)

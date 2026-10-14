@@ -18,6 +18,20 @@ final class FirstRunWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     private var poll: Task<Void, Never>?
     private var closeTask: Task<Void, Never>?
+    private var statusObserver: NSObjectProtocol?
+
+    override init() {
+        super.init()
+        // A revoked permission (or its recovery) shows at once, without waiting for the next poll.
+        statusObserver = NotificationCenter.default.addObserver(
+            forName: RuntimeStatus.didChange, object: RuntimeStatus.shared, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.window?.isVisible == true else { return }
+                self.model.refresh()
+            }
+        }
+    }
 
     /// Shows the window at the first incomplete step (or `step` if given).
     func show(step: Step? = nil) {
