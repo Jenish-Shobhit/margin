@@ -310,3 +310,16 @@ Write it at M0 and grow it with each milestone. It must cover at least these:
 
 - **Build system.** Swift 6.4's default SwiftPM build system needs Xcode ("Unknown error parsing property list"). Always build with `swift build --build-system native` (scripts already do this).
 - **Tests.** Run `scripts/test.sh`, not plain `swift test`: it adds the Command Line Tools path for `Testing.framework`.
+
+## Changes after 0.0.1 (user feedback, 14 Oct 2026)
+
+Each item ships as its own patch release (version bump, CHANGELOG entry, tag, GitHub release with the zip).
+
+| Version | Change |
+|---|---|
+| 0.0.2 | **⌘V in terminals.** Captures and shelf copies put one pasteboard item with `public.png` **and** `public.file-url` (the saved file). Ghostty pastes a file URL as its path, so ⌘V in Claude Code (CLI, inside herdr) gets the screenshot; image-taking apps still get the PNG. Write the clipboard only after the file is renamed into place, using the final URL. Verify WhatsApp, Claude desktop, Chrome, Slack, Notes still paste an image. |
+| 0.0.3 | **Nudge is slow.** Arrow-key nudging must follow key repeat smoothly (no full-frame redraws per step; only invalidate the selection's dirty rects). ⇧ = 10 px. |
+| 0.0.4 | **Card buttons.** Dismiss ✕ moves to the **top-right** and is **red**. The options button moves to the **top-left**, with a clear menu glyph and a tooltip ("Options"). |
+| 0.0.5 | **⌥ is unclear.** When a modifier is held during selection, its HUD item highlights and a small pill next to the selection names the active mode ("From center", "Square"). Window mode: holding ⌥ shows "Keep shadow". Shelf: an ⌥-drag shows "Keep on shelf" on the drag image. HUD labels use words, not just symbols. |
+| 0.0.6 | **Turn off macOS shortcuts automatically.** Supersedes "never write system settings": First run step 2 gets a primary button **Turn off for me**. It sets `enabled = 0` for `AppleSymbolicHotKeys` 28–31 in `com.apple.symbolichotkeys` (keeping each entry's `value`) and runs `/System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u` so it applies at once. Settings gets **Restore macOS screenshot shortcuts** (re-enables 28–31 the same way). Only ever on an explicit click. |
+| 0.0.7 | **Magnifier on demand.** The loupe is off by default; press **Z** during a capture to show or hide it (remembered for the rest of that capture only). The HUD lists "Z Magnifier". |
