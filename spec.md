@@ -55,7 +55,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 |---|---|
 | ⌘⇧4 | Area capture on a frozen screen. Press Space for window mode |
 | ⌘⇧3 | Full screen: the display under the pointer |
-| ⌘⇧2 | Repeat the last area, with no overlay. Falls back to ⌘⇧4 if there's no last area or its display is gone |
+| ⌘⇧2 | Repeat the last area, with no overlay. Falls back to ⌘⇧4 if there's no last area, or its display is gone or at another resolution |
 | ⌃⌘⇧4 · ⌃⌘⇧3 · ⌃⌘⇧2 | Same as without ⌃ (every shot is already copied) |
 | ⌘⇧1 | Tuck or show the shelf |
 
@@ -92,6 +92,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 ### Full screen (⌘⇧3) and repeat area (⌘⇧2)
 - Both capture directly with no overlay. They use the same filter, so the shelf never appears in the shot.
 - ⌘⇧2 briefly flashes the area outline (150 ms) *after* capturing.
+- The last area is remembered relative to its display (plus the display's size in points), not in global points, so it stays on the same part of that display when displays are added, removed or rearranged. Repeating it doesn't change it.
 
 ## 3. Save, copy, sound — the moment of release
 

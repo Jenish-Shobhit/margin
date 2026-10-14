@@ -117,7 +117,7 @@ Press **Space** during an area capture (before you start dragging), or choose **
 ## Full screen and repeat last area
 
 - **⇧⌘3** captures the whole display under the pointer, with no overlay.
-- **⇧⌘2** captures the same rectangle as your last area capture, with no overlay, then briefly outlines it (150 ms). If there's no last area, or its display is gone, it starts a normal area capture instead.
+- **⇧⌘2** captures the same rectangle as your last area capture, with no overlay, then briefly outlines it (150 ms). The area stays on the same part of the same display even if you add, remove or rearrange displays. If there's no last area, or its display is gone or at another resolution, it starts a normal area capture instead.
 - **⌃⇧⌘4, ⌃⇧⌘3 and ⌃⇧⌘2** do the same as without ⌃. On macOS ⌃ means "to the clipboard", and every Margin shot is already copied.
 
 ## What happens when you capture

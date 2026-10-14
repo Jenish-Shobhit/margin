@@ -288,7 +288,7 @@ final class CaptureController: CaptureControlling {
                 timings.record("releaseToResult", clock.ms)
                 onCapture?(CaptureResult(image: cropped.image, scale: scale, sourceRect: rect, displayID: display.id, kind: .area, date: date))
                 // After the hand-off: the write posts Preferences.didChange, which shouldn't delay the thumbnail.
-                Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id)
+                Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
             } else {
                 CaptureLog.capture.error("area crop was empty: \(String(describing: pixelRect), privacy: .public)")
             }
@@ -343,17 +343,15 @@ final class CaptureController: CaptureControlling {
 
     func repeatLastArea() {
         guard session == nil else { return }
+        // The area is kept relative to its display, so it follows the display wherever the arrangement puts it
+        // now. No area, its display gone, or the display at another resolution: choose again.
         guard let last = Preferences.shared.lastArea,
-              let display = Displays.all.first(where: { $0.id == last.displayID }) else {
+              let display = Displays.all.first(where: { $0.id == last.displayID }),
+              let rect = last.rect(onDisplayFrame: display.frame) else {
             beginInteractiveCapture()
             return
         }
-        let rect = last.rect.intersection(display.frame)
-        guard !rect.isNull, rect.width > 0, rect.height > 0 else {
-            beginInteractiveCapture()
-            return
-        }
-        captureArea(rect, on: display, flash: true)
+        captureArea(rect, on: display, repeating: true)
     }
 
     func captureArea(_ rect: CGRect) {
@@ -361,10 +359,11 @@ final class CaptureController: CaptureControlling {
             CaptureLog.capture.error("captureArea: no display for \(String(describing: rect), privacy: .public)")
             return
         }
-        captureArea(rect.intersection(display.frame), on: display, flash: false)
+        captureArea(rect.intersection(display.frame), on: display, repeating: false)
     }
 
-    private func captureArea(_ rect: CGRect, on display: DisplayInfo, flash: Bool) {
+    /// `repeating` (⌘⇧2) flashes the outline and leaves the last area as it was; otherwise `rect` becomes it.
+    private func captureArea(_ rect: CGRect, on display: DisplayInfo, repeating: Bool) {
         guard session == nil else { return }
         guard hasPermission() else { onPermissionMissing?(); return }
         let clock = Stopwatch()
@@ -378,9 +377,11 @@ final class CaptureController: CaptureControlling {
                 let pixelRect = Geometry.pixelRect(for: rect, displayFrame: display.frame, scale: target.scale, imageSize: size)
                 guard let cropped = await Self.crop(image, to: pixelRect) else { throw CaptureError.emptyCrop }
                 timings.record("areaCapture", clock.ms)
-                if flash { AreaFlash.show(rect) }
+                if repeating { AreaFlash.show(rect) }
                 onCapture?(CaptureResult(image: cropped.image, scale: target.scale, sourceRect: rect, displayID: display.id, kind: .area, date: Date()))
-                Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id)
+                if !repeating {
+                    Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
+                }
             } catch {
                 fail(error, session: nil)
             }

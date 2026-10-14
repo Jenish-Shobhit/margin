@@ -10,7 +10,7 @@ These work from any app. The four marked *rebindable* can be changed in [Setting
 |---|---|---|
 | ⇧⌘4 | Capture an area on a frozen screen. Press Space for window mode | Rebindable |
 | ⇧⌘3 | Capture the whole display under the pointer | Rebindable |
-| ⇧⌘2 | Capture the last area again, with no overlay. Falls back to ⇧⌘4 if there's no last area or its display is gone | Rebindable |
+| ⇧⌘2 | Capture the last area again, with no overlay. Falls back to ⇧⌘4 if there's no last area, or its display is gone or at another resolution | Rebindable |
 | ⇧⌘1 | Tuck or show the shelf | Rebindable |
 | ⌃⇧⌘4 | Same as ⇧⌘4 | Follows ⇧⌘4 |
 | ⌃⇧⌘3 | Same as ⇧⌘3 | Follows ⇧⌘3 |

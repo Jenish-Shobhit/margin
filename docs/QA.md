@@ -23,7 +23,8 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] ⇧⌘3 captures the full display under the pointer, with no overlay
 - [ ] ⇧⌘2 repeats the last area with no overlay and flashes the outline (150 ms) after capturing
 - [ ] ⇧⌘2 falls back to ⇧⌘4 when there's no last area
-- [ ] ⇧⌘2 falls back to ⇧⌘4 when the last area's display is gone
+- [ ] ⇧⌘2 falls back to ⇧⌘4 when the last area's display is gone, or at another resolution
+- [ ] ⇧⌘2 captures the same part of the same display after the arrangement changes (another display added, removed or moved, or the lid closed)
 - [ ] ⌃⇧⌘4, ⌃⇧⌘3 and ⌃⇧⌘2 do the same as without ⌃
 - [ ] ⇧⌘1 tucks and shows the shelf
 - [ ] Shortcuts changed in Settings take effect immediately, ⌃ twins included; the old ones stop working

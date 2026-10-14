@@ -158,7 +158,7 @@ The other kinds:
 
 - **Window mode** closes the overlay and waits for the previous app to be active again, so the window is shot with its own focused look. It then captures with `SCContentFilter(desktopIndependentWindow:)`: no shadow unless ⌥ was held.
 - **⇧⌘3** captures the display under the pointer with the cached target.
-- **⇧⌘2** captures the last area's display, crops it and flashes the outline.
+- **⇧⌘2** captures the last area's display, crops it and flashes the outline. `LastArea` keeps the rect relative to its display, with the display's size in points, so it's rebuilt on the display's current frame; at another size it falls back to ⇧⌘4.
 
 ### The release (`AppCoordinator+Save`)
 
@@ -229,7 +229,7 @@ All of them join every Space and float over full-screen apps.
 
 | Store | Where | Contents |
 |---|---|---|
-| `Preferences` | `UserDefaults`, domain `io.github.jenish-shobhit.margin` | `saveFolder`, `copyEachCapture`, `shutterSound`, `launchAtLogin`, `shortcut.<action>` (JSON `KeyCombo`), `lastArea` (JSON rect + display ID), `firstRunDone`, `completedCaptures`, `hintCaptures.r<n>`, `loginItemConfigured` |
+| `Preferences` | `UserDefaults`, domain `io.github.jenish-shobhit.margin` | `saveFolder`, `copyEachCapture`, `shutterSound`, `launchAtLogin`, `shortcut.<action>` (JSON `KeyCombo`), `lastArea` (JSON: rect relative to its display, display ID, display size), `firstRunDone`, `completedCaptures`, `hintCaptures.r<n>`, `loginItemConfigured` |
 | `ShelfStore` | `~/Library/Application Support/Margin/shelf.json` | The shelf, oldest first: `id`, `path`, `bookmark`, `createdAt`, `pixelWidth`, `pixelHeight`. Rewritten atomically on every change; an unreadable file means an empty shelf |
 | Fallback saves | `~/Library/Application Support/Margin/Unsaved/` | PNGs that couldn't go to the save folder |
 | Undo | Memory | Up to 20 steps. Thumbnails are kept for the newest 5 |

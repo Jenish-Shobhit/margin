@@ -60,7 +60,8 @@ final class NotificationCounter: @unchecked Sendable {
         prefs.launchAtLogin = false
         prefs.completedCaptures = 7
         prefs.firstRunDone = true
-        let area = LastArea(rect: CGRect(x: -100.5, y: 20, width: 300, height: 200.25), displayID: 42)
+        let area = LastArea(rect: CGRect(x: -400.5, y: 20, width: 300, height: 200.25), displayID: 42,
+                            displayFrame: CGRect(x: -1920, y: 0, width: 1920, height: 1080))
         prefs.lastArea = area
         let combo = KeyCombo(keyCode: 0x00, modifiers: KeyCombo.cmd | KeyCombo.option)
         prefs.setShortcut(combo, for: .toggleShelf)
@@ -95,7 +96,7 @@ final class NotificationCounter: @unchecked Sendable {
         prefs.launchAtLogin = false
         prefs.completedCaptures += 1
         prefs.firstRunDone = true
-        prefs.lastArea = LastArea(rect: .zero, displayID: 1)
+        prefs.lastArea = LastArea(rect: .zero, displayID: 1, displayFrame: .zero)
         prefs.setShortcut(ShortcutAction.toggleShelf.defaultCombo, for: .toggleShelf)
         prefs.resetShortcut(for: .toggleShelf)
         #expect(counter.count == 9)
@@ -138,6 +139,16 @@ final class NotificationCounter: @unchecked Sendable {
     @Test func garbageShortcutDataFallsBackToDefault() {
         defaults.set(Data("nope".utf8), forKey: "shortcut.repeatArea")
         #expect(prefs.shortcut(for: .repeatArea) == ShortcutAction.repeatArea.defaultCombo)
+    }
+
+    @Test func legacyOrGarbageLastAreaReadsAsNil() throws {
+        // 0.0.8 and earlier: a rect in global points, which can't be placed on today's arrangement.
+        let legacy = LegacyLastArea(rect: CGRect(x: 1600, y: 200, width: 400, height: 300), displayID: 2)
+        defaults.set(try JSONEncoder().encode(legacy), forKey: "lastArea")
+        #expect(defaults.data(forKey: "lastArea") != nil)
+        #expect(prefs.lastArea == nil)
+        defaults.set(Data("nope".utf8), forKey: "lastArea")
+        #expect(prefs.lastArea == nil)
     }
 }
 
@@ -186,11 +197,5 @@ final class NotificationCounter: @unchecked Sendable {
         let current: (ShortcutAction) -> KeyCombo = { $0.defaultCombo }
         let screenTwin = ShortcutAction.captureScreen.defaultCombo.withControl
         #expect(ShortcutAction.toggleShelf.conflict(assigning: screenTwin, current: current) == .captureScreen)
-    }
-
-    @Test func lastAreaCodable() throws {
-        let area = LastArea(rect: CGRect(x: 1, y: 2, width: 3, height: 4), displayID: 9)
-        let data = try JSONEncoder().encode(area)
-        #expect(try JSONDecoder().decode(LastArea.self, from: data) == area)
     }
 }
