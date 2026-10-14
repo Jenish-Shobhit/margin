@@ -4,9 +4,9 @@
 #   scripts/build.sh [--debug] [--install] [--run] [--zip]
 #
 #   --debug    debug configuration (includes the DEBUG control hook, see scripts/debug.sh)
-#   --install  quit any running Margin and replace /Applications/Margin.app
+#   --install  quit any running Margin and replace /Applications/Margin.app (loud warning with --debug)
 #   --run      open the app (the installed copy when --install is given)
-#   --zip      write dist/Margin-<version>.zip
+#   --zip      write dist/Margin-<version>.zip (release builds only: refused with --debug)
 #
 # Signing uses the "Margin Dev" identity when the keychain has it. It is self-signed, so
 # `security find-identity -v` hides it (CSSMERR_TP_NOT_TRUSTED), but codesign uses it fine, and
@@ -36,6 +36,24 @@ done
 
 say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m%s\033[0m\n' "$*" >&2; }
+
+# A debug build listens for DistributedNotification commands (scripts/debug.sh), which any process of
+# this user can post: never ship one, and say so loudly when one goes to /Applications.
+if [[ "$CONFIG" == debug && "$ZIP" == 1 ]]; then
+  echo "build.sh: --zip makes the release artifact and can't be combined with --debug" \
+    "(a debug build carries the DEBUG control hook). Run scripts/build.sh --zip." >&2
+  exit 2
+fi
+debug_install_warning() {
+  warn "################################################################################"
+  warn "#  Installing a DEBUG build to $INSTALL_PATH."
+  warn "#  It carries the DEBUG control hook: any process of this user can post the"
+  warn "#  io.github.jenish-shobhit.margin.debug DistributedNotification and make it"
+  warn "#  capture the screen, clear the shelf or dump its state to /tmp."
+  warn "#  Reinstall a release build (scripts/build.sh --install) when you're done."
+  warn "################################################################################"
+}
+if [[ "$CONFIG" == debug && "$INSTALL" == 1 ]]; then debug_install_warning; fi
 
 PLIST_SRC="$ROOT/Resources/Info.plist"
 ICON_SRC="$ROOT/Resources/AppIcon.icns"
@@ -135,3 +153,5 @@ if [[ "$RUN" == 1 ]]; then
 fi
 
 say "Done: $APP"
+# Repeated at the end so it isn't lost above the build output.
+if [[ "$CONFIG" == debug && "$INSTALL" == 1 ]]; then debug_install_warning; fi

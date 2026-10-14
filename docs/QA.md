@@ -11,6 +11,7 @@ Before starting: turn off the four macOS screenshot shortcuts (System Settings โ
 - [ ] No Dock icon; the menu bar icon appears
 - [ ] `scripts/test.sh` passes
 - [ ] `scripts/build.sh --zip` writes `dist/Margin-0.0.1.zip`, and the unzipped app launches
+- [ ] `scripts/build.sh --debug --zip` refuses (exit 2) before building; `--debug --install` prints the DEBUG-build warning banner before the build and again at the end
 
 ## Capture: shortcuts (ยง2)
 

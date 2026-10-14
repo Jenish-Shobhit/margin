@@ -63,7 +63,7 @@ cd margin
 scripts/build.sh --install --run
 ```
 
-`scripts/build.sh` builds a release `Margin.app` (arm64), signs it, and with `--install` replaces `/Applications/Margin.app`. Other options: `--debug`, `--run`, `--zip` (writes `dist/Margin-<version>.zip`).
+`scripts/build.sh` builds a release `Margin.app` (arm64), signs it, and with `--install` replaces `/Applications/Margin.app`. Other options: `--debug`, `--run`, `--zip` (writes `dist/Margin-<version>.zip`; release builds only). A debug build carries a control hook for `scripts/debug.sh`, so the script refuses to zip one and warns loudly when you install one.
 
 **Optional, recommended:** create a self-signed code-signing certificate named **Margin Dev** (Keychain Access › Certificate Assistant › Create a Certificate…, type *Code Signing*). The build script uses it when present, so the Screen Recording permission survives rebuilds. Without it the app is signed ad-hoc and macOS asks for permission again after every build.
 
