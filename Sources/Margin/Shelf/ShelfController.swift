@@ -47,6 +47,8 @@ final class ShelfController: ShelfControlling {
     var fileRefreshQueued = false
     /// Bumped by every copy; a slower read that finishes after a newer copy started doesn't write.
     var copyGeneration = 0
+    /// The path each card's thumbnail is loading from. Only the latest load for a card lands.
+    var thumbnailLoads: [UUID: String] = [:]
     private(set) var isPeeking = false
     private(set) var layout = ShelfLayout.layout(heights: [], availableHeight: 0)
 
@@ -116,6 +118,7 @@ final class ShelfController: ShelfControlling {
         store.load()
         for card in cards.values { card.removeFromSuperview() }
         cards = [:]
+        thumbnailLoads = [:]
         selection = []
         for item in store.items {
             makeCard(item)
@@ -283,11 +286,18 @@ final class ShelfController: ShelfControlling {
         return card
     }
 
+    /// Loads a card's thumbnail from its file (off the main thread). Asking again for the same path while it
+    /// loads does nothing; a newer path (the file was found elsewhere) wins over an older load.
     func loadThumbnail(for item: ShelfItem) {
+        guard thumbnailLoads[item.id] != item.path else { return }
+        thumbnailLoads[item.id] = item.path
         Task { [weak self] in
-            guard let box = await ShelfThumbnails.load(url: item.url, pixelSize: item.pixelSize) else { return }
-            self?.cards[item.id]?.setThumbnail(box.image)
-            self?.refreshFan(force: true)
+            let box = await ShelfThumbnails.load(url: item.url, pixelSize: item.pixelSize)
+            guard let self, self.thumbnailLoads[item.id] == item.path else { return }
+            self.thumbnailLoads[item.id] = nil
+            guard let box else { return }
+            self.cards[item.id]?.setThumbnail(box.image)
+            self.refreshFan(force: true)
         }
     }
 

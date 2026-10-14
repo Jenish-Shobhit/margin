@@ -208,6 +208,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] A file deleted in Finder drops off the shelf (at launch, when the shelf appears, when a drag starts)
 - [ ] A file renamed in Finder stays on the shelf and drags under its new name
 - [ ] A file moved in Finder is followed (bookmark) and still drags
+- [ ] Renamed or moved while Margin was quit: after a relaunch the card shows its shot (not a grey box), and so do the pile fan and the drag image
 - [ ] A file moved to the Trash drops off the shelf
 - [ ] Shots saved to an external disk (or a disk image) stay on the shelf while it's ejected, through clicks and a relaunch, and work again once it's back (`MARGIN_DISK_IMAGE_TESTS=1 scripts/test.sh` covers the check itself)
 
