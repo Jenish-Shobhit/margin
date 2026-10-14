@@ -410,6 +410,8 @@ extension ShelfController {
         }
         refreshFan(force: true)
         showPanel()
+        // Tucked: the cards are back in the tucked shelf, like a new shot; the tab says so.
+        if isTucked && !isPeeking { tab.bump() }
         refreshFiles()
         showToast(failed ? "Some files couldn't be restored" : "Restored", isError: failed)
     }
