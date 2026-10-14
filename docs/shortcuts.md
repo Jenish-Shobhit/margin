@@ -67,7 +67,7 @@ A plain click copies a card and leaves the keyboard with your app, so ⌘V right
 | Space | Quick Look (← → step through the selected shots; Space or Esc closes it and gives the keys back to your app) |
 | ⌫ or ⌦ | Dismiss (the file stays on disk) |
 | Two-finger swipe right | Dismiss the card under the pointer |
-| Esc | Close Quick Look; otherwise clear the selection and give the keys back to your app |
+| Esc | Close Quick Look, or else clear the selection; either way the keys go back to your app |
 | ⌘Z | Bring back the card(s) last removed (up to 20 steps) |
 | Right-click or ⌃-click | The card's menu: Copy Path, Reveal in Finder, Rename…, Move to Trash |
 | Right-click the pile | Clear shelf |

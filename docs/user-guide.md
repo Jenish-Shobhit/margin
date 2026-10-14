@@ -176,7 +176,7 @@ The shelf survives quitting and restarting.
 | Two-finger swipe right | Dismiss |
 | ✕ | Dismiss |
 | ••• or right-click (or ⌃-click) | Open the card's menu |
-| Esc | Close Quick Look; otherwise clear the selection and hand the keys back to your app |
+| Esc | Close Quick Look, or else clear the selection; either way the keys go back to your app |
 
 **Dragging out.** A card drags as a plain file, so any app that takes files takes it: Finder, Slack, Chrome, WhatsApp, Claude, Notes, a terminal (which types the path).
 
