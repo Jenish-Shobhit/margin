@@ -38,9 +38,9 @@ All four shortcuts can be changed in Settings. ⌘⇧5 stays with macOS for scre
 
 Margin needs macOS 26 (Tahoe) or later on Apple silicon.
 
-1. Download `Margin-0.0.1.zip` from [Releases](https://github.com/Jenish-Shobhit/margin/releases).
+1. Download the latest `Margin-<version>.zip` from [Releases](https://github.com/Jenish-Shobhit/margin/releases).
 2. Unzip it and move **Margin.app** to `/Applications`.
-3. Open it. Version 0.0.1 isn't notarized, so macOS blocks the first launch. Go to **System Settings › Privacy & Security**, scroll down, and click **Open Anyway**.
+3. Open it. Margin isn't notarized yet, so macOS blocks the first launch. Go to **System Settings › Privacy & Security**, scroll down, and click **Open Anyway**.
 
 ## First run
 

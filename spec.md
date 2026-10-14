@@ -108,7 +108,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - Set DPI to 72 × scale (144 on Retina), as macOS does.
   - Write to a hidden temp file in the same folder, then `rename(2)`, so no app sees a half-written file.
 - **Clipboard** (on by default; Settings › Copy each capture). `clearContents()`, then write the PNG data (the same bytes as the file).
-  - Before finalising, run `screencapture -c` once on the dev machine, list `NSPasteboard.general.types`, and write the same *image* types macOS writes. Don't add a file URL to the clipboard.
+  - Before finalising, run `screencapture -c` once on the dev machine, list `NSPasteboard.general.types`, and write the same *image* types macOS writes. **Since 0.0.2** each item also carries `public.file-url` of the saved file (see "Changes after 0.0.1"), so ⌘V in a terminal pastes the path.
   - Record `changeCount` for the ⌘V mark (§5).
 - **Sound.** Play the system "Screen Capture" sound via `AudioServicesPlaySystemSound`, so it follows the alert volume.
   - Skip it when `com.apple.sound.uiaudio.enabled` is 0 or Settings › Sound is off.
