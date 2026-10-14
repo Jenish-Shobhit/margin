@@ -169,13 +169,14 @@ extension ShelfController {
         menu.autoenablesItems = false
         // Until the file is on disk there's nothing to act on.
         let saving = ids.contains { pending.contains($0) }
-        menu.addItem(ShelfMenuItem(ids.count > 1 ? "Copy Paths" : "Copy Path") { [weak self] in self?.copyPaths(ids) })
+        // Choosing an item counts as a click on the shelf (spec §5), so ⌘Z works right after Move to Trash.
+        menu.addItem(ShelfMenuItem(ids.count > 1 ? "Copy Paths" : "Copy Path") { [weak self] in self?.focusShelf(); self?.copyPaths(ids) })
         menu.addItem(ShelfMenuItem("Reveal in Finder") { [weak self] in self?.reveal(ids) })
         let rename = ShelfMenuItem("Rename…") { [weak self] in self?.beginRename(id) }
         rename.isEnabled = ids.count == 1
         menu.addItem(rename)
         menu.addItem(.separator())
-        menu.addItem(ShelfMenuItem("Move to Trash") { [weak self] in self?.trash(ids) })
+        menu.addItem(ShelfMenuItem("Move to Trash") { [weak self] in self?.focusShelf(); self?.trash(ids) })
         if saving { menu.items.forEach { $0.isEnabled = false } }
         return menu
     }
@@ -292,7 +293,8 @@ extension ShelfController {
         let removals = store.remove(ids: set)
         guard !removals.isEmpty else { return }
         undoStack.append(ShelfUndoStep(kind: kind, removals: removals, trashed: trashed, thumbnails: thumbs))
-        if store.items.isEmpty, panel.isKeyWindow { lingerUntil = Date().addingTimeInterval(3) }
+        // The shelf just emptied: keep the (now invisible) panel 3 s, so ⌘Z can still reach it.
+        if store.items.isEmpty { lingerUntil = Date().addingTimeInterval(3) }
         if undoStack.count > ShelfUndoStep.limit { undoStack.removeFirst(undoStack.count - ShelfUndoStep.limit) }
         if undoStack.count > ShelfUndoStep.thumbnailSteps {
             undoStack[undoStack.count - ShelfUndoStep.thumbnailSteps - 1].thumbnails = [:]
@@ -334,9 +336,19 @@ extension ShelfController {
 
     // MARK: - Undo
 
-    /// ⌘Z: bring back the last removed card(s). Trash moves the files back first (off the main thread).
-    func undo() {
-        guard let step = undoStack.popLast() else { NSSound.beep(); return }
+    /// Whether ⌘Z / "Restore Last Removed" has anything to bring back (for menu validation).
+    var canUndo: Bool { !undoStack.isEmpty }
+
+    /// ⌘Z on the shelf: bring back the last removed card(s); beeps when there's nothing to restore.
+    func undo() { undo(fromMenu: false) }
+
+    /// "Restore Last Removed" in the menu bar (`fromMenu: true`): never beeps. Works any time, even with the
+    /// panel hidden: the cards come back and the panel shows. Trash moves the files back first (off main).
+    func undo(fromMenu: Bool) {
+        guard let step = undoStack.popLast() else {
+            if !fromMenu { NSSound.beep() }
+            return
+        }
         guard step.kind == .trash else {
             bringBack(step.removals, thumbnails: step.thumbnails, failed: false)
             return
