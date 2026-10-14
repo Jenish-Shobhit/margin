@@ -36,8 +36,6 @@ final class OverlayHotkeys {
     /// Registered combos by hotkey ID.
     private var combos: [UInt32: Combo] = [:]
 
-    var isRegistered: Bool { !combos.isEmpty }
-
     init(onKey: @escaping (NSEvent) -> Void) {
         self.onKey = onKey
     }
