@@ -9,7 +9,8 @@ import os
 /// capture actions) and re-registers when the shortcuts change. Everything is unregistered while a
 /// Settings shortcut recorder is listening (`Preferences.isRecordingShortcut`), otherwise Carbon would
 /// swallow the keys before the recorder sees them. While macOS's own ⌘⇧3/⌘⇧4 are still enabled, the
-/// system gets those keys first; registration still succeeds.
+/// system gets those keys first; registration still succeeds. After every (re)registration the failures
+/// (e.g. a combo another app already registered) go to `RuntimeStatus.hotkeyFailures`.
 @MainActor
 final class HotkeyCenter {
     struct Binding: Equatable {
@@ -22,6 +23,8 @@ final class HotkeyCenter {
         let binding: Binding
         let ref: EventHotKeyRef?
         let status: OSStatus
+        /// Skipped because an earlier binding (another of Margin's actions) already has this combo.
+        var isDuplicate = false
     }
 
     private static let log = Logger(subsystem: AppCoordinator.subsystem, category: "hotkeys")
@@ -42,6 +45,26 @@ final class HotkeyCenter {
     /// For the DEBUG state dump: each binding and the OSStatus of its registration.
     var registrationSummary: [(binding: Binding, status: OSStatus)] {
         registrations.keys.sorted().compactMap { registrations[$0] }.map { ($0.binding, $0.status) }
+    }
+
+    /// A combo that didn't register, for the menu bar warning.
+    struct Failure {
+        enum Reason { case duplicate, taken, other }
+        let binding: Binding
+        let status: OSStatus
+        /// `duplicate`: two of Margin's actions share the combo. `taken`: Carbon's `eventHotKeyExistsErr`
+        /// (already registered elsewhere). Note that on macOS 27 another process registering the same combo,
+        /// even with `kEventHotKeyExclusive`, does not make this registration fail.
+        let reason: Reason
+    }
+
+    /// Every combo (⌃ twins included) whose last registration failed, in registration order.
+    var failures: [Failure] {
+        registrations.keys.sorted().compactMap { registrations[$0] }.filter { $0.status != noErr }.map {
+            let reason: Failure.Reason = $0.isDuplicate ? .duplicate
+                : $0.status == OSStatus(eventHotKeyExistsErr) ? .taken : .other
+            return Failure(binding: $0.binding, status: $0.status, reason: reason)
+        }
     }
 
     init(prefs: Preferences = .shared, onAction: @escaping (ShortcutAction) -> Void) {
@@ -109,7 +132,8 @@ final class HotkeyCenter {
             if !seen.insert(binding.combo).inserted {
                 Self.log.error(
                     "Shortcut \(keys, privacy: .public) for \(binding.action.rawValue, privacy: .public) is already used by another action")
-                registrations[id] = Registration(binding: binding, ref: nil, status: OSStatus(eventHotKeyExistsErr))
+                registrations[id] = Registration(
+                    binding: binding, ref: nil, status: OSStatus(eventHotKeyExistsErr), isDuplicate: true)
                 continue
             }
             var ref: EventHotKeyRef?
@@ -124,6 +148,17 @@ final class HotkeyCenter {
                     "RegisterEventHotKey \(keys, privacy: .public) → \(binding.action.rawValue, privacy: .public) failed: OSStatus \(status)")
             }
         }
+        publishFailures()
+    }
+
+    /// Shares the outcome with the menu bar and Settings: each action's first failure (its own combo
+    /// before its ⌃ twin), or an empty dictionary when everything registered.
+    private func publishFailures() {
+        var byAction: [ShortcutAction: Int32] = [:]
+        for failure in failures where byAction[failure.binding.action] == nil {
+            byAction[failure.binding.action] = failure.status
+        }
+        RuntimeStatus.shared.hotkeyFailures = byAction
     }
 
     private func unregisterAll() {

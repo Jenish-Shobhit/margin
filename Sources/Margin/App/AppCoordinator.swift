@@ -26,6 +26,10 @@ final class AppCoordinator {
     var mark = ClipboardMark()
     /// Last known Screen Recording state (`CGPreflightScreenCaptureAccess`). Never requests access.
     private(set) var permissionGranted = false
+    /// The permission warning (dot, "Allow Screen Recording…") shows while preflight says no, and after a
+    /// capture failed for lack of permission (`RuntimeStatus.screenRecordingRevoked`) until a capture
+    /// succeeds or Margin relaunches: preflight is cached per process and often still says yes.
+    var needsPermission: Bool { !permissionGranted || RuntimeStatus.shared.screenRecordingRevoked }
 
     // Save pipeline state (see AppCoordinator+Save.swift).
     /// Every path handed to the shelf this session, so two captures in the same second never get
@@ -37,11 +41,20 @@ final class AppCoordinator {
     /// Timings of the most recent capture, for the log and the DEBUG state dump.
     var lastTimings: Timings?
     var lastSavedPath: String?
+    /// Captures whose PNG (and clipboard copy) hasn't finished yet. Quitting waits for them.
+    var savesInFlight = 0
+    /// Quit was asked for while saves were in flight; `applicationShouldTerminate` answered `.terminateLater`.
+    private(set) var isTerminating = false
+    private var terminationReplied = false
+    /// The longest a quit waits for in-flight saves.
+    static let terminationTimeout: TimeInterval = 3
     /// The last action a global hotkey fired (for the DEBUG state dump).
     private(set) var lastHotkeyAction: ShortcutAction?
     var hotkeyRegistrations: [(binding: HotkeyCenter.Binding, status: OSStatus)] {
         hotkeys?.registrationSummary ?? []
     }
+    /// Shortcuts that didn't register (also in `RuntimeStatus.hotkeyFailures`), for the menu bar warning.
+    var hotkeyFailures: [HotkeyCenter.Failure] { hotkeys?.failures ?? [] }
 
     init() {
         store = ShelfStore(fileURL: ShelfStore.defaultFileURL)
@@ -55,7 +68,7 @@ final class AppCoordinator {
         shelf.restore()
 
         capture.onCapture = { [weak self] result in self?.handleCapture(result) }
-        capture.onPermissionMissing = { [weak self] in self?.permissionMissing() }
+        capture.onPermissionMissing = { [weak self] in self?.captureLostPermission() }
         shelf.onCopied = { [weak self] id, changeCount in self?.shelfDidCopy(id, changeCount: changeCount) }
         shelf.onRemoved = { [weak self] ids in self?.shelfDidRemove(ids) }
         FirstRunWindowController.shared.onRelaunch = { [weak self] in self?.relaunch() }
@@ -67,11 +80,14 @@ final class AppCoordinator {
             self?.lastHotkeyAction = action
             self?.perform(action)
         }
-        hotkeys.start()
+        // Assigned before `start()`, so the menu can read the failures when the first registration posts them.
         self.hotkeys = hotkeys
+        hotkeys.start()
 
         permissionGranted = CGPreflightScreenCaptureAccess()
-        menuBar.setWarning(!permissionGranted)
+        menuBar.setWarning(needsPermission)
+        // The welcome window only when there's something to do: first run unfinished or no permission.
+        // (macOS shortcuts still enabled after that are offered from the menu: "macOS still uses ⇧⌘4 — Fix…".)
         if !prefs.firstRunDone || !permissionGranted {
             FirstRunWindowController.shared.show()
         }
@@ -99,10 +115,44 @@ final class AppCoordinator {
         pasteboardTimer = nil
     }
 
+    /// `applicationShouldTerminate`: a capture whose PNG is still being written would be lost (or left as a
+    /// hidden temp file), so wait for in-flight saves, at most `terminationTimeout`, then let the quit go on.
+    func shouldTerminate() -> NSApplication.TerminateReply {
+        guard savesInFlight > 0 else { return .terminateNow }
+        guard !isTerminating else { return .terminateLater } // asked again while already waiting
+        isTerminating = true
+        Self.log.notice("Quit: waiting for \(self.savesInFlight) capture(s) to finish saving")
+        // Until the reply, AppKit runs the main run loop in NSModalPanelRunLoopMode. Save completions hop to
+        // the main actor through the main queue, which that mode services: unless `terminate` was called
+        // from inside a main-queue block, which then can't be re-entered. So the timeout is a run-loop timer
+        // in the common modes, not `asyncAfter`: it fires either way, and a quit never hangs.
+        let timeout = Timer(timeInterval: Self.terminationTimeout, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, !self.terminationReplied else { return }
+                Self.log.error("Quit: \(self.savesInFlight) capture(s) still saving after the timeout; quitting anyway")
+                self.replyToTermination()
+            }
+        }
+        RunLoop.main.add(timeout, forMode: .common)
+        return .terminateLater
+    }
+
+    /// Called by the save pipeline when a capture's save finished (or failed).
+    func saveFinished() {
+        savesInFlight = max(0, savesInFlight - 1)
+        if isTerminating, savesInFlight == 0 { replyToTermination() }
+    }
+
+    private func replyToTermination() {
+        guard isTerminating, !terminationReplied else { return }
+        terminationReplied = true
+        NSApp.reply(toApplicationShouldTerminate: true)
+    }
+
     /// Margin was opened again while running: show whatever needs attention, otherwise Settings.
     func handleReopen() {
         refreshPermission()
-        if !permissionGranted {
+        if needsPermission {
             showPermissionStep()
         } else {
             showSettings()
@@ -150,17 +200,27 @@ final class AppCoordinator {
 
     func toggleShelf() { shelf.toggleTucked() }
 
+    /// Menu "Restore Last Removed": the shelf's ⌘Z, for when the shelf isn't key.
+    // TODO(after merge): switch to the Shelf's no-beep menu variant, `shelf.undo(fromMenu: true)`.
+    func restoreLastRemoved() { shelf.undo() }
+
     /// DEBUG `clear`: everything off the shelf (undoable).
     func clearShelf() { shelf.clear() }
 
+    /// Creates the folder if it's missing, then opens it in Finder. The first touch of ~/Desktop can block
+    /// on the Desktop-folder privacy prompt, so the file system is only touched off the main actor.
     func openScreenshotsFolder() {
         let folder = prefs.saveFolder
-        do {
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        } catch {
-            Self.log.error("Can't create the screenshots folder: \(error.localizedDescription, privacy: .public)")
+        Task.detached(priority: .userInitiated) {
+            do {
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            } catch {
+                Self.log.error("Can't create the screenshots folder: \(error.localizedDescription, privacy: .public)")
+            }
+            await MainActor.run {
+                if !NSWorkspace.shared.open(folder) { NSSound.beep() }
+            }
         }
-        if !NSWorkspace.shared.open(folder) { NSSound.beep() }
     }
 
     func showSettings() {
@@ -178,6 +238,12 @@ final class AppCoordinator {
         FirstRunWindowController.shared.show(step: .permission)
     }
 
+    /// Menu "macOS still uses ⇧⌘4 — Fix…": First run step 2, the live checklist of macOS's shortcuts.
+    func showShortcutsStep() {
+        NSApp.activate()
+        FirstRunWindowController.shared.show(step: .shortcuts)
+    }
+
     func quit() { NSApp.terminate(nil) }
 
     var isShelfTucked: Bool { shelf.isTucked }
@@ -185,8 +251,10 @@ final class AppCoordinator {
     // MARK: - Permission
 
     /// Never prompts: without permission, show First run step 1 instead of touching ScreenCaptureKit.
+    /// After a capture failed for lack of permission, captures are still attempted while preflight says
+    /// yes: the user may have granted it again, and only a capture that works can clear the warning.
     private func canStartCapture() -> Bool {
-        if capture.isCapturing { return false }
+        if capture.isCapturing || isTerminating { return false }
         if !permissionGranted { refreshPermission() }
         guard permissionGranted else {
             permissionMissing()
@@ -195,23 +263,43 @@ final class AppCoordinator {
         return true
     }
 
-    /// Re-reads the permission. Called once a second while it's missing, and when the menu opens.
+    /// Re-reads the permission. Called once a second while the warning shows, and when the menu opens.
+    /// A yes from preflight doesn't clear a revoked permission (see `needsPermission`).
     func refreshPermission() {
         let granted = CGPreflightScreenCaptureAccess()
-        guard granted != permissionGranted else { return }
-        permissionGranted = granted
-        menuBar?.setWarning(!granted)
-        if granted {
-            Self.log.notice("Screen Recording permission granted")
-            Task { await capture.prewarm() }
+        if granted != permissionGranted {
+            permissionGranted = granted
+            if granted {
+                Self.log.notice("Screen Recording permission granted")
+                Task { await capture.prewarm() }
+            }
         }
+        // Only on a change: this runs every second, and rebuilding an open menu would reset it.
+        if let menuBar, menuBar.showsWarning != needsPermission { menuBar.setWarning(needsPermission) }
     }
 
+    /// Preflight says no: show First run step 1.
     private func permissionMissing() {
         Self.log.notice("Screen Recording permission missing")
-        permissionGranted = false
         menuBar?.setWarning(true)
         showPermissionStep()
+    }
+
+    /// A capture failed because Screen Recording permission is missing (revoked while running, usually).
+    /// `permissionGranted` keeps following preflight; the revoked flag holds the warning until a capture
+    /// succeeds or Margin relaunches.
+    private func captureLostPermission() {
+        RuntimeStatus.shared.screenRecordingRevoked = true
+        permissionMissing()
+    }
+
+    /// Called for every successful capture: Screen Recording evidently works.
+    func screenRecordingWorked() {
+        guard needsPermission else { return }
+        Self.log.notice("Capture succeeded: Screen Recording permission works")
+        permissionGranted = true
+        RuntimeStatus.shared.screenRecordingRevoked = false
+        menuBar?.setWarning(false)
     }
 
     // MARK: - ⌘V mark
@@ -220,7 +308,7 @@ final class AppCoordinator {
         if mark.observe(changeCount: NSPasteboard.general.changeCount) {
             shelf.setClipboardMark(nil)
         }
-        if !permissionGranted { refreshPermission() }
+        if needsPermission { refreshPermission() }
     }
 
     private func shelfDidCopy(_ id: UUID, changeCount: Int) {
@@ -236,17 +324,24 @@ final class AppCoordinator {
 
     // MARK: - Relaunch, login item
 
-    /// First run's "Relaunch Margin": start a fresh copy once this one has quit, then quit.
-    private func relaunch() {
+    /// "Relaunch Margin" (First run, and the menu while permission is revoked): start a fresh copy once
+    /// this one has quit, then quit.
+    func relaunch() {
         let bundlePath = Bundle.main.bundlePath
         guard bundlePath.hasSuffix(".app") else {
             Self.log.error("Relaunch needs an app bundle; quitting instead")
             NSApp.terminate(nil)
             return
         }
+        // Wait for this process to exit (quitting can wait up to `terminationTimeout` for saves), at most
+        // 10 s, then open the app. Not `open -n`: that would start a second copy if this one were stuck.
+        let script = """
+            i=0; while /bin/kill -0 "$2" 2>/dev/null && [ "$i" -lt 100 ]; do /bin/sleep 0.1; i=$((i+1)); done
+            /usr/bin/open "$1"
+            """
         let shell = Process()
         shell.executableURL = URL(fileURLWithPath: "/bin/sh")
-        shell.arguments = ["-c", "sleep 0.7; /usr/bin/open -n \"$1\"", "margin-relaunch", bundlePath]
+        shell.arguments = ["-c", script, "margin-relaunch", bundlePath, String(ProcessInfo.processInfo.processIdentifier)]
         do {
             try shell.run()
         } catch {

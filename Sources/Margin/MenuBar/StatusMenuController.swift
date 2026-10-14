@@ -2,7 +2,7 @@ import AppKit
 import MarginKit
 
 /// The menu bar icon and its menu (spec §6). Rebuilt each time it opens, so shortcuts, the shelf's
-/// tuck state and the permission warning are always current.
+/// tuck state and the warnings are always current.
 @MainActor
 final class StatusMenuController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
@@ -11,6 +11,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private let warningDot = WarningDotView(frame: NSRect(x: 0, y: 0, width: dotDiameter, height: dotDiameter))
     private let glyph: NSImage
     private let badgedGlyph: NSImage
+    private var observers: [NSObjectProtocol] = []
     private(set) var showsWarning = false
 
     private static let dotDiameter: CGFloat = 6
@@ -39,18 +40,53 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.delegate = self
         menu.autoenablesItems = false
         statusItem.menu = menu
-        rebuild()
+        // Hotkey failures can change while the menu is closed (Settings re-registers them).
+        observers.append(NotificationCenter.default.addObserver(
+            forName: RuntimeStatus.didChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refresh() }
+        })
+        refresh()
     }
 
     /// Screen Recording missing: a dot on the icon, and the first item becomes "Allow Screen Recording…".
     func setWarning(_ on: Bool) {
         showsWarning = on
-        statusItem.button?.image = on ? badgedGlyph : glyph
-        warningDot.isHidden = !on
+        refresh()
+    }
+
+    /// Redraws the icon (a dot when something needs attention) and rebuilds the menu.
+    private func refresh() {
+        let hotkeyWarning = Self.hotkeyWarning(coordinator?.hotkeyFailures ?? [])
+        let attention = showsWarning || hotkeyWarning != nil
+        statusItem.button?.image = attention ? badgedGlyph : glyph
+        warningDot.isHidden = !attention
         layoutWarningDot()
-        statusItem.button?.toolTip = on ? "Margin — Screen Recording permission needed" : "Margin"
-        statusItem.button?.setAccessibilityLabel(statusItem.button?.toolTip)
+        let tip: String
+        if showsWarning {
+            tip = "Margin — Screen Recording permission needed"
+        } else if let hotkeyWarning {
+            tip = "Margin — \(hotkeyWarning)"
+        } else {
+            tip = "Margin"
+        }
+        statusItem.button?.toolTip = tip
+        statusItem.button?.setAccessibilityLabel(tip)
         rebuild()
+    }
+
+    /// "⇧⌘4 is used by another app", or nil when every shortcut registered.
+    static func hotkeyWarning(_ failures: [HotkeyCenter.Failure]) -> String? {
+        guard !failures.isEmpty else { return nil }
+        let keys = ListFormatter.localizedString(byJoining: failures.map(\.binding.combo.displayString))
+        let one = failures.count == 1
+        if failures.allSatisfy({ $0.reason == .taken }) {
+            return one ? "\(keys) is used by another app" : "\(keys) are used by other apps"
+        }
+        if failures.allSatisfy({ $0.reason == .duplicate }) {
+            return one ? "\(keys) is set for two actions" : "\(keys) are set for two actions"
+        }
+        return one ? "\(keys) isn't available" : "\(keys) aren't available"
     }
 
     /// The glyph with a transparent ring where the dot sits, so the badge reads as separate.
@@ -87,7 +123,22 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         coordinator?.refreshPermission()
+        // Re-read the macOS screenshot shortcuts only here, when someone is about to look (no timer).
+        systemConflicts = SystemShortcuts.conflicts(
+            SystemShortcuts.current(), with: Preferences.shared.registeredCombos().map(\.combo))
         rebuild()
+    }
+
+    /// The enabled macOS screenshot shortcuts that take one of Margin's combos first, as of the last menu open.
+    private var systemConflicts: [SystemScreenshotShortcut] = []
+
+    /// "macOS still uses ⇧⌘4 — Fix…", or nil when macOS has handed over every combo Margin uses.
+    static func systemConflictTitle(_ conflicts: [SystemScreenshotShortcut]) -> String? {
+        switch conflicts.count {
+        case 0: return nil
+        case 1, 2: return "macOS still uses \(ListFormatter.localizedString(byJoining: conflicts.map(\.keys))) — Fix…"
+        default: return "macOS still uses \(conflicts.count) of Margin's shortcuts — Fix…"
+        }
     }
 
     // MARK: - Building
@@ -96,8 +147,17 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         let prefs = Preferences.shared
 
+        if let warning = Self.hotkeyWarning(coordinator?.hotkeyFailures ?? []) {
+            menu.addItem(item("\(warning) — Change in Settings…", symbol: "exclamationmark.triangle",
+                              action: #selector(openSettings)))
+            menu.addItem(.separator())
+        }
         if showsWarning {
             menu.addItem(item("Allow Screen Recording…", symbol: "exclamationmark.triangle", action: #selector(allowScreenRecording)))
+            // Revoked while running: macOS usually only hands the permission back to a fresh process.
+            if RuntimeStatus.shared.screenRecordingRevoked {
+                menu.addItem(item("Relaunch Margin", symbol: "arrow.triangle.2.circlepath", action: #selector(relaunch)))
+            }
         } else {
             menu.addItem(item("Capture Area", symbol: "rectangle.dashed", action: #selector(captureArea),
                               combo: prefs.shortcut(for: .captureArea)))
@@ -111,8 +171,14 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         let tucked = coordinator?.isShelfTucked ?? false
         menu.addItem(item(tucked ? "Show Shelf" : "Tuck Shelf", symbol: "sidebar.right", action: #selector(toggleShelf),
                           combo: prefs.shortcut(for: .toggleShelf)))
+        menu.addItem(item("Restore Last Removed", symbol: "arrow.uturn.backward", action: #selector(restoreLastRemoved)))
         menu.addItem(item("Open Screenshots Folder", symbol: "folder", action: #selector(openFolder)))
         menu.addItem(.separator())
+        // Quiet: no warning symbol or dot. The welcome window closes after the first shot, so this is how
+        // someone who skipped step 2 finds it again.
+        if let title = Self.systemConflictTitle(systemConflicts) {
+            menu.addItem(item(title, symbol: "keyboard", action: #selector(fixShortcuts)))
+        }
         let settings = item("Settings…", symbol: "gearshape", action: #selector(openSettings))
         settings.keyEquivalent = ","
         settings.keyEquivalentModifierMask = .command
@@ -150,13 +216,16 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     }
 
     @objc private func allowScreenRecording() { coordinator?.showPermissionStep() }
+    @objc private func relaunch() { coordinator?.relaunch() }
     @objc private func captureArea() { afterMenuCloses { [weak self] in self?.coordinator?.captureArea() } }
     @objc private func captureWindow() { afterMenuCloses { [weak self] in self?.coordinator?.captureWindow() } }
     @objc private func captureScreen() { afterMenuCloses { [weak self] in self?.coordinator?.captureScreen() } }
     @objc private func repeatArea() { afterMenuCloses { [weak self] in self?.coordinator?.repeatArea() } }
     @objc private func toggleShelf() { coordinator?.toggleShelf() }
+    @objc private func restoreLastRemoved() { coordinator?.restoreLastRemoved() }
     @objc private func openFolder() { coordinator?.openScreenshotsFolder() }
     @objc private func openSettings() { coordinator?.showSettings() }
+    @objc private func fixShortcuts() { coordinator?.showShortcutsStep() }
     @objc private func about() { coordinator?.showAbout() }
     @objc private func quit() { coordinator?.quit() }
 }

@@ -11,6 +11,7 @@ Before starting: turn off the four macOS screenshot shortcuts (System Settings �
 - [ ] No Dock icon; the menu bar icon appears
 - [ ] `scripts/test.sh` passes
 - [ ] `scripts/build.sh --zip` writes `dist/Margin-0.0.1.zip`, and the unzipped app launches
+- [ ] `scripts/build.sh --debug --zip` refuses (exit 2) before building; `--debug --install` prints the DEBUG-build warning banner before the build and again at the end
 
 ## Capture: shortcuts (§2)
 
@@ -56,6 +57,7 @@ Before starting: turn off the four macOS screenshot shortcuts (System Settings �
 - [ ] Two captures in the same second get ` (2)`, ` (3)` names
 - [ ] The PNG keeps the display's colour profile and has DPI 144 on Retina (`sips -g dpiWidth`)
 - [ ] No app ever sees a half-written file (no `.margin-*.tmp` left behind)
+- [ ] Quitting right after a capture (⌘⇧3, then Quit at once, or `osascript -e 'quit app "Margin"'`) waits for the save: the PNG is in the folder, the card is back after relaunch, and the quit never takes more than about 3 s
 - [ ] An unwritable save folder saves to `~/Library/Application Support/Margin/Unsaved/` and shows the toast "Saved to Unsaved — folder not writable"
 - [ ] The clipboard holds the image (same bytes as the file) with the same image types as `screencapture -c`, and no file URL
 - [ ] "Copy each capture" off: the clipboard is untouched
@@ -106,6 +108,8 @@ Check `log stream --predicate 'subsystem == "io.github.jenish-shobhit.margin" AN
 - [ ] Double-click opens the file in the default app
 - [ ] ••• and right-click offer Copy path · Reveal in Finder · Rename… (renames on disk) · Move to Trash
 - [ ] ⌘Z restores the last removed card(s), up to 20 steps: drag-out, dismiss, clear and trash (the file comes back from the Trash)
+- [ ] Rename field: ⌘X ⌘C ⌘V ⌘A edit the text, ⌘Z undoes typing and ⇧⌘Z redoes it; none of them reach the shelf (⌘Z while renaming never brings back a card)
+- [ ] After clicking a card (shelf key, another app frontmost), ⌘Q does not quit Margin and ⌘W does not close anything; with Settings in front, ⌘Q quits and ⌘W closes the window
 - [ ] A drag never deletes or moves the file
 - [ ] The ⌘V pill sits on the card whose image is on the clipboard
 - [ ] Copying something else clears the ⌘V mark within about a second
@@ -147,6 +151,7 @@ Check `log stream --predicate 'subsystem == "io.github.jenish-shobhit.margin" AN
 - [ ] Switching Spaces: the shelf stays on every Space
 - [ ] Sleep/wake: hotkeys, shelf and capture still work afterwards
 - [ ] Revoking Screen Recording while running: the next capture shows First run step 1 and the menu bar warning dot, and nothing crashes
+- [ ] After that, the warning stays (it doesn't clear itself a second later, even though preflight is cached as granted): the menu shows "Allow Screen Recording…" and "Relaunch Margin" until a capture succeeds or Margin relaunches. `dump-state` shows `permission.revoked: true`. Relaunch Margin quits and reopens it, with only one copy running afterwards
 - [ ] A 50-item shelf stays responsive
 
 ## Appearance and accessibility
@@ -159,17 +164,20 @@ Check `log stream --predicate 'subsystem == "io.github.jenish-shobhit.margin" AN
 ## Menu bar (§6)
 
 - [ ] The template icon follows the menu bar's appearance
-- [ ] Items: Capture Area, Capture Window, Capture Screen, Repeat Last Area, Show/Tuck Shelf, Open Screenshots Folder, Settings…, About Margin 0.0.1, Quit
+- [ ] Items: Capture Area, Capture Window, Capture Screen, Repeat Last Area, Show/Tuck Shelf, Restore Last Removed, Open Screenshots Folder, Settings…, About Margin 0.0.1, Quit
+- [ ] Restore Last Removed brings back the last removed card(s) like ⌘Z on the shelf, without clicking the shelf first (dismiss, drag-out, clear, trash)
 - [ ] The shortcuts shown match Settings
 - [ ] Capture Window starts area capture (Space switches to window mode)
 - [ ] The menu itself never appears in a shot started from it
 - [ ] Open Screenshots Folder creates the folder if missing and opens it in Finder
 - [ ] About shows the icon, version 0.0.1 (1) and "© 2026 Jenish Shobhit · MIT License"
 - [ ] Without Screen Recording permission: a warning dot on the icon, and the first item reads "Allow Screen Recording…" and opens First run step 1
+- [ ] A shortcut that fails to register shows a warning dot, and the menu's top item names it and opens Settings, e.g. "⇧⌘4 and ⌃⇧⌘4 are set for two actions — Change in Settings…" (other failures read "… is used by another app" or "… isn't available"). To force one, quit Margin, run `defaults write io.github.jenish-shobhit.margin shortcut.repeatArea -data 7b226b6579436f6465223a32312c226d6f64696669657273223a3736387d` (Repeat area = ⇧⌘4), relaunch, then fix it in Settings: the warning goes away at once. `dump-state` lists each OSStatus under `hotkeys`
+- [ ] With a macOS screenshot shortcut still on that Margin also uses (e.g. only "Save picture of selected area as a file"): the menu shows a quiet "macOS still uses ⇧⌘4 — Fix…" above Settings (no dot), which opens First run at step 2. With three or more it reads "macOS still uses N of Margin's shortcuts — Fix…". Turn the shortcut off in System Settings, reopen the menu: the item is gone (checked each time the menu opens)
 
 ## First run (§7)
 
-- [ ] Shows on first launch and whenever permission is missing
+- [ ] Shows on first launch and whenever permission is missing; a later launch with first run done and permission granted shows no window, even if macOS still owns a shortcut (the menu's "Fix…" item covers that)
 - [ ] Step 1 requests access, deep-links to Screen & System Audio Recording, polls, and offers "Relaunch Margin" when needed; relaunch works
 - [ ] Step 2's checklist of the four macOS shortcuts updates live (missing entry = enabled); the button opens Keyboard Shortcuts; the ⌘⇧5 note shows
 - [ ] Step 3 says "Press ⌘⇧4" and mentions launch at login
@@ -182,4 +190,5 @@ Check `log stream --predicate 'subsystem == "io.github.jenish-shobhit.margin" AN
 - [ ] Exactly five settings: Save to, Copy each capture, Shutter sound, Launch at login, Shortcuts
 - [ ] Save to: the folder picker changes where the next capture lands
 - [ ] Launch at login: on by default, toggling registers/unregisters (System Settings › General › Login Items)
+- [ ] Launch at login shows what macOS has, not just the preference: remove Margin in System Settings › General › Login Items, reopen Settings, and the toggle (and `dump-state`'s `launchAtLogin.on`) reads off
 - [ ] Shortcut recorders for Area, Screen, Repeat area and Tuck shelf; recording the current shortcut works
