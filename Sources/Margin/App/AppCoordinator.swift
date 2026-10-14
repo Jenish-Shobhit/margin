@@ -156,14 +156,20 @@ final class AppCoordinator {
     /// DEBUG `clear`: everything off the shelf (undoable).
     func clearShelf() { shelf.clear() }
 
+    /// Creates the folder if it's missing, then opens it in Finder. The first touch of ~/Desktop can block
+    /// on the Desktop-folder privacy prompt, so the file system is only touched off the main actor.
     func openScreenshotsFolder() {
         let folder = prefs.saveFolder
-        do {
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        } catch {
-            Self.log.error("Can't create the screenshots folder: \(error.localizedDescription, privacy: .public)")
+        Task.detached(priority: .userInitiated) {
+            do {
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            } catch {
+                Self.log.error("Can't create the screenshots folder: \(error.localizedDescription, privacy: .public)")
+            }
+            await MainActor.run {
+                if !NSWorkspace.shared.open(folder) { NSSound.beep() }
+            }
         }
-        if !NSWorkspace.shared.open(folder) { NSSound.beep() }
     }
 
     func showSettings() {
