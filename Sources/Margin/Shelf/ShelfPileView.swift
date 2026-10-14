@@ -19,7 +19,7 @@ final class ShelfPileView: NSView {
         super.init(frame: frame)
         wantsLayer = true
         layer?.masksToBounds = false
-        back.alphaValue = 0.55
+        back.alphaValue = ShelfStyle.reduceTransparency ? 1 : 0.55
         addSubview(back)
         addSubview(front)
         label.font = .systemFont(ofSize: 11.5, weight: .semibold)
@@ -31,6 +31,7 @@ final class ShelfPileView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     func rebuildMaterial() {
+        back.alphaValue = ShelfStyle.reduceTransparency ? 1 : 0.55
         back.rebuild()
         front.rebuild()
         front.content.addSubview(label)
@@ -147,8 +148,8 @@ final class ShelfPileFanView: NSView {
         for image in images.prefix(3) {
             let m = CALayer.shelfQuiet()
             let aspect = CGFloat(image.height) / CGFloat(max(image.width, 1))
-            let w: CGFloat = 112
-            let h = min(max(w * aspect, 46), 76)
+            let w: CGFloat = 104
+            let h = min(max(w * aspect, 46), 66)
             m.bounds = CGRect(x: 0, y: 0, width: w, height: h)
             m.contents = image
             m.contentsGravity = .resizeAspectFill
@@ -175,12 +176,13 @@ final class ShelfPileFanView: NSView {
         // Pile occupies y 0...30 of this view, centered horizontally.
         let cx = bounds.midX
         let pileTop: CGFloat = 30
-        let spreads: [(dx: CGFloat, rot: CGFloat, rise: CGFloat)] = [(0, 0, 40), (-30, 7, 30), (30, -7, 30)]
+        // Bottoms stay behind the pile; the front card peeks highest, the others lean out.
+        let spreads: [(dx: CGFloat, rot: CGFloat, bottom: CGFloat)] = [(0, 0, 12), (-34, 6, 7), (34, -6, 7)]
         for (i, m) in minis.enumerated() {
             let s = spreads[i]
             let h = m.bounds.height
-            let hiddenPos = CGPoint(x: cx, y: pileTop - h / 2 - 2)
-            let shownPos = CGPoint(x: cx + s.dx, y: pileTop + s.rise - h / 2)
+            let shownPos = CGPoint(x: cx + s.dx, y: s.bottom + h / 2)
+            let hiddenPos = CGPoint(x: cx, y: pileTop - h / 2 + 4)
             let pos = fanned ? shownPos : hiddenPos
             var t = CATransform3DMakeRotation((fanned ? s.rot : 0) * .pi / 180, 0, 0, 1)
             if !fanned { t = CATransform3DScale(t, 0.85, 0.85, 1) }

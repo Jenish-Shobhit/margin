@@ -32,6 +32,8 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     private var isNew = false
     private var isLeaving = false
     private var placed = false
+    /// False until the card has been put in a slot once (a fresh card never animates in from nowhere).
+    var isPlaced: Bool { placed }
     private var swipeX: CGFloat = 0
     private var newRingTask: Task<Void, Never>?
     private var tracking: NSTrackingArea?

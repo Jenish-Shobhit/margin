@@ -58,7 +58,9 @@ final class ShelfRootView: NSView, QLPreviewPanelDataSource, QLPreviewPanelDeleg
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard let c = controller, window?.isKeyWindow == true, event.type == .keyDown else { return super.performKeyEquivalent(with: event) }
+        // While the rename field is editing, ⌘A/⌘C/⌘Z belong to the text.
+        guard let c = controller, window?.isKeyWindow == true, event.type == .keyDown,
+              !(window?.firstResponder is NSText) else { return super.performKeyEquivalent(with: event) }
         let mods = event.modifierFlags.intersection([.command, .shift, .option, .control])
         let key = event.charactersIgnoringModifiers?.lowercased()
         if mods == .command {

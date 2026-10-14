@@ -49,6 +49,8 @@ final class ShelfController: ShelfControlling {
     private var peekTask: Task<Void, Never>?
     private var peekPoll: Task<Void, Never>?
     private var hideTask: Task<Void, Never>?
+    /// After the user empties the shelf, the (invisible) panel stays a moment so ⌘Z can still reach it.
+    var lingerUntil = Date.distantPast
     private var observers: [NSObjectProtocol] = []
 
     init(store: ShelfStore) {
@@ -264,12 +266,14 @@ final class ShelfController: ShelfControlling {
                 card.setSlot(f.offsetBy(dx: ShelfStyle.leftPad, dy: 0), animated: animated)
             } else if let pf = pileFrame {
                 let park = CGRect(x: pf.minX, y: pf.midY - h / 2, width: ShelfLayout.cardWidth, height: h)
+                let fresh = !card.isPlaced
                 card.setSlot(park, animated: animated && !card.isInPile)
-                card.setInPile(true, animated: animated)
+                card.setInPile(true, animated: animated && !fresh)
             }
         }
         updatePile(pileFrame, animated: animated)
         tab.count = items.count - pendingTabArrivals
+        positionToast(animated: animated)
         updateVisibility()
     }
 
@@ -357,7 +361,8 @@ final class ShelfController: ShelfControlling {
         if store.items.isEmpty {
             guard panel.isVisible, toast.isHidden else { return }
             hideTask?.cancel()
-            hideTask = ShelfMotion.after(0.45) { [weak self] in
+            let delay = max(0.45, lingerUntil.timeIntervalSinceNow)
+            hideTask = ShelfMotion.after(delay) { [weak self] in
                 guard let self, self.store.items.isEmpty, self.toast.isHidden else { return }
                 self.panel.orderOut(nil)
             }
@@ -501,7 +506,8 @@ final class ShelfController: ShelfControlling {
         applyGeometry(deferShrink: false)
     }
 
-    private func positionToast() {
+    /// Keeps the toast just above the top card (or beside the tab while tucked).
+    private func positionToast(animated: Bool = false) {
         guard !toast.isHidden else { return }
         let anchorRight: CGFloat, bottom: CGFloat
         if isTucked && !isPeeking {
@@ -513,8 +519,12 @@ final class ShelfController: ShelfControlling {
             bottom = top + (layout.pileCount > 0 ? 14 : 10)
         }
         var f = toast.frame
+        let old = f.origin
         f.origin = CGPoint(x: anchorRight - f.width, y: bottom)
         toast.frame = f
+        if animated, let layer = toast.layer {
+            ShelfMotion.slide(layer, from: CGPoint(x: old.x - f.minX, y: old.y - f.minY))
+        }
     }
 
     private func toastDidHide() {

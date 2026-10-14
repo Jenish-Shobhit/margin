@@ -275,6 +275,7 @@ extension ShelfController {
         let removals = store.remove(ids: set)
         guard !removals.isEmpty else { return }
         undoStack.append(ShelfUndoStep(kind: kind, removals: removals, trashed: trashed, thumbnails: thumbs))
+        if store.items.isEmpty, panel.isKeyWindow { lingerUntil = Date().addingTimeInterval(3) }
         if undoStack.count > ShelfUndoStep.limit { undoStack.removeFirst(undoStack.count - ShelfUndoStep.limit) }
         detach(removals.map(\.item.id), exit: exit)
     }

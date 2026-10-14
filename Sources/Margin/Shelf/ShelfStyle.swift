@@ -22,8 +22,11 @@ enum ShelfStyle {
     /// rgba(28,28,32,.88) — hover chips.
     static let chip = NSColor(srgbRed: 28 / 255, green: 28 / 255, blue: 32 / 255, alpha: 0.88)
 
-    static var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
-    static var reduceTransparency: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency }
+    /// Overrides for QA (DEBUG hook / demo harness); nil follows System Settings › Accessibility.
+    static var reduceMotionOverride: Bool?
+    static var reduceTransparencyOverride: Bool?
+    static var reduceMotion: Bool { reduceMotionOverride ?? NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    static var reduceTransparency: Bool { reduceTransparencyOverride ?? NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency }
 
     static let metaFormatter: DateFormatter = {
         let f = DateFormatter()
