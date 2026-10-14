@@ -200,3 +200,60 @@ import Testing
         #expect(!s.snappedX && !s.snappedY)
     }
 }
+
+/// Snapping a drag's start point, which must stay on its display.
+@Suite struct GeometryBoundedSnapTests {
+    let display = CGRect(x: 0, y: 0, width: 1470, height: 956)
+
+    @Test func windowPastTheLeftEdgeDoesNotPullTheStartOff() {
+        let window = CGRect(x: -5, y: 100, width: 400, height: 300)
+        let start = CGPoint(x: 2, y: 250)
+        #expect(Geometry.snap(start, to: [window]).point.x == -5) // unbounded: off the display
+        let s = Geometry.snap(start, to: [window], within: display)
+        #expect(s.point == CGPoint(x: 0, y: 250))
+        #expect(!s.snappedX && !s.snappedY)
+    }
+
+    @Test func windowPastTheRightEdge() {
+        let window = CGRect(x: 1100, y: 100, width: 375, height: 300)
+        let s = Geometry.snap(CGPoint(x: 1468, y: 250), to: [window], within: display)
+        #expect(s.point == CGPoint(x: 1470, y: 250))
+        #expect(!s.snappedX)
+    }
+
+    @Test func windowPastTheBottomEdge() {
+        let window = CGRect(x: 100, y: -6, width: 400, height: 300)
+        let s = Geometry.snap(CGPoint(x: 250, y: 1), to: [window], within: display)
+        #expect(s.point == CGPoint(x: 250, y: 0))
+        #expect(!s.snappedY)
+    }
+
+    @Test func theOtherAxisStillSnaps() {
+        let window = CGRect(x: -5, y: 100, width: 400, height: 300)
+        let s = Geometry.snap(CGPoint(x: 3, y: 397), to: [window], within: display)
+        #expect(s.point == CGPoint(x: 0, y: 400))
+        #expect(!s.snappedX && s.snappedY)
+    }
+
+    @Test func windowEdgeOnTheDisplayEdgeCounts() {
+        let window = CGRect(x: 0, y: 0, width: 735, height: 956)
+        let s = Geometry.snap(CGPoint(x: 4, y: 500), to: [window], within: display)
+        #expect(s.point == CGPoint(x: 0, y: 500))
+        #expect(s.snappedX)
+    }
+
+    @Test func insideTheDisplayItMatchesTheUnboundedSnap() {
+        let window = CGRect(x: 100, y: 100, width: 400, height: 300)
+        let s = Geometry.snap(CGPoint(x: 495, y: 404), to: [window], within: display)
+        #expect(s.point == CGPoint(x: 500, y: 400))
+        #expect(s.snappedX && s.snappedY)
+    }
+
+    @Test func displayLeftOfThePrimary() {
+        let left = CGRect(x: -1920, y: -124, width: 1920, height: 1080)
+        let window = CGRect(x: -1926, y: 0, width: 800, height: 600)
+        let s = Geometry.snap(CGPoint(x: -1918, y: 300), to: [window], within: left)
+        #expect(s.point == CGPoint(x: -1920, y: 300))
+        #expect(!s.snappedX)
+    }
+}

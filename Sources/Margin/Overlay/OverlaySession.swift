@@ -187,7 +187,8 @@ final class OverlaySession {
         selectionDisplay = d
         prepareSnapping(on: d)
         var a = SelectionMath.align(SelectionMath.clamp(p, to: d.frame), in: d.frame, scale: scale(d))
-        let s = Geometry.snap(a, to: snapFrames)
+        // Kept on the display: a window hanging past its edge mustn't pull the start off it.
+        let s = Geometry.snap(a, to: snapFrames, within: d.frame)
         a = s.point
         anchorGuideX = s.snappedX ? a.x : nil
         anchorGuideY = s.snappedY ? a.y : nil
