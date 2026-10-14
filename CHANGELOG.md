@@ -2,6 +2,12 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.7 — 2026-10-14
+
+### Changed
+
+- The magnifier is off by default. Press Z during a capture to show or hide it (just for that capture); the hint bar lists "Z Magnifier".
+
 ## 0.0.6 — 2026-10-14
 
 ### Changed
