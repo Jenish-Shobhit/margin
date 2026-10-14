@@ -36,6 +36,16 @@ final class CaptureController: CaptureControlling {
     private var previousApp: NSRunningApplication?
     private var activatedForSession = false
     private var becameActiveDuringSession = false
+    /// When `takeFocus` last asked to activate Margin, and when AppKit's didBecomeActive said it had (`giveFocusBack`).
+    private var activation: (requested: ContinuousClock.Instant, landed: ContinuousClock.Instant?)?
+    /// The app a `giveFocusBack` that's still waiting will hand focus to. A capture started meanwhile takes it as its
+    /// own previous app (Margin is frontmost by then), so a quick second ⌘⇧4 still ends with focus back there.
+    private var pendingFocusReturn: NSRunningApplication?
+    /// The overlay's keys from the moment the capture starts, before it can be key (see `OverlayHotkeys`).
+    private lazy var hotkeys = OverlayHotkeys { [weak self] event in
+        guard let session = self?.session else { return }
+        if event.type == .keyDown { session.keyDown(event) } else { session.keyUp(event) }
+    }
     private var observers: [NSObjectProtocol] = []
     /// What `onFailure` says.
     private enum FailureText {
@@ -64,8 +74,13 @@ final class CaptureController: CaptureControlling {
         })
         observers.append(center.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, self.session != nil else { return }
+                guard let self else { return }
+                if self.activation?.landed == nil { self.activation?.landed = .now }
+                guard let session = self.session else { return }
                 self.becameActiveDuringSession = true
+                // Only the frontmost app may set the cursor, and a cursor set while activation is still under way is
+                // dropped: set the crosshair again now, or it shows only once the mouse moves.
+                session.updateCursor()
             }
         })
         observers.append(center.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
@@ -74,6 +89,38 @@ final class CaptureController: CaptureControlling {
                 guard let self, self.session != nil, self.becameActiveDuringSession else { return }
                 CaptureLog.capture.info("app resigned active: cancelling the overlay")
                 self.endSession(restoreFocus: false)
+            }
+        })
+        let workspace = NSWorkspace.shared.notificationCenter
+        // The frozen frame no longer matches the screen: another Space came forward (the panels join every Space, so
+        // the old one's frame would sit over it), the Mac or its displays went to sleep, or another user took over.
+        // Focus goes back after sleep. Not after a Space switch, which would switch back: the app in front on the new
+        // Space gets it instead (unless one of Margin's own windows is key there), as it would without the overlay.
+        for (name, restoreFocus) in [
+            (NSWorkspace.activeSpaceDidChangeNotification, false),
+            (NSWorkspace.willSleepNotification, true),
+            (NSWorkspace.screensDidSleepNotification, true),
+            (NSWorkspace.sessionDidResignActiveNotification, false),
+        ] {
+            observers.append(workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, self.session != nil else { return }
+                    CaptureLog.capture.info("\(name.rawValue, privacy: .public): cancelling the overlay")
+                    let activated = self.activatedForSession
+                    self.endSession(restoreFocus: restoreFocus)
+                    if !restoreFocus, activated, NSApp.keyWindow == nil {
+                        self.giveFocusBack(to: Self.frontmostWindowOwner())
+                    }
+                }
+            })
+        }
+        observers.append(workspace.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] note in
+            let pid = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier
+            MainActor.assumeIsolated {
+                // Margin is frontmost: the crosshair again, as soon as it can be (didBecomeActive sets it once more
+                // when AppKit is done, which can reset it).
+                guard let self, pid == ProcessInfo.processInfo.processIdentifier else { return }
+                self.session?.updateCursor()
             }
         })
     }
@@ -129,6 +176,10 @@ final class CaptureController: CaptureControlling {
         // freeze down the cold path.
         let grab = Self.frameGrabber()
         let early = cache.needsRefresh(for: displays) ? nil : Self.captureAll(jobs(for: displays), grab: grab)
+        // The overlay can be key only with the first frame; until then its keys would reach the frontmost app (Space
+        // typed into a document, Esc taking a full-screen app out of full screen). Caught as hotkeys instead, from
+        // before the panels go up: the sooner, the better.
+        hotkeys.register()
 
         pool.sync()
         let session = OverlaySession(panels: pool.panels(for: displays), cache: cache, mode: mode,
@@ -141,7 +192,8 @@ final class CaptureController: CaptureControlling {
         }
         session.onCancel = { [weak self] in self?.endSession() }
         self.session = session
-        previousApp = NSWorkspace.shared.frontmostApplication
+        previousApp = pendingFocusReturn ?? NSWorkspace.shared.frontmostApplication
+        pendingFocusReturn = nil
         activatedForSession = false
         becameActiveDuringSession = false
         session.show()
@@ -173,7 +225,6 @@ final class CaptureController: CaptureControlling {
                 self.onFailure?(FailureText.screen)
             } else if session.abandonPendingDisplays() > 0 {
                 CaptureLog.capture.error("freeze: a display gave no frame in 3 s; dimmed")
-                self.refreshWindows(for: session)
             }
         }
 
@@ -188,12 +239,15 @@ final class CaptureController: CaptureControlling {
                 return
             }
             guard self.session === session else { return }
+            session.windowsDidRefresh()
             stream = Self.captureAll(jobs(for: displays), grab: grab)
         }
         guard let stream else { return }
 
         var first = true
         var firstError: (any Error)?
+        // The cold path's fetch already has fresh windows.
+        var windowsRequested = early == nil
         for await frame in stream {
             guard self.session === session else { return }
             switch frame.result {
@@ -206,8 +260,16 @@ final class CaptureController: CaptureControlling {
                 }
                 timings.record("freezeCapture.\(frame.displayID)", frame.ms)
                 permissionWorked()
-                // Keys (Esc, Space) work from the first frozen display on, not after the slowest one. Every
-                // capture was already requested, so activating can change at most a display still in flight.
+                // Windows may have moved, opened or closed since the last refresh: fetch them for snapping and window
+                // mode as soon as one display is frozen, not after the slowest. Not before: a fetch alongside the
+                // start of the captures slows them by about 20 ms.
+                if !windowsRequested {
+                    windowsRequested = true
+                    refreshWindows(for: session)
+                }
+                // The overlay takes the keyboard from the first frozen display on, not after the slowest one (until
+                // then `OverlayHotkeys` stand in). Not sooner: the frontmost window would lose its focused look in
+                // the frame. Every capture was already requested, so this can change at most a display still in flight.
                 if !activatedForSession { takeFocus(session) }
             case let .failure(error):
                 // Permission is all or nothing; any other failure costs only that display.
@@ -226,26 +288,57 @@ final class CaptureController: CaptureControlling {
             fail(firstError ?? CaptureError.noImage, session: session, message: FailureText.screen)
             return
         }
-        refreshWindows(for: session)
     }
 
-    /// Window frames may have moved since the last refresh: update them for snapping and window mode.
+    /// Fetches the windows for snapping and window mode, then hands them to the session (whether or not the fetch
+    /// worked: the session must stop waiting for them either way).
     private func refreshWindows(for session: OverlaySession) {
         Task { [weak self] in
-            try? await self?.cache.refresh()
+            try? await self?.cache.refresh(onScreenOnly: true)
             guard let self, self.session === session else { return }
             session.windowsDidRefresh()
         }
     }
 
-    /// Activates Margin and makes the overlay key, so Esc, Space and the arrows reach it.
+    /// Makes the overlay key, so the arrows (with key repeat), ⇧ and ⌥ reach it, and activates Margin.
     private func takeFocus(_ session: OverlaySession) {
+        let clock = Stopwatch()
         // Already active (Settings or Welcome in front): no didBecomeActive will arrive, but losing activation
         // from here on (⌘Tab) must still cancel, or the frozen screen stays up with no keyboard.
         if NSApp.isActive { becameActiveDuringSession = true }
-        NSApp.activate()
+        // Key first: the non-activating panel gets keys at once. Then activate: only the frontmost app may set the
+        // cursor (the crosshair is set again once that lands, see `init`).
         session.makeKey()
+        hotkeys.overlayIsKey()
+        activation = NSRunningApplication.current.isActive ? nil : (requested: .now, landed: nil)
+        NSApp.activate()
         activatedForSession = true
+        timings.record("takeFocus", clock.ms)
+    }
+
+    /// Gives focus back to `previous`, the app that had it before the overlay. Not while Margin's own activation is
+    /// still landing (Esc pressed with the first frame): handed back before that app has taken in its own
+    /// deactivation, it's left active without its key window, and typing goes nowhere until a click. So it waits for
+    /// AppKit's didBecomeActive (at most 300 ms) and then 60 ms more; a capture that ends later gives it back at once.
+    private func giveFocusBack(to previous: NSRunningApplication?) {
+        let settle = Duration.milliseconds(60)
+        // Margin was frontmost already, or its activation landed a while ago.
+        let settled = activation.map { a in a.landed.map { ContinuousClock.now - $0 >= settle } ?? false } ?? true
+        guard let previous, let requested = activation?.requested, !settled else {
+            Self.restoreFocus(to: previous)
+            return
+        }
+        pendingFocusReturn = previous
+        Task { [weak self] in
+            while self?.activation?.landed == nil, ContinuousClock.now - requested < .milliseconds(300) {
+                try? await Task.sleep(for: .milliseconds(5))
+            }
+            if let landed = self?.activation?.landed { try? await Task.sleep(until: landed + settle) }
+            // A capture started since then has taken it over (`begin`).
+            guard let self, self.pendingFocusReturn === previous else { return }
+            self.pendingFocusReturn = nil
+            if self.session == nil { Self.restoreFocus(to: previous) }
+        }
     }
 
     /// Captures every display in parallel; yields frames, or why one failed, as they finish.
@@ -309,7 +402,7 @@ final class CaptureController: CaptureControlling {
             }
             // Focus goes back only now: AppKit's deactivation work holds the main actor for ~15 ms, which
             // would otherwise sit between the crop and the hand-off to the shelf.
-            Self.restoreFocus(to: previous)
+            giveFocusBack(to: previous)
         }
     }
 
@@ -460,6 +553,19 @@ final class CaptureController: CaptureControlling {
         }
     }
 
+    /// The app that owns the frontmost ordinary window on screen (on the current Space), Margin aside.
+    private static func frontmostWindowOwner() -> NSRunningApplication? {
+        let me = ProcessInfo.processInfo.processIdentifier
+        let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        for info in list {
+            guard (info[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+                  (info[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1 > 0,
+                  let pid = (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value, pid != me else { continue }
+            return NSRunningApplication(processIdentifier: pid)
+        }
+        return nil
+    }
+
     /// Gives activation back to the app that had it before the overlay.
     private static func restoreFocus(to previous: NSRunningApplication?) {
         guard let previous, previous.processIdentifier != ProcessInfo.processInfo.processIdentifier,
@@ -472,9 +578,10 @@ final class CaptureController: CaptureControlling {
     private func endSession(restoreFocus: Bool = true) {
         guard let s = session else { return }
         session = nil
+        hotkeys.unregister()
         s.close()
         if activatedForSession, restoreFocus {
-            Self.restoreFocus(to: previousApp)
+            giveFocusBack(to: previousApp)
         }
         activatedForSession = false
         becameActiveDuringSession = false

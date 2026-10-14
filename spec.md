@@ -62,11 +62,14 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 
 ### Freeze (area mode)
 1. On the hotkey, **immediately** show a transparent full-screen overlay on every display and switch the cursor to a crosshair. The overlay is one borderless `NSPanel` per display at level `.screenSaver + 1`, on all Spaces, `.fullScreenAuxiliary`.
+   - The overlay's keys work from the hotkey on, never reaching the app in front: until the first frame is frozen they're caught as Carbon hotkeys (Esc, Space, ↩, ⌤, Z, arrows, with any of ⇧ ⌥ ⌃). Only then does the overlay become key and Margin activate (the crosshair needs it): sooner, the frontmost window would lose its focused look in the frozen frame. When the capture ends, that app gets its focus back as it was.
 2. In parallel (a `TaskGroup`), capture every display with `SCScreenshotManager.captureImage(contentFilter:configuration:)`.
    - Filter: `SCContentFilter(display:excludingApplications:[Margin]…)`.
    - Configuration: full pixel size via `SCShareableContent.info(for:).pointPixelScale`, `showsCursor = false`, best resolution.
-   - When each image arrives, draw it into that display's overlay. Margin's own windows are excluded from the capture, so overlay order doesn't matter and nothing visibly jumps.
+   - When each image arrives, draw it into that display's overlay. Margin's capture UI (overlay, shelf, fly-in, toasts, outline, menus) is excluded from the capture, so overlay order doesn't matter and nothing visibly jumps.
+   - Margin's ordinary windows (Settings, First run, About, open panels) are `exceptingWindows`, so they appear in shots and window mode like any app's: everything of Margin's below the pop-up menu level. A window opened since the last cache refresh is left out until the refresh it triggers (≈ 0.2 s).
 3. Keep `SCShareableContent` cached and **prewarm** at launch with one tiny capture. Refresh the cache on display or app changes, never on the hotkey path (unless a display is new, or changed size or scale, since the last refresh: its cached target would capture at the old size).
+   - The window list (snapping, window mode) is refreshed for every ⌘⇧4, with on-screen windows only, as soon as the first display is frozen (fetching while the captures start slows them by about 20 ms). A selection being drawn re-snaps to it when it lands, and a window-mode click that comes first waits for it, so it never picks from the old list.
 
 ### Selecting
 - Drag to select. **Releasing the mouse captures immediately.**
@@ -82,7 +85,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 - **Loupe** (since 0.0.7: off by default, Z toggles it for the current capture). An 11×11 pixel grid that follows the cursor, with a label `x, y · #RRGGBB`. Pixel coordinates are display-local.
 - **HUD hint bar** at the top center: Space Window · ⇧ Square · ⌥ From center · ←↑→↓ Nudge · ↩ Capture · Esc Cancel. It always shows, unless **Show key hints while capturing** is off in Settings.
 - **Esc cancels.** Nothing is saved, no sound plays, and the clipboard is unchanged.
-- A display change during selection cancels.
+- A display change during selection cancels, and so do a Space switch, the Mac or its displays going to sleep, and a switch to another user: the frozen frame no longer matches the screen. After a Space switch, focus goes to the app in front on the new Space rather than back to the old one.
 
 ### Window mode
 - Space (from area mode) toggles it.

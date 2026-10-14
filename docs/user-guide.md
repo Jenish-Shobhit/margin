@@ -99,7 +99,7 @@ While dragging:
 
 **Hint bar.** A bar at the top of the screen lists the keys (turn it off with Settings › Show key hints while capturing): Space Window, ⇧ Square, ⌥ From center, ←↑→↓ Nudge, Z Magnifier, ↩ Capture, Esc Cancel. The key you're holding is highlighted. While you drag, "Space Window" becomes "Space Move". The bar steps aside if your selection reaches under it.
 
-**Cancelling.** Press **Esc** or right-click. Nothing is saved, no sound plays and the clipboard is unchanged. Switching apps with ⌘Tab, or a display change, also cancels.
+**Cancelling.** Press **Esc** or right-click. Nothing is saved, no sound plays and the clipboard is unchanged. Switching apps with ⌘Tab, switching Space, a display change, or the Mac or its displays going to sleep also cancels.
 
 A display that macOS can't capture (some Sidecar, AirPlay or DisplayLink setups) is dimmed with the note "Can't capture this display"; select on another display.
 
@@ -226,6 +226,7 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 - The ⌃ twins follow automatically.
 - Window capture is always Space after the area shortcut.
 - If a shortcut can't be registered (another app has it), a warning shows under it.
+- Shortcuts are shown with the letters of your keyboard layout: on a German keyboard the key right of T reads Z. Switch input source and Settings and the menu follow.
 
 ## Displays, Spaces and accessibility
 
@@ -235,4 +236,4 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 - **Reduce Motion:** there's no fly-in; new cards appear in place, and cards stop springing.
 - **Reduce Transparency:** the pile, the tab and the toasts use a solid background instead of Liquid Glass.
 
-Margin's own windows (the shelf, the overlay, toasts, the fly-in) never appear in its captures. To check what the shelf looks like on screen, use macOS's `screencapture -x`, which does see it.
+Margin's capture UI (the shelf, the overlay, toasts, the fly-in) never appears in its captures. To check what the shelf looks like on screen, use macOS's `screencapture -x`, which does see it. Its ordinary windows (Settings, the welcome window, About) are captured like any other app's, and window mode can pick them.

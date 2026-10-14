@@ -52,6 +52,9 @@ final class OverlaySession {
     private var hovered: CapturableWindow?
     private var mouse: CGPoint
     private var anchor = CGPoint.zero
+    /// Where the selection being drawn started, before snapping: snapped again should the window list land
+    /// mid-drag. Nil once Space has moved the selection.
+    private var unsnappedAnchor: CGPoint?
     private var lastDrag = CGPoint.zero
     private var spaceHeld = false
     /// When the held arrow key began repeating (`NSEvent.timestamp`), for nudge acceleration.
@@ -60,6 +63,11 @@ final class OverlaySession {
     private var showsMagnifier = false
     private var modifiers: NSEvent.ModifierFlags = []
     private var snapFrames: [CGRect] = []
+    /// The window list is the one from before this session until the refresh it started lands (`windowsDidRefresh`).
+    private var windowsFresh = false
+    /// A window-mode click that came before that: it picks once the list is fresh, not from the old one (a window
+    /// moved, closed or brought forward since).
+    private var pendingWindowClick: (point: CGPoint, keepShadow: Bool)?
     private(set) var isFinished = false
 
     /// `mode`: `.area` for ⌘⇧4, `.window` for the menu's Capture Window. Space switches either way.
@@ -89,10 +97,27 @@ final class OverlaySession {
         updateCursor()
     }
 
-    /// Window frames were refreshed after the freeze: re-pick the window under the pointer.
+    /// This session's window list landed (fetched alongside the freeze): snapping and window mode use it from now on.
     func windowsDidRefresh() {
-        guard !isFinished, mode == .window else { return }
-        hovered = window(at: mouse)
+        guard !isFinished else { return }
+        windowsFresh = true
+        if mode == .window, let click = pendingWindowClick {
+            pendingWindowClick = nil
+            if let w = window(at: click.point) {
+                isFinished = true
+                onWindow?(w, click.keepShadow)
+                return
+            }
+        }
+        // A selection under way snaps to the new frames: its start now, the rest from the next move on.
+        if let d = selectionDisplay {
+            prepareSnapping(on: d)
+            if case .dragging = phase, let start = unsnappedAnchor {
+                setAnchor(start, on: d)
+                if !spaceHeld { selection = dragRect(to: lastDrag, on: d) }
+            }
+        }
+        if mode == .window { hovered = window(at: mouse) }
         render()
     }
 
@@ -159,6 +184,12 @@ final class OverlaySession {
         mouse = p
         modifiers = event.modifierFlags
         if mode == .window {
+            // Nothing to pick on a display without a frozen frame; a click before the window list lands waits for it.
+            guard images[d.id] != nil else { return }
+            guard windowsFresh else {
+                pendingWindowClick = (p, event.modifierFlags.contains(.option))
+                return
+            }
             if let w = window(at: p) {
                 isFinished = true
                 onWindow?(w, event.modifierFlags.contains(.option))
@@ -186,20 +217,25 @@ final class OverlaySession {
         // Start a new selection on this display.
         selectionDisplay = d
         prepareSnapping(on: d)
-        var a = SelectionMath.align(SelectionMath.clamp(p, to: d.frame), in: d.frame, scale: scale(d))
-        // Kept on the display: a window hanging past its edge mustn't pull the start off it.
-        let s = Geometry.snap(a, to: snapFrames, within: d.frame)
-        a = s.point
-        anchorGuideX = s.snappedX ? a.x : nil
-        anchorGuideY = s.snappedY ? a.y : nil
+        let start = SelectionMath.align(SelectionMath.clamp(p, to: d.frame), in: d.frame, scale: scale(d))
+        unsnappedAnchor = start
+        setAnchor(start, on: d)
         guideX = anchorGuideX
         guideY = anchorGuideY
-        anchor = a
         lastDrag = SelectionMath.clamp(p, to: d.frame)
         spaceHeld = false
-        selection = CGRect(origin: a, size: .zero)
+        selection = CGRect(origin: anchor, size: .zero)
         phase = .dragging
         render()
+    }
+
+    /// Where a new selection starts: `start` snapped to window edges, kept on the display (a window hanging past
+    /// its edge mustn't pull the start off it).
+    private func setAnchor(_ start: CGPoint, on d: DisplayInfo) {
+        let s = Geometry.snap(start, to: snapFrames, within: d.frame)
+        anchor = s.point
+        anchorGuideX = s.snappedX ? anchor.x : nil
+        anchorGuideY = s.snappedY ? anchor.y : nil
     }
 
     func mouseDragged(at p: CGPoint, event: NSEvent) {
@@ -368,6 +404,7 @@ final class OverlaySession {
             guideY = nil
             anchorGuideX = nil
             anchorGuideY = nil
+            unsnappedAnchor = nil
         } else {
             selection = dragRect(to: p, on: d)
         }
@@ -422,6 +459,7 @@ final class OverlaySession {
     private func clearSelection() {
         selection = nil
         selectionDisplay = nil
+        unsnappedAnchor = nil
         guideX = nil
         guideY = nil
         anchorGuideX = nil
@@ -432,6 +470,7 @@ final class OverlaySession {
 
     private func toggleMode() {
         mode = mode == .area ? .window : .area
+        pendingWindowClick = nil
         hovered = mode == .window ? window(at: mouse) : nil
         updateCursor()
         render()

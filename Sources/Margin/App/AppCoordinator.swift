@@ -65,6 +65,8 @@ final class AppCoordinator {
     // MARK: - Lifecycle
 
     func start() {
+        // Before anything names a shortcut: the keys are named as the user's keyboard layout labels them.
+        KeyboardLayout.current.startObserving()
         shelf.restore()
 
         capture.onCapture = { [weak self] result in self?.handleCapture(result) }

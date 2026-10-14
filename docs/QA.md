@@ -29,6 +29,7 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] ⌃⇧⌘4, ⌃⇧⌘3 and ⌃⇧⌘2 do the same as without ⌃
 - [ ] ⇧⌘1 tucks and shows the shelf
 - [ ] Shortcuts changed in Settings take effect immediately, ⌃ twins included; the old ones stop working
+- [ ] With a German (QWERTZ) input source, a shortcut recorded on the key right of T reads Z in Settings and the menu; with French (AZERTY), the key right of Tab reads A and ⇧⌘4 still reads ⇧⌘4. Switching input source with Settings open renames them
 
 ## Capture: freeze and selection (§2)
 
@@ -70,9 +71,15 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 **Cancelling**
 
 - [ ] Esc cancels: no file, no sound, clipboard unchanged
+- [ ] Space or Esc pressed right after ⇧⌘4, before the screen freezes, reach the overlay, not the app in front (no space typed in a text editor; a full-screen video doesn't pause or leave full screen)
+- [ ] After a capture or Esc, the app in front gets its focus back with the caret where it was, even for an Esc pressed the instant the screen freezes
+- [ ] The crosshair shows as soon as the screen freezes, without moving the mouse
 - [ ] Right-click cancels the same way
 - [ ] ⌘Tab to another app while selecting cancels it
 - [ ] Changing displays during selection cancels it
+- [ ] Switching Space (⌃→, a swipe, or a full-screen app leaving full screen) while selecting cancels it; the app in front on the new Space has focus
+- [ ] ⇧⌘4 over a full-screen app stays up (no Space switch) and gives that app its focus back after Esc
+- [ ] Sleeping the Mac or its displays with the overlay up cancels it
 - [ ] ⌘ shortcuts are swallowed while the overlay is up
 
 ## Capture: window mode (§2)
@@ -124,6 +131,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] During a fly-in: the flying thumbnail isn't in the next shot
 - [ ] Toasts, the overlay, the hint bar and the magnifier never appear in shots
 - [ ] `screencapture -x` *does* show the shelf (sanity check)
+- [ ] Settings, the welcome window and About stay visible when the frozen frame lands, appear in area and ⇧⌘3 shots, and window mode can pick them (also right after opening Settings for the first time)
 
 ## The shelf (§4)
 

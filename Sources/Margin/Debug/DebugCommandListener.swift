@@ -70,6 +70,12 @@ final class DebugCommandListener: NSObject {
             "clipboardMarkItemID": c.mark.itemID?.uuidString ?? NSNull(),
             "pasteboardChangeCount": NSPasteboard.general.changeCount,
             "isCapturing": c.capture.isCapturing,
+            "overlay": c.capture.currentSession.map { ["mode": "\($0.mode)"] } ?? NSNull(),
+            "focus": [
+                "keyWindow": NSApp.keyWindow.map { String(describing: type(of: $0)) } ?? "none",
+                "isActive": NSApp.isActive,
+                "frontmost": NSWorkspace.shared.frontmostApplication?.localizedName ?? "none",
+            ] as [String: Any],
             "saveFolder": prefs.saveFolder.path,
             "lastSavedPath": c.lastSavedPath ?? NSNull(),
             "completedCaptures": prefs.completedCaptures,
