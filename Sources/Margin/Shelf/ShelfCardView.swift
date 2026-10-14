@@ -436,7 +436,11 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     private enum Press { case none, card, close, more }
     private var press: Press = .none
     private var downEvent: NSEvent?
+    /// The press moved past the drag threshold: it's a drag from then on, never a click.
     private var didDrag = false
+    /// A drag that crossed the threshold before the shot's file was written: the latest drag event, kept until
+    /// the drag can start (`fileDidLand`, or the next mouse move once the file is there).
+    private var dragAwaitingFile: NSEvent?
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     /// A press never makes the panel key: on mouse-up the controller decides (`focusShelf`), and only for the
@@ -463,6 +467,7 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         }
         downEvent = event
         didDrag = false
+        dragAwaitingFile = nil
         // Spec §4 "check when a drag starts": the background check usually lands before the drag begins.
         controller?.refreshFiles()
         let p = convert(event.locationInWindow, from: nil)
@@ -472,15 +477,42 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard press == .card, !didDrag, let down = downEvent else { return }
-        let a = down.locationInWindow, b = event.locationInWindow
-        guard hypot(b.x - a.x, b.y - a.y) >= 4 else { return }
-        didDrag = true
-        controller?.beginDrag(from: self, event: event)
+        guard press == .card, let down = downEvent else { return }
+        if !didDrag {
+            let a = down.locationInWindow, b = event.locationInWindow
+            guard hypot(b.x - a.x, b.y - a.y) >= 4 else { return }
+            didDrag = true
+        } else if dragAwaitingFile == nil {
+            return   // the drag has started (or can't)
+        }
+        startDrag(event)
+    }
+
+    /// Starts the drag, unless the shot is still being written (a fresh capture: a busy encode can take a
+    /// second). Then the gesture isn't lost: the drag starts on the next mouse move once the file is there, or
+    /// as soon as it lands (`fileDidLand`) if the button is still down. A release before that does nothing.
+    private func startDrag(_ event: NSEvent) {
+        guard let controller else { return }
+        if controller.pending.contains(id) {
+            dragAwaitingFile = event
+            return
+        }
+        dragAwaitingFile = nil
+        controller.beginDrag(from: self, event: event)
+    }
+
+    /// The shot's file is on disk (`ShelfController.markReady`): a drag that was waiting for it starts now.
+    func fileDidLand() {
+        guard let event = dragAwaitingFile else { return }
+        guard press == .card, NSEvent.pressedMouseButtons & 1 != 0 else {
+            dragAwaitingFile = nil
+            return
+        }
+        startDrag(event)
     }
 
     override func mouseUp(with event: NSEvent) {
-        defer { downEvent = nil; press = .none }
+        defer { downEvent = nil; press = .none; dragAwaitingFile = nil }
         guard !didDrag else { return }
         let p = convert(event.locationInWindow, from: nil)
         guard bounds.insetBy(dx: -4, dy: -4).contains(p), press != .none else { return }

@@ -166,6 +166,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **Dragging**
 
 - [ ] Dragging a card drags a plain file URL (copy, never move); the card stays faint in its slot
+- [ ] Dragging a fresh card before its PNG is written (a full-screen shot of a large display, dragged at once): the drag starts as soon as the file lands, without releasing; releasing before that neither drags nor copies
 - [ ] A successful drop collapses the card out and the rest settle; a cancelled drag springs back
 - [ ] ⌥ held when the drop lands keeps the card
 - [ ] ⌥-dragging shows "Keep on shelf" on the drag image, live as ⌥ changes

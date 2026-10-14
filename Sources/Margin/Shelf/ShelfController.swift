@@ -244,13 +244,15 @@ final class ShelfController: ShelfControlling {
         markReady(item.id)
     }
 
-    /// The item's file is on disk: drag, copy and the menu work, and a click-copy queued meanwhile runs.
+    /// The item's file is on disk: drag, copy and the menu work, and a click-copy or a drag that was waiting
+    /// for it runs.
     func markReady(_ id: UUID) {
         pending.remove(id)
         if queuedCopy == id {
             queuedCopy = nil
             if item(for: id) != nil { copy([id]) }
         }
+        cards[id]?.fileDidLand()
     }
 
     /// Saving failed: the card goes (no undo) and the message shows as a toast.

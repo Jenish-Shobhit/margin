@@ -181,6 +181,7 @@ The shelf survives quitting and restarting.
 **Dragging out.** A card drags as a plain file, so any app that takes files takes it: Finder, Slack, Chrome, WhatsApp, Claude, Notes, a terminal (which types the path).
 
 - While you drag, the card stays faint in its slot.
+- You can drag a shot the moment its card lands. If its file is still being written (a big capture can take a second), the drag starts as soon as it's on disk.
 - When the drop lands, the card leaves the shelf; if you cancel, it springs back.
 - **Hold ⌥ when you drop** to keep the card on the shelf. The dragged image shows "Keep on shelf" while ⌥ is down.
 - Dragging a selected card drags the whole selection, as a stack with a count badge.
