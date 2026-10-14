@@ -119,7 +119,7 @@ final class CaptureController: CaptureControlling {
 
         pool.sync()
         let session = OverlaySession(panels: pool.panels(for: displays), cache: cache, mode: mode,
-                                     showsHUD: Preferences.shared.completedCaptures < 5)
+                                     showsHUD: Preferences.shared.showsCaptureHints)
         session.onArea = { [weak self] rect, display, image, pixelRect, scale in
             self?.finishArea(rect, display: display, image: image, pixelRect: pixelRect, scale: scale)
         }

@@ -177,6 +177,7 @@ extension AppCoordinator {
 
         // 7. Bookkeeping.
         prefs.completedCaptures += 1
+        prefs.capturesSinceHintsChanged += 1
         FirstRunWindowController.shared.captureSucceeded()
     }
 
