@@ -47,6 +47,8 @@ final class ShelfController: ShelfControlling {
     var fileRefreshQueued = false
     /// Bumped by every copy; a slower read that finishes after a newer copy started doesn't write.
     var copyGeneration = 0
+    /// A single click's copy, waiting out the double-click interval.
+    var clickCopyTask: Task<Void, Never>?
     private(set) var isPeeking = false
     private(set) var layout = ShelfLayout.layout(heights: [], availableHeight: 0)
 

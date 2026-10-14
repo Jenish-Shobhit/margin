@@ -426,6 +426,8 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         if isHovered, closeHitRect.contains(p) { press = .close }
         else if isHovered, moreHitRect.contains(p) { press = .more }
         else { press = .card }
+        // The second press of a double-click: the first click's copy mustn't happen.
+        if press == .card, event.clickCount >= 2 { controller?.cancelClickCopy() }
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -455,9 +457,9 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         case .card:
             if event.modifierFlags.contains(.command) {
                 controller?.toggleSelection(id)
-            } else if event.clickCount >= 2 {
+            } else if event.clickCount == 2 {
                 controller?.open(id)
-            } else {
+            } else if event.clickCount == 1 {
                 controller?.click(id)
             }
         }
