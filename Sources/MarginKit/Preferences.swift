@@ -112,7 +112,7 @@ public final class Preferences {
     }
 
     /// Bumped whenever the capture hint bar gains or changes keys, so it shows again after an update.
-    public static let hintsRevision = 2
+    public static let hintsRevision = 3
 
     /// Successful captures since the hint bar last changed. The HUD shows for the first 5.
     public var capturesSinceHintsChanged: Int {
