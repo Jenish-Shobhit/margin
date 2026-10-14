@@ -12,7 +12,7 @@
 # `security find-identity -v` hides it (CSSMERR_TP_NOT_TRUSTED), but codesign uses it fine, and
 # its stable certificate keeps the Screen Recording permission across rebuilds.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." >/dev/null
 ROOT=$(pwd)
 
 BUNDLE_ID="io.github.jenish-shobhit.margin"
@@ -122,7 +122,9 @@ if [[ "$ZIP" == 1 ]]; then
   mkdir -p "$ROOT/dist"
   ZIP_PATH="$ROOT/dist/Margin-$VERSION.zip"
   rm -f "$ZIP_PATH"
-  ditto -c -k --keepParent "$APP" "$ZIP_PATH"
+  # No extended attributes: they'd become ._ files inside the bundle (and break its seal) when
+  # extracted with plain `unzip`. The code signature doesn't depend on them.
+  ditto -c -k --keepParent --norsrc --noextattr --noacl "$APP" "$ZIP_PATH"
   say "Wrote $ZIP_PATH"
 fi
 
