@@ -14,6 +14,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let window = self.window ?? makeWindow()
         self.window = window
         model.reload()
+        model.refreshFolderInfo(force: true) // the folder may have been created or removed since
+        model.refreshLoginItem()
         if !window.isVisible {
             // The hosting controller sizes the window lazily; size it now so centering uses the real size.
             if let view = window.contentViewController?.view { window.setContentSize(view.fittingSize) }
@@ -37,6 +39,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.collectionBehavior.insert(.moveToActiveSpace)
         window.delegate = self
         return window
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        // Back from System Settings › Login Items, the approval may have changed.
+        model.refreshLoginItem()
     }
 
     func windowDidResignKey(_ notification: Notification) {

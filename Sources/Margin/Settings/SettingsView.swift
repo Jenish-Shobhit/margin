@@ -13,7 +13,7 @@ struct SettingsView: View {
             Section {
                 LabeledContent("Save to") {
                     HStack(spacing: 8) {
-                        Image(nsImage: folderIcon)
+                        Image(nsImage: model.folderIcon)
                             .resizable()
                             .frame(width: 16, height: 16)
                         Text(model.saveFolderDisplay)
@@ -28,10 +28,19 @@ struct SettingsView: View {
                 Toggle("Shutter sound", isOn: Binding(get: { model.shutterSound }, set: model.setShutterSound))
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: model.setLaunchAtLogin))
-                    if model.launchAtLogin && model.loginNeedsApproval {
-                        Text("Allow Margin in System Settings › General › Login Items.")
+                    if model.loginNeedsApproval {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("Approve in System Settings › General › Login Items.")
+                                .foregroundStyle(.secondary)
+                            Button("Open Login Items") { model.openLoginItemsSettings() }
+                                .buttonStyle(.link)
+                        }
+                        .font(.caption)
+                    } else if let error = model.loginItemError {
+                        Text(error)
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -55,12 +64,6 @@ struct SettingsView: View {
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
     }
-
-    private var folderIcon: NSImage {
-        FileManager.default.fileExists(atPath: model.saveFolder.path)
-            ? NSWorkspace.shared.icon(forFile: model.saveFolder.path)
-            : NSWorkspace.shared.icon(for: .folder)
-    }
 }
 
 private struct ShortcutRow: View {
@@ -77,13 +80,19 @@ private struct ShortcutRow: View {
                     .font(.caption)
                     .foregroundStyle(.red)
                     .transition(.opacity)
+            } else if let failure = model.failureText(for: action) {
+                Label(failure, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(Color(nsColor: .systemOrange))
+                    .transition(.opacity)
             }
         }
         .animation(.easeOut(duration: 0.15), value: model.message?.text)
+        .animation(.easeOut(duration: 0.15), value: model.failureText(for: action))
     }
 }
 
-/// Click to record; the next key with ⌘, ⌃ or ⌥ becomes the shortcut. Esc cancels, Delete resets.
+/// Click to record; the next key with ⌘ or ⌃ becomes the shortcut. Esc cancels, Delete resets.
 private struct ShortcutRecorder: View {
     let model: SettingsModel
     let action: ShortcutAction
@@ -112,7 +121,12 @@ private struct ShortcutRecorder: View {
         .help(isRecording ? "Press the new shortcut. Esc cancels, Delete resets to \(action.defaultCombo.displayString)."
                           : "Click to record a new shortcut.")
         .accessibilityLabel("\(SettingsModel.title(for: action)) shortcut")
-        .accessibilityValue(isRecording ? "Recording" : model.shortcut(for: action).displayString)
+        .accessibilityValue(isRecording ? "Recording" : accessibilityValue)
+    }
+
+    private var accessibilityValue: String {
+        let keys = model.shortcut(for: action).displayString
+        return model.failureText(for: action).map { "\(keys), not working: \($0)" } ?? keys
     }
 
     private var label: String {

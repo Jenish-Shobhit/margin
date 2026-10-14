@@ -18,7 +18,7 @@ struct FirstRunView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 6)
         .frame(width: 460, alignment: .leading)
-        .overlay { if model.finished { AllSet().transition(.opacity) } }
+        .overlay { if model.finished { AllSet(note: model.stillOnNote).transition(.opacity) } }
         .animation(.easeOut(duration: 0.2), value: model.finished)
     }
 
@@ -31,7 +31,16 @@ struct FirstRunView: View {
         case .pending:
             Detail("Needed to see the screen. macOS asks once.")
         case .now:
-            if !model.requestedPermission {
+            if model.permissionRevoked {
+                // macOS keeps answering "allowed" until Margin relaunches, so asking again can't help.
+                Detail("Margin lost access to the screen. Turn Margin back on in Privacy & Security › Screen & System Audio Recording, then relaunch it.")
+                HStack(spacing: 8) {
+                    Button("Open Privacy Settings") { model.openScreenRecordingSettings() }
+                    Button("Relaunch Margin", action: relaunch)
+                        .buttonStyle(.borderedProminent)
+                }
+                .padding(.top, 8)
+            } else if !model.requestedPermission {
                 Detail("Needed to see the screen. macOS asks once.")
                 Button("Allow…") { model.requestPermission() }
                     .buttonStyle(.borderedProminent)
@@ -84,13 +93,28 @@ struct FirstRunView: View {
         if model.state(of: .firstShot) == .done {
             Detail("You’re set.")
         } else {
+            // Says "on" only when the login item really is registered and allowed.
             HStack(spacing: 0) {
                 Text("Press ")
                 Kbd(model.areaShortcut)
-                Text(model.launchAtLogin ? ". Launch at login is on." : ". Launch at login is off.")
+                switch model.loginItem {
+                case .on: Text(". Launch at login is on.")
+                case .needsApproval: Text(".")
+                case .off: Text(". Launch at login is off.")
+                }
             }
             .font(.system(size: 13))
             .foregroundStyle(.secondary)
+            if model.loginItem == .needsApproval {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("Launch at login is waiting for your approval.")
+                        .foregroundStyle(.secondary)
+                    Button("Open Login Items") { model.openLoginItemsSettings() }
+                        .buttonStyle(.link)
+                }
+                .font(.system(size: 12))
+                .padding(.top, 4)
+            }
         }
     }
 }
@@ -214,6 +238,9 @@ private struct Kbd: View {
 
 /// The brief "You're set" state before the window closes.
 private struct AllSet: View {
+    /// Shown when macOS still owns some of Margin's shortcuts.
+    let note: String?
+
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: "checkmark.circle.fill")
@@ -224,8 +251,18 @@ private struct AllSet: View {
             Text("Margin lives in the menu bar. Every shot waits on the shelf.")
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
+            if let note {
+                Text(note)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 4)
+            }
         }
+        .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
+        .accessibilityElement(children: .combine)
     }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import MarginKit
 import Observation
 
@@ -8,10 +9,18 @@ final class SettingsModel {
     @ObservationIgnored let prefs: Preferences
 
     private(set) var saveFolder: URL
+    /// The save folder's Finder icon; the generic folder icon until it's been read, or if the folder is missing.
+    private(set) var folderIcon: NSImage = SettingsModel.genericFolderIcon
+    /// Whether the save folder exists; nil until the first check finishes (`refreshFolderInfo`).
+    private(set) var saveFolderExists: Bool?
     private(set) var copyEachCapture: Bool
     private(set) var shutterSound: Bool
-    private(set) var launchAtLogin: Bool
+    /// The login item's real state (`LoginItem.state`), not the preference: on once registered.
+    private(set) var launchAtLogin = false
+    /// Registered, but the user still has to allow it in System Settings › General › Login Items.
     private(set) var loginNeedsApproval = false
+    /// Shown under the toggle when turning launch at login on didn't work.
+    private(set) var loginItemError: String?
     private(set) var shortcuts: [ShortcutAction: KeyCombo] = [:]
 
     /// The recorder that's listening for keys, if any.
@@ -20,29 +29,85 @@ final class SettingsModel {
     private(set) var heldModifiers: UInt32 = 0
     /// An inline message under one recorder (rejected combo).
     private(set) var message: (action: ShortcutAction, text: String)?
+    /// Shortcuts the hotkey center couldn't register, with the Carbon status (`RuntimeStatus.hotkeyFailures`).
+    private(set) var hotkeyFailures: [ShortcutAction: Int32] = [:]
 
+    @ObservationIgnored let status: RuntimeStatus
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     @ObservationIgnored private var monitor: Any?
+    @ObservationIgnored private var checkedFolder: URL?
+    @ObservationIgnored private var folderCheck: Task<Void, Never>?
+    // Login item sources, swappable for visual checks.
+    @ObservationIgnored var readLoginItem: () -> LoginItem.State = { LoginItem.state }
+    @ObservationIgnored var setLoginItem: (Bool) -> Void = { LoginItem.setEnabled($0) }
 
-    init(prefs: Preferences = .shared) {
+    static let genericFolderIcon = NSWorkspace.shared.icon(for: .folder)
+
+    init(prefs: Preferences = .shared, status: RuntimeStatus = .shared) {
         self.prefs = prefs
+        self.status = status
         saveFolder = prefs.saveFolder
         copyEachCapture = prefs.copyEachCapture
         shutterSound = prefs.shutterSound
-        launchAtLogin = prefs.launchAtLogin
         reload()
-        observers.append(NotificationCenter.default.addObserver(forName: Preferences.didChange, object: prefs, queue: .main) { [weak self] _ in
+        refreshLoginItem()
+        hotkeyFailures = status.hotkeyFailures
+        let center = NotificationCenter.default
+        observers.append(center.addObserver(forName: Preferences.didChange, object: prefs, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.reload() }
         })
+        observers.append(center.addObserver(forName: RuntimeStatus.didChange, object: status, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.hotkeyFailures = self.status.hotkeyFailures
+            }
+        })
+    }
+
+    /// Why `action`'s shortcut isn't working right now, if it isn't. Hidden while that recorder is listening
+    /// (hotkeys are paused then) or showing its own message.
+    func failureText(for action: ShortcutAction) -> String? {
+        guard recording != action, message?.action != action, let code = hotkeyFailures[action] else { return nil }
+        switch OSStatus(code) {
+        case OSStatus(eventHotKeyExistsErr): return "Another app uses this shortcut. Choose another."
+        default: return "macOS didn’t accept this shortcut. Choose another."
+        }
     }
 
     func reload() {
         saveFolder = prefs.saveFolder
         copyEachCapture = prefs.copyEachCapture
         shutterSound = prefs.shutterSound
-        launchAtLogin = prefs.launchAtLogin
-        loginNeedsApproval = LoginItem.requiresApproval
         shortcuts = Dictionary(uniqueKeysWithValues: ShortcutAction.allCases.map { ($0, prefs.shortcut(for: $0)) })
+        refreshFolderInfo()
+    }
+
+    // MARK: Save folder
+
+    /// Reads whether the save folder exists, and its icon, off the main thread. The first access to ~/Desktop
+    /// can wait on a privacy prompt, which must never freeze the app (and never happen in a view's `body`).
+    /// Only re-reads when the folder changed, unless `force` (e.g. each time the window opens).
+    func refreshFolderInfo(force: Bool = false) {
+        let folder = saveFolder
+        guard force || folder != checkedFolder else { return }
+        checkedFolder = folder
+        folderCheck?.cancel()
+        folderCheck = Task { [weak self] in
+            let info = await Task.detached(priority: .utility) { Self.readFolderInfo(folder) }.value
+            guard !Task.isCancelled, let self, self.saveFolder == folder else { return }
+            self.saveFolderExists = info.exists
+            self.folderIcon = info.icon ?? Self.genericFolderIcon
+        }
+    }
+
+    /// Touches the disk: call off the main thread only.
+    nonisolated private static func readFolderInfo(_ folder: URL) -> (exists: Bool, icon: NSImage?) {
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return (false, nil)
+        }
+        let icon = (try? folder.resourceValues(forKeys: [.effectiveIconKey]))?.effectiveIcon as? NSImage
+        return (true, icon)
     }
 
     // MARK: Simple settings
@@ -51,10 +116,26 @@ final class SettingsModel {
     func setCopyEachCapture(_ on: Bool) { prefs.copyEachCapture = on }
     func setShutterSound(_ on: Bool) { prefs.shutterSound = on }
 
-    func setLaunchAtLogin(_ on: Bool) {
-        LoginItem.setEnabled(on)
-        prefs.launchAtLogin = on
+    // MARK: Launch at login
+
+    /// Re-reads the login item (an `SMAppService` query, so not on every preference change): when the window
+    /// opens or becomes key again (e.g. back from System Settings), and after toggling.
+    func refreshLoginItem() {
+        let state = readLoginItem()
+        launchAtLogin = state.isOn
+        loginNeedsApproval = state == .needsApproval
+        if state.isOn { loginItemError = nil }
     }
+
+    func setLaunchAtLogin(_ on: Bool) {
+        setLoginItem(on)
+        prefs.launchAtLogin = on
+        refreshLoginItem()
+        loginItemError = on && !launchAtLogin
+            ? "Couldn’t turn on launch at login. Make sure Margin is in the Applications folder." : nil
+    }
+
+    func openLoginItemsSettings() { LoginItem.openSystemSettings() }
 
     var saveFolderDisplay: String { (saveFolder.path as NSString).abbreviatingWithTildeInPath }
 
@@ -66,8 +147,8 @@ final class SettingsModel {
         panel.allowsMultipleSelection = false
         panel.prompt = "Choose"
         panel.message = "Choose where Margin saves screenshots."
-        panel.directoryURL = FileManager.default.fileExists(atPath: saveFolder.path)
-            ? saveFolder : saveFolder.deletingLastPathComponent()
+        // Uses the last off-main check; never touches the disk here.
+        panel.directoryURL = saveFolderExists == true ? saveFolder : saveFolder.deletingLastPathComponent()
         let finish: (NSApplication.ModalResponse) -> Void = { [weak self] response in
             guard response == .OK, let url = panel.url else { return }
             self?.setSaveFolder(url)
@@ -123,7 +204,7 @@ final class SettingsModel {
         default:
             let combo = KeyCombo(keyCode: keyCode, cocoaModifiers: flags)
             if !combo.hasRequiredModifier {
-                message = (action, "Use ⌘, ⌃ or ⌥ with the key. ⇧ alone isn’t enough.")
+                message = (action, "Use ⌘ or ⌃ with the key. ⇧ and ⌥ alone aren’t enough.")
             } else if KeyCombo.keyName(for: combo.keyCode) == nil {
                 message = (action, "That key can’t be used for a shortcut.")
             } else {
