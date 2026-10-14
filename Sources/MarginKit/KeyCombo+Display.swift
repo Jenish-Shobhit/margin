@@ -69,6 +69,12 @@ extension KeyCombo {
         return layout.characterName(for: keyCode) ?? us
     }
 
+    /// The character key named `name` on `layout` ("Z" is key code 0x10 on a German layout), or its US key code.
+    public static func keyCode(forCharacter name: String, layout: KeyboardLayout) -> UInt32? {
+        let name = name.uppercased()
+        return characterKeyNames.keys.sorted().first { layout.characterName(for: $0) == name } ?? keyCode(for: name)
+    }
+
     /// The Carbon key code for a key's US name (what `keyName(for:)` says before the app reads the keyboard layout).
     /// Letters are case-insensitive.
     public static func keyCode(for name: String) -> UInt32? {

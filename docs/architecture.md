@@ -66,7 +66,7 @@ flowchart LR
 | `Capture/` | `CaptureController` (area, window, screen, repeat area), `ScreenGrabber` (ScreenCaptureKit calls and cropping), `ShareableContentCache`, `Displays`, logging and timings, and `CaptureSimulation` (DEBUG-only fakes) |
 | `Overlay/` | The frozen-screen overlay: `OverlayPanel` and its pool, `OverlaySession` (selection state machine and keys), `OverlayView` (layers), `OverlayChrome` (hint bar, magnifier, pills), `SelectionMath` and `AreaFlash` |
 | `Shelf/` | `ShelfController` (layout, tuck, peek, toasts) and its extensions: `+Actions` (every interaction, undo, drag-out) and `+Files` (disk checks). Also the views (`ShelfCardView`, `ShelfPileView`, `ShelfChrome`), `ShelfDrag`, `ShelfFlyIn`, `ShelfFiles` (all disk access), `ShelfThumbnails` and `ShelfStyle` |
-| `Hotkeys/` | `HotkeyCenter`: Carbon registration |
+| `Hotkeys/` | `HotkeyCenter`: Carbon registration. `OverlayHotkeys`: the overlay's keys as hotkeys while a capture is up, before the overlay can be key |
 | `MenuBar/` | `StatusMenuController` (icon, warning dot, menu rebuilt on open) and `MenuKeyEquivalent` |
 | `Onboarding/` | The first-run window: `FirstRunModel` (polled state), `FirstRunView` (SwiftUI) and its window controller |
 | `Settings/` | `SettingsModel` (`@Observable`, shortcut recording), `SettingsView` (SwiftUI form) and its window controller |
@@ -138,7 +138,9 @@ After that, the cache refreshes on display, app and Space changes (debounced 150
 
 1. The `AppCoordinator` checks permission without prompting and calls `beginInteractiveCapture()`.
 2. If the cache is warm (and every display has the size it had at the last fetch), `SCScreenshotManager.captureImage` starts for every display at once (a task group, off the main thread). At the same time the transparent overlays go up, with a crosshair.
-3. Each display's frame is drawn as it arrives. With the first one, Margin activates and makes the overlay key, so Esc, Space and the arrows work.
+3. Each display's frame is drawn as it arrives. With the first one, the overlay becomes key (it's a non-activating panel, so keys reach it at once) and Margin activates, which the crosshair needs: only the frontmost app may set the cursor, and it's set again once the activation lands. Not before the first frame: taking key status from the frontmost window while ScreenCaptureKit is still grabbing would show that window unfocused in the frame (grey selection, no caret).
+   - **Keys before that** (`OverlayHotkeys`): from the hotkey on, Esc, Space, ↩, ⌤, Z and the arrows, alone or with ⇧ ⌥ ⌃, are Carbon hotkeys (72 combos, 2–4 ms), handed to the session as key events, so they never reach the frontmost app. The arrows go when the overlay is key (they need key repeat); the rest stay until the capture ends, because unregistering a hotkey drops a press of it still in the event queue.
+   - **Focus back**: when the capture ends, activation goes back to the app that had it (`yieldActivation`, then `activate`). If Margin's own activation hasn't landed yet, or landed under 60 ms ago (Esc pressed with the first frame), it waits for that first: handed back sooner, that app ends up active without its key window.
 4. A display that fails is dimmed ("Can't capture this display"). If no frame arrives within 3 s the overlay cancels itself with a "Couldn't capture the screen" toast, so it can never be left eating clicks.
 5. As soon as the first display is frozen (not after the slowest one), the window list is refreshed for snapping and window mode: `SCShareableContent` with on-screen windows only, about 60 % of the full fetch, since Margin is listed through its overlay. Not earlier: a fetch started alongside the captures slows them by about 20 ms. When it lands, a selection being drawn re-snaps its start to it and window mode re-picks the window under the pointer; a window-mode click that came first is held until then. (The cold path's fetch already has fresh windows.)
 
@@ -216,7 +218,7 @@ Quitting while saves are in flight answers `.terminateLater`. Margin waits for t
 
 | Window | Level | Notes |
 |---|---|---|
-| Capture overlay (one per display) | `.screenSaver + 1` | Borderless, non-activating, made once and reused. Swallows ⌘ shortcuts |
+| Capture overlay (one per display) | `.screenSaver + 1` | Borderless, non-activating, made once and reused. Key from the first frozen frame; its keys are hotkeys until then. Swallows ⌘ shortcuts |
 | ⇧⌘2 outline | `.screenSaver + 1` | Click-through, 150 ms |
 | Shelf | `.screenSaver` | Borderless, **non-activating** `NSPanel`; hidden when empty |
 | Fly-in | `.screenSaver` | Click-through, one per shot in the air |

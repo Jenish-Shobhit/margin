@@ -83,6 +83,16 @@ import Testing
         #expect(KeyCombo.keyName(for: 0x00, layout: Self.qwertz) == "A")
     }
 
+    /// The overlay catches Z by where the layout has it.
+    @Test func keyCodeForACharacterFollowsTheLayout() {
+        #expect(KeyCombo.keyCode(forCharacter: "Z", layout: Self.qwertz) == 0x10)
+        #expect(KeyCombo.keyCode(forCharacter: "z", layout: Self.azerty) == 0x0D)
+        #expect(KeyCombo.keyCode(forCharacter: "A", layout: Self.azerty) == 0x0C)
+        #expect(KeyCombo.keyCode(forCharacter: "Z", layout: .us) == 0x06)
+        // Not on this (partial) layout: the US key.
+        #expect(KeyCombo.keyCode(forCharacter: "B", layout: Self.qwertz) == 0x0B)
+    }
+
     // MARK: Installed layouts (UCKeyTranslate)
 
     @MainActor @Test func germanLayout() throws {

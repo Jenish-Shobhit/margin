@@ -192,6 +192,7 @@ scripts/debug.sh dump-state                     # print the state as JSON
   - the shelf's items and paths, the tuck state, the ⌘V mark and the pasteboard change count;
   - the permission state and the login item;
   - each hotkey registration and its `OSStatus`;
+  - the overlay's mode while a capture is up (`overlay.mode`), and who has focus (`focus`: Margin's key window, whether it's active, the frontmost app);
   - the last capture's timings.
 - To check visuals, take a `screencapture -x`: it sees the shelf, while Margin's own captures never do.
 
