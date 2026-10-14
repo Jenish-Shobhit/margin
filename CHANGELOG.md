@@ -2,6 +2,12 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.4 — 2026-10-14
+
+### Fixed
+
+- Arrow-key nudging is smoother and faster: each step repaints only the selection, and holding an arrow speeds up (a tap stays 1 px, ⇧ is 10 px).
+
 ## 0.0.3 — 2026-10-14
 
 ### Added
