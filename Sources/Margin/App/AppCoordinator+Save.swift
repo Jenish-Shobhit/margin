@@ -142,12 +142,16 @@ extension AppCoordinator {
             "release→file \(releaseToFileMs, format: .fixed(precision: 1)) ms (encode \(outcome.encodeMs ?? 0, format: .fixed(precision: 1)) ms, write \(outcome.writeMs ?? 0, format: .fixed(precision: 1)) ms) \(saved.url.lastPathComponent, privacy: .public)")
 
         // The file exists: give the store the final path and bookmark, then tell the shelf it's real.
-        // (If the card was dismissed while pending, the file stays on disk and there's nothing to update.)
+        // The shelf hears about it even if the card was dismissed while pending: it points that card's
+        // undo record at the real file (the predicted name may have been taken) and stops treating it
+        // as pending. Only an item still on the shelf is written to the store.
         if var current = store.items.first(where: { $0.id == itemID }) {
             current.path = saved.path
             current.bookmark = saved.bookmark
             store.update(current)
             shelf.itemDidSave(current)
+        } else {
+            shelf.itemDidSave(saved)
         }
         if outcome.usedFallback {
             Self.log.error(
