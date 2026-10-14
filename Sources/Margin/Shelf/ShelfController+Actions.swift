@@ -305,6 +305,10 @@ extension ShelfController {
     /// Removes the views of items already gone from the store, and reports them.
     /// Without `animated`, the cards vanish and the rest snap into place.
     func detach(_ ids: [UUID], exit: ShelfCardView.Exit, animated: Bool = true) {
+        // The shelf emptied while tucked: untuck it, so the next shot lands on the shelf, not in a bare tab.
+        // Cards tucked off-screen (not peeking) just go, and the shelf snaps back unseen.
+        let emptiedWhileTucked = isTucked && store.items.isEmpty
+        let offscreen = emptiedWhileTucked && !isPeeking
         var longest = 0.0
         for id in ids {
             // Off the shelf it isn't pending any more (⌘Z re-checks), and a queued click-copy is moot.
@@ -316,7 +320,7 @@ extension ShelfController {
             if markedItemID == id { markedItemID = nil }
             guard let card = cards.removeValue(forKey: id) else { continue }
             if card.isRenaming { card.endRename(commit: false) }
-            if !animated || card.isInPile || card.isHidden {
+            if !animated || offscreen || card.isInPile || card.isHidden {
                 card.removeFromSuperview()
                 continue
             }
@@ -324,6 +328,7 @@ extension ShelfController {
             longest = max(longest, d)
             ShelfMotion.after(d + 0.03) { card.removeFromSuperview() }
         }
+        if emptiedWhileTucked { setTucked(false, animated: !offscreen) }
         // "Collapse, then the rest settle."
         let settle = ShelfStyle.reduceMotion ? 0 : min(longest, 0.16)
         if settle > 0 {

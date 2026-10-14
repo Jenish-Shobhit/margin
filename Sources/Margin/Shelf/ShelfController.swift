@@ -405,8 +405,10 @@ final class ShelfController: ShelfControlling {
 
     // MARK: - Tuck, tab, peek
 
-    func setTucked(_ on: Bool) {
-        guard on != isTucked else { return }
+    /// ⌘⇧1. Tucking an empty shelf does nothing (later shots would otherwise fly into a bare tab).
+    /// Without `animated`, the shelf snaps back into place (the tab still fades).
+    func setTucked(_ on: Bool, animated: Bool = true) {
+        guard on != isTucked, !(on && store.items.isEmpty) else { return }
         isTucked = on
         isPeeking = false
         peekTask?.cancel()
@@ -421,7 +423,7 @@ final class ShelfController: ShelfControlling {
         } else {
             refreshFiles()
             applyGeometry(deferShrink: false)
-            setContainerOffset(0, animated: true, spring: true)
+            setContainerOffset(0, animated: animated, spring: true)
             hideTab(animated: true)
             if !store.items.isEmpty { showPanel() }
         }
