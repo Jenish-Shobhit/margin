@@ -8,19 +8,28 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     private let menu = NSMenu()
     private weak var coordinator: AppCoordinator?
-    private let warningDot = WarningDotView(frame: NSRect(x: 0, y: 0, width: 7, height: 7))
+    private let warningDot = WarningDotView(frame: NSRect(x: 0, y: 0, width: dotDiameter, height: dotDiameter))
+    private let glyph: NSImage
+    private let badgedGlyph: NSImage
     private(set) var showsWarning = false
+
+    private static let dotDiameter: CGFloat = 6
+    /// The dot's centre, inset from the glyph's top-right corner (glyph coordinates, y up).
+    private static let dotInset: CGFloat = 1
 
     init(coordinator: AppCoordinator) {
         self.coordinator = coordinator
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        let symbol = NSImage(systemSymbolName: "rectangle.righthalf.inset.filled", accessibilityDescription: "Margin")
+            ?? NSImage(systemSymbolName: "sidebar.right", accessibilityDescription: "Margin")
+            ?? NSImage(size: NSSize(width: 18, height: 14))
+        symbol.isTemplate = true
+        glyph = symbol
+        badgedGlyph = Self.cutOutBadge(from: symbol)
         super.init()
 
         if let button = statusItem.button {
-            let image = NSImage(systemSymbolName: "rectangle.righthalf.inset.filled", accessibilityDescription: "Margin")
-                ?? NSImage(systemSymbolName: "sidebar.right", accessibilityDescription: "Margin")
-            image?.isTemplate = true
-            button.image = image
+            button.image = glyph
             button.imagePosition = .imageOnly
             button.toolTip = "Margin"
             warningDot.isHidden = true
@@ -36,6 +45,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     /// Screen Recording missing: a dot on the icon, and the first item becomes "Allow Screen Recording…".
     func setWarning(_ on: Bool) {
         showsWarning = on
+        statusItem.button?.image = on ? badgedGlyph : glyph
         warningDot.isHidden = !on
         layoutWarningDot()
         statusItem.button?.toolTip = on ? "Margin — Screen Recording permission needed" : "Margin"
@@ -43,14 +53,34 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         rebuild()
     }
 
+    /// The glyph with a transparent ring where the dot sits, so the badge reads as separate.
+    private static func cutOutBadge(from glyph: NSImage) -> NSImage {
+        let size = glyph.size
+        let image = NSImage(size: size, flipped: false) { rect in
+            glyph.draw(in: rect)
+            let r = dotDiameter / 2 + 1.5
+            let centre = NSPoint(x: size.width - dotInset, y: size.height - dotInset)
+            NSGraphicsContext.current?.compositingOperation = .destinationOut
+            NSColor.black.setFill()
+            NSBezierPath(ovalIn: NSRect(x: centre.x - r, y: centre.y - r, width: r * 2, height: r * 2)).fill()
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = glyph.accessibilityDescription
+        return image
+    }
+
     private func layoutWarningDot() {
         guard let button = statusItem.button else { return }
-        let size = warningDot.frame.size
-        let b = button.bounds
-        // Top-right of the glyph, nudged in so it never clips at the button's edge.
-        let x = b.midX + 4
-        let y = button.isFlipped ? b.midY - 9 : b.midY + 9 - size.height
-        warningDot.frame = NSRect(x: x, y: y, width: size.width, height: size.height)
+        button.layoutSubtreeIfNeeded()
+        let b = button.bounds, g = glyph.size, d = Self.dotDiameter
+        // The image is centred in the button.
+        let originX = (b.width - g.width) / 2
+        let originY = (b.height - g.height) / 2
+        let cx = originX + g.width - Self.dotInset
+        let cyUp = originY + g.height - Self.dotInset
+        let cy = button.isFlipped ? b.height - cyUp : cyUp
+        warningDot.frame = NSRect(x: (cx - d / 2).rounded(), y: (cy - d / 2).rounded(), width: d, height: d)
     }
 
     // MARK: - NSMenuDelegate
