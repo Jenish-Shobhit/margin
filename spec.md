@@ -142,8 +142,8 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - The new card gets a 2 pt accent ring for 1.5 s.
   - If the shelf is tucked, the shot flies into the tab and the count goes up. The shelf stays tucked.
 - **Hover.** The card scales to 1.04 and shows:
-  - ✕ (top-left) to dismiss.
-  - ••• (top-right) for the menu.
+  - ✕ (top-right, red; since 0.0.6) to dismiss.
+  - ••• (top-left, tooltip "Options"; since 0.0.6) for the menu.
   - A meta line at the bottom: `HH:mm · W × H`.
 - **Tuck.** ⌘⇧1 slides the shelf off the edge and leaves a 22 pt tab showing the count. Hovering the tab peeks the shelf; clicking it shows the shelf.
 - **Toasts.** Inside the shelf, above the top card, never as notifications: "Copied", "Path copied", "Restored", and error messages. They last 1.2 s.
@@ -186,13 +186,16 @@ The shelf never steals focus. Keys work only after a click on the shelf (the pan
   - Capture Screen ⌘⇧3
   - Repeat Last Area ⌘⇧2
   - —
-  - Show/Tuck Shelf ⌘⇧1
+  - Tuck Shelf / Show Shelf ⌘⇧1
+  - Restore Last Removed (disabled when there's nothing to restore)
   - Open Screenshots Folder
   - —
+  - "macOS still uses ⇧⌘4 — Fix…" (only while a macOS shortcut takes one of Margin's keys)
   - Settings…
-  - About Margin 0.0.1
-  - Quit
-- If Screen Recording permission is missing, the icon gets a warning dot and the first item becomes "Allow Screen Recording…", which opens First run step 1.
+  - About Margin (current version)
+  - Quit Margin
+- If Screen Recording permission is missing, the icon gets a warning dot and the first item becomes "Allow Screen Recording…", which opens First run step 1. While permission is revoked, "Relaunch Margin" is offered; a failed hotkey registration adds a warning item that opens Settings.
+- Key order in all UI and docs follows macOS (⌃⌥⇧⌘, e.g. ⇧⌘4); older sections of this spec write ⌘⇧4, which means the same keys.
 
 ## 7. First run
 
