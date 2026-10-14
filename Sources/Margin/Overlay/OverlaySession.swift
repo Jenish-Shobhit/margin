@@ -328,6 +328,10 @@ final class OverlaySession {
         if e.keyCode == Key.space, spaceHeld {
             spaceHeld = false
             lastDrag = selectionDisplay.map { SelectionMath.clamp(mouse, to: $0.frame) } ?? mouse
+            // Back to drawing: ⇧ / ⌥, pressed or released while moving, apply now, not at the next mouse move.
+            if case .dragging = phase, let d = selectionDisplay {
+                selection = dragRect(to: lastDrag, on: d)
+            }
             render()
         }
     }
