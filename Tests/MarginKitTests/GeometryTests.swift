@@ -134,6 +134,32 @@ import Testing
     }
 }
 
+/// Whole-display capture sizes, which tell a cached capture target from one built for an older display mode.
+@Suite struct GeometryPixelSizeTests {
+    @Test func pointsTimesScale() {
+        #expect(Geometry.pixelSize(points: CGSize(width: 1470, height: 956), scale: 2) == CGSize(width: 2940, height: 1912))
+        #expect(Geometry.pixelSize(points: CGSize(width: 1920, height: 1080), scale: 1) == CGSize(width: 1920, height: 1080))
+    }
+
+    @Test func roundsToWholePixels() {
+        #expect(Geometry.pixelSize(points: CGSize(width: 1512.25, height: 982.75), scale: 2) == CGSize(width: 3025, height: 1966))
+        #expect(Geometry.pixelSize(points: CGSize(width: 100.2, height: 100.6), scale: 1) == CGSize(width: 100, height: 101))
+    }
+
+    @Test func aResolutionChangeShowsUp() {
+        let before = Geometry.pixelSize(points: CGSize(width: 1470, height: 956), scale: 2)
+        #expect(Geometry.pixelSize(points: CGSize(width: 1710, height: 1112), scale: 2) != before) // "More Space"
+        #expect(Geometry.pixelSize(points: CGSize(width: 1470, height: 956), scale: 1) != before)  // scale only
+        #expect(Geometry.pixelSize(points: CGSize(width: 1470, height: 956), scale: 2) == before)
+    }
+
+    @Test func sameModeFromEitherSourceIsEqual() {
+        // ScreenCaptureKit's integer points and pointPixelScale (a Float) against NSScreen's CGFloats.
+        let sck = Geometry.pixelSize(points: CGSize(width: Int(1470), height: Int(956)), scale: CGFloat(Float(2)))
+        #expect(sck == Geometry.pixelSize(points: CGSize(width: 1470.0, height: 956.0), scale: 2.0))
+    }
+}
+
 @Suite struct GeometrySnapTests {
     @Test func snapValueWithinThreshold() {
         #expect(Geometry.snapValue(103, to: [100, 200]) == 100)

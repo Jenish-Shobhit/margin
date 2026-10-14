@@ -113,9 +113,10 @@ final class CaptureController: CaptureControlling {
 
         // Start the captures first: they run off the main thread while the panels go up. A display that
         // ScreenCaptureKit didn't list at the last refresh (Sidecar, AirPlay, DisplayLink…) just fails in the
-        // stream; only a display the cache hasn't seen yet sends the freeze down the cold path.
+        // stream; only a display the cache hasn't seen yet, or has seen at another size or scale, sends the
+        // freeze down the cold path.
         let grab = Self.frameGrabber()
-        let early = cache.needsRefresh(for: displays.map(\.id)) ? nil : Self.captureAll(jobs(for: displays), grab: grab)
+        let early = cache.needsRefresh(for: displays) ? nil : Self.captureAll(jobs(for: displays), grab: grab)
 
         pool.sync()
         let session = OverlaySession(panels: pool.panels(for: displays), cache: cache, mode: mode,
@@ -165,7 +166,7 @@ final class CaptureController: CaptureControlling {
 
         var stream = early
         if stream == nil {
-            // Cold cache, Margin missing from it, or a new display: fetch once, off the fast path.
+            // Cold cache, Margin missing from it, or a display that's new or changed: fetch once, off the fast path.
             CaptureLog.capture.info("freeze: cache cold, fetching shareable content first")
             do {
                 try await cache.refresh()
@@ -328,7 +329,7 @@ final class CaptureController: CaptureControlling {
         pool.sync()  // Margin must own windows to be listed (and so excluded), even without a prewarm.
         Task {
             do {
-                let target = try await cache.target(for: display.id)
+                let target = try await cache.target(for: display)
                 let image = try await ScreenGrabber.capture(target)
                 timings.record("screenCapture", clock.ms)
                 permissionWorked()
@@ -370,7 +371,7 @@ final class CaptureController: CaptureControlling {
         pool.sync()
         Task {
             do {
-                let target = try await cache.target(for: display.id)
+                let target = try await cache.target(for: display)
                 let image = try await ScreenGrabber.capture(target)
                 permissionWorked()
                 let size = CGSize(width: image.image.width, height: image.image.height)

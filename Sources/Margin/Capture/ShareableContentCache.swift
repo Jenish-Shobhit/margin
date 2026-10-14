@@ -30,9 +30,13 @@ final class ShareableContentCache {
     private(set) var snapFrames: [CGRect] = []
     private(set) var hasMarginApp = false
     private(set) var isLoaded = false
-    /// The displays (NSScreen) that existed when the applied fetch started. One of these without a target is a
-    /// display ScreenCaptureKit can't list (Sidecar, AirPlay, DisplayLink…), not one it hasn't been asked about.
-    private var knownDisplays: Set<CGDirectDisplayID> = []
+    /// The displays (NSScreen) that existed when the applied fetch started, with their pixel size then. One of
+    /// these without a target is a display ScreenCaptureKit can't list (Sidecar, AirPlay, DisplayLink…), not one it
+    /// hasn't been asked about. One whose size or scale has changed since has a target for the old size.
+    private var knownDisplays: [CGDirectDisplayID: CGSize] = [:]
+    /// Retries after a scheduled fetch that failed, or that came back before ScreenCaptureKit caught up with a
+    /// display change: 0.5 s, 1 s, then 2 s apart.
+    private static let refreshRetries = 3
 
     private var requested = 0
     private var applied = 0
@@ -69,16 +73,34 @@ final class ShareableContentCache {
         targets = [:]
         hasMarginApp = false
         isLoaded = false
-        knownDisplays = []
+        knownDisplays = [:]
     }
 
-    /// Coalesces bursts of notifications into one fetch.
+    /// Coalesces bursts of notifications into one fetch. A fetch that fails (displays still reconfiguring after
+    /// a wake, say), or whose targets don't match the displays yet, is retried a few times; a capture in between
+    /// still fetches first if its display changed (`needsRefresh`).
     func scheduleRefresh(after delay: Duration = .milliseconds(150)) {
         debounce?.cancel()
         debounce = Task { [weak self] in
-            try? await Task.sleep(for: delay)
-            guard !Task.isCancelled else { return }
-            try? await self?.refresh()
+            var wait = delay
+            for attempt in 0...Self.refreshRetries {
+                try? await Task.sleep(for: wait)
+                guard !Task.isCancelled, let self else { return }
+                do {
+                    try await self.refresh()
+                    if self.targetsMatchDisplays { return }
+                    CaptureLog.capture.info("refresh: a display target doesn't match its display yet")
+                } catch {
+                    // Without permission, any further call could raise the system prompt.
+                    if ScreenGrabber.isPermissionError(error) { return }
+                    CaptureLog.capture.error("refresh failed: \(error.localizedDescription, privacy: .public)")
+                }
+                guard attempt < Self.refreshRetries else {
+                    CaptureLog.capture.error("refresh: giving up after \(attempt + 1) tries")
+                    return
+                }
+                wait = .milliseconds(500 << attempt)
+            }
         }
     }
 
@@ -88,8 +110,8 @@ final class ShareableContentCache {
         let ticket = requested
         let state = CaptureLog.signposter.beginInterval("shareableContent")
         let clock = Stopwatch()
-        // Before the fetch: a display that appears while it runs must not count as "asked about".
-        let screens = Set(Displays.all.map(\.id))
+        // Before the fetch: a display that appears, or changes, while it runs must not count as "asked about".
+        let screens = Dictionary(Displays.all.map { ($0.id, $0.pixelSize) }, uniquingKeysWith: { a, _ in a })
         let box = try await Self.fetch()
         CaptureLog.signposter.endInterval("shareableContent", state)
         guard ticket > applied else { return }
@@ -106,19 +128,24 @@ final class ShareableContentCache {
     }
 
     /// True when a capture of these displays must fetch first: nothing cached, Margin missing (its windows
-    /// wouldn't be excluded), or a display that appeared since the last fetch. A known display without a target
-    /// can't be captured, and refetching on every capture wouldn't change that.
-    func needsRefresh(for displayIDs: [CGDirectDisplayID]) -> Bool {
-        !isLoaded || !hasMarginApp || displayIDs.contains { !knownDisplays.contains($0) }
+    /// wouldn't be excluded), or a display that appeared, or changed size or scale, since the last fetch (a
+    /// change whose background refresh hasn't run yet, or failed). Its target would capture at the old size.
+    /// A known display without a target can't be captured, and refetching on every capture wouldn't change that.
+    func needsRefresh(for displays: [DisplayInfo]) -> Bool {
+        !isLoaded || !hasMarginApp || displays.contains { knownDisplays[$0.id] != $0.pixelSize }
     }
 
     /// The freeze target for a display, refreshing first if the cache is cold, lacks Margin, or predates the
-    /// display. Throws `noDisplay` for a display ScreenCaptureKit doesn't list.
-    func target(for displayID: CGDirectDisplayID) async throws -> DisplayTarget {
-        if let t = targets[displayID], hasMarginApp { return t }
-        if needsRefresh(for: [displayID]) { try await refresh() }
-        guard let t = targets[displayID] else { throw CaptureError.noDisplay }
+    /// display as it is now. Throws `noDisplay` for a display ScreenCaptureKit doesn't list.
+    func target(for display: DisplayInfo) async throws -> DisplayTarget {
+        if needsRefresh(for: [display]) { try await refresh() }
+        guard let t = targets[display.id] else { throw CaptureError.noDisplay }
         return t
+    }
+
+    /// False while a display's target was built for another pixel size than the display has now.
+    private var targetsMatchDisplays: Bool {
+        Displays.all.allSatisfy { d in targets[d.id].map { $0.pixelSize == d.pixelSize } ?? true }
     }
 
     /// The topmost window under a point (AppKit global points).

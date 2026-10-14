@@ -65,7 +65,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
    - Filter: `SCContentFilter(display:excludingApplications:[Margin]…)`.
    - Configuration: full pixel size via `SCShareableContent.info(for:).pointPixelScale`, `showsCursor = false`, best resolution.
    - When each image arrives, draw it into that display's overlay. Margin's own windows are excluded from the capture, so overlay order doesn't matter and nothing visibly jumps.
-3. Keep `SCShareableContent` cached and **prewarm** at launch with one tiny capture. Refresh the cache on display or app changes, never on the hotkey path.
+3. Keep `SCShareableContent` cached and **prewarm** at launch with one tiny capture. Refresh the cache on display or app changes, never on the hotkey path (unless a display is new, or changed size or scale, since the last refresh: its cached target would capture at the old size).
 
 ### Selecting
 - Drag to select. **Releasing the mouse captures immediately.**

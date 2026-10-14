@@ -24,6 +24,12 @@ public enum Geometry {
         return clamped.isNull ? .zero : clamped
     }
 
+    /// The pixel size of a whole-display capture: `points` × `scale`, each side rounded to the nearest pixel.
+    /// Two displays, or one display before and after a change, capture alike exactly when these are equal.
+    public static func pixelSize(points: CGSize, scale: CGFloat) -> CGSize {
+        CGSize(width: (points.width * scale).rounded(), height: (points.height * scale).rounded())
+    }
+
     /// Nearest candidate within `threshold` of `value`, or nil. Ties go to the earlier candidate.
     public static func snapValue(_ value: CGFloat, to candidates: [CGFloat], threshold: CGFloat = 8) -> CGFloat? {
         var best: CGFloat?
