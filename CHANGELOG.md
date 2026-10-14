@@ -2,6 +2,14 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.5 — 2026-10-14
+
+### Changed
+
+- It's now clear what ⇧, ⌥ and Space do while you select: the hint bar uses words, highlights the key you're holding, and a pill next to the selection names the mode ("Square", "From center"). In window mode ⌥ shows "Keep shadow".
+- Holding ⌥ while dragging a shot out shows "Keep on shelf" on the dragged thumbnail, updating as you press or release ⌥.
+- The hint bar shows again for 5 captures whenever its hints change, so you see new keys after an update.
+
 ## 0.0.4 — 2026-10-14
 
 ### Fixed
