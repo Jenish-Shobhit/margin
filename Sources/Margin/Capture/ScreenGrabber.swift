@@ -73,6 +73,9 @@ enum ScreenGrabber {
             let config = SCScreenshotConfiguration()
             config.showsCursor = false
             config.ignoreShadows = false
+            // Like `ignoreGlobalClipSingleWindow` below: a window partly off-screen comes out whole. (macOS 27
+            // doesn't clip it either way; SCStream documents clipping as the default.)
+            config.ignoreClipping = true
             let output = try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: config)
             guard let image = output.sdrImage else { throw CaptureError.noImage }
             return (SendableImage(image: image), scale)
