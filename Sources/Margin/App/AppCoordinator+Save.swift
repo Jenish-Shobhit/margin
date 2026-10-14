@@ -78,7 +78,7 @@ extension AppCoordinator {
         let fallbackFolder = Preferences.fallbackSaveFolder
         savesInFlight += 1 // `finishSave` always runs, on success and failure alike
 
-        // 5. Encode + write off the main actor; the clipboard gets the same bytes as soon as they exist.
+        // 5. Encode + write off the main actor; the clipboard gets the same bytes once the file is in place.
         Task.detached(priority: .userInitiated) { [weak self] in
             let saveSignpost = Self.signposter.beginInterval("save")
             var outcome = SaveOutcome()
@@ -91,35 +91,46 @@ extension AppCoordinator {
             outcome.encodeMs = Self.milliseconds(since: encodeStart)
 
             if let data = outcome.data {
-                await self?.copyCapture(data, itemID: item.id, sequence: sequence)
                 let writeStart = ContinuousClock.now
                 Self.write(data, item: item, date: result.date, fallbackFolder: fallbackFolder, into: &outcome)
                 outcome.writeMs = Self.milliseconds(since: writeStart)
                 outcome.finishedAt = Date()
             }
             Self.signposter.endInterval("save", saveSignpost)
-            await self?.finishSave(itemID: item.id, releaseDate: result.date, timings: timings, outcome: outcome)
+            await self?.finishSave(
+                itemID: item.id, sequence: sequence, releaseDate: result.date, timings: timings, outcome: outcome)
         }
     }
 
-    /// 6. Clipboard + ⌘V mark. Only the newest capture may overwrite the clipboard.
-    private func copyCapture(_ data: Data, itemID: UUID, sequence: Int) {
+    /// 6. Clipboard + ⌘V mark, once the PNG is renamed into place: the PNG plus the file at its *final* URL
+    /// (it can differ from the predicted one: " (2)", the Unsaved folder), so ⌘V in a terminal pastes its
+    /// path. If saving failed, the PNG alone. Only the newest capture may overwrite the clipboard, and a
+    /// shelf copy since this capture began wins (`shelfDidCopy`).
+    private func copyCapture(_ data: Data, fileURL: URL?, itemID: UUID, sequence: Int, releaseDate: Date) {
         guard prefs.copyEachCapture, sequence > lastClipboardSequence else { return }
         lastClipboardSequence = sequence
-        let changeCount = ClipboardWriter.write(pngs: [data])
-        if shelf.itemIDs.contains(itemID) {
+        let changeCount = ClipboardWriter.write(pngs: [data], fileURLs: [fileURL])
+        let releaseToClipboardMs = Date().timeIntervalSince(releaseDate) * 1000
+        Self.timingLog.notice(
+            "release→clipboard \(releaseToClipboardMs, format: .fixed(precision: 1)) ms (\(fileURL == nil ? "PNG only" : "PNG + file URL", privacy: .public))")
+        if fileURL != nil, shelf.itemIDs.contains(itemID) {
             mark.didWrite(itemID: itemID, changeCount: changeCount)
             shelf.setClipboardMark(itemID)
         } else if mark.itemID != nil {
-            // The card was dismissed before its PNG was ready; whatever was marked isn't on the clipboard now.
+            // The card was dismissed while saving, or is going away because saving failed: whatever was
+            // marked isn't on the clipboard now.
             mark.clear()
             shelf.setClipboardMark(nil)
         }
     }
 
-    private func finishSave(itemID: UUID, releaseDate: Date, timings: Timings, outcome: SaveOutcome) {
+    private func finishSave(itemID: UUID, sequence: Int, releaseDate: Date, timings: Timings, outcome: SaveOutcome) {
         // Last, so a quit waiting on this save goes ahead only after shelf.json has the final path.
         defer { saveFinished() }
+        // First, so the clipboard isn't kept waiting by the store and the shelf.
+        if let data = outcome.data {
+            copyCapture(data, fileURL: outcome.saved?.url, itemID: itemID, sequence: sequence, releaseDate: releaseDate)
+        }
         var timings = timings
         timings.encodeMs = outcome.encodeMs
         timings.writeMs = outcome.writeMs
@@ -129,7 +140,7 @@ extension AppCoordinator {
         guard let saved = outcome.saved else {
             lastTimings = timings
             Self.log.error("Capture not saved: \(outcome.error ?? "unknown error", privacy: .public)")
-            // The image may already be on the clipboard; the mark mustn't point at a card that's going away.
+            // The PNG may be on the clipboard now; the mark mustn't point at a card that's going away.
             if mark.itemID == itemID {
                 mark.clear()
                 shelf.setClipboardMark(nil)

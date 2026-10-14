@@ -31,22 +31,33 @@ public struct ClipboardMark: Equatable, Sendable {
     }
 }
 
-/// Puts screenshot images on the pasteboard the way macOS does.
+/// Puts screenshot images on the pasteboard: the image for apps that take images, the saved file for terminals.
 ///
 /// Checked on macOS 27.0.1: `screencapture -c` leaves exactly one pasteboard item with one type,
-/// `public.png` (Display P3 profile, DPI 144 on Retina). No TIFF and no file URL, so Margin writes the
-/// same: the PNG bytes it saved to disk, as `public.png`.
+/// `public.png` (Display P3 profile, DPI 144 on Retina). Margin writes the same PNG bytes it saved to disk as
+/// `public.png`, and, since 0.0.2, the saved file as `public.file-url` on the same item. A terminal's ⌘V
+/// pastes only text: Ghostty pastes a file URL as its shell-escaped path, so Claude Code gets the screenshot.
 public enum ClipboardWriter {
-    /// One pasteboard item per image. Returns the new changeCount.
+    /// One pasteboard item per image: `public.png` first, then `public.file-url` when `fileURLs` has a file
+    /// URL at the same index (nil, a missing entry or a non-file URL means PNG only). Returns the new changeCount.
     @MainActor @discardableResult
-    public static func write(pngs: [Data], to pasteboard: NSPasteboard = .general) -> Int {
+    public static func write(pngs: [Data], fileURLs: [URL?], to pasteboard: NSPasteboard = .general) -> Int {
         pasteboard.clearContents()
-        let items = pngs.map { data -> NSPasteboardItem in
+        let items = pngs.indices.map { i -> NSPasteboardItem in
             let item = NSPasteboardItem()
-            item.setData(data, forType: .png)
+            item.setData(pngs[i], forType: .png)
+            if i < fileURLs.count, let url = fileURLs[i], url.isFileURL {
+                item.setString(url.absoluteURL.absoluteString, forType: .fileURL)
+            }
             return item
         }
         pasteboard.writeObjects(items)
         return pasteboard.changeCount
+    }
+
+    /// PNG only, one pasteboard item per image (what `screencapture -c` writes). Returns the new changeCount.
+    @MainActor @discardableResult
+    public static func write(pngs: [Data], to pasteboard: NSPasteboard = .general) -> Int {
+        write(pngs: pngs, fileURLs: [], to: pasteboard)
     }
 }
