@@ -218,6 +218,8 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 **Changing a shortcut.** Click its button, then press the new keys.
 
 - The shortcut needs ⌘ or ⌃; ⇧ and ⌥ alone aren't enough.
+- ⌘ or ⌃ with just one key (⌘Q, ⌘V, ⌃C…) is refused, because Margin would take it from every app; F1–F20 are fine.
+- Shortcuts macOS or most apps already use are refused too, with the reason: ⇧⌘Z (Redo), ⇧⌘5 (the screenshot toolbar), ⌃⌘Q (Lock Screen), ⌥⌘⎋ (Force Quit) and the like, plus any system shortcut you've set in System Settings › Keyboard › Keyboard Shortcuts.
 - **Esc** cancels and **Delete** resets it to the default.
 - Margin refuses a shortcut that another of its actions already uses.
 - While a button is listening, Margin's shortcuts are paused, so you can record the current one.

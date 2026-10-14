@@ -80,7 +80,7 @@ Click the shelf first: it only takes keys after a click, and gives them back whe
 
 | Keys | Action |
 |---|---|
-| Click a shortcut, then press keys | Record a new shortcut. It needs ⌘ or ⌃ |
+| Click a shortcut, then press keys | Record a new shortcut. It needs ⌘ or ⌃ plus another modifier (or an F-key), and can't be one macOS or most apps use |
 | Esc while recording | Cancel |
 | Delete while recording | Reset to the default |
 | ⌘W | Close Settings |

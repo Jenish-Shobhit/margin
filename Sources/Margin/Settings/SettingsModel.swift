@@ -51,6 +51,9 @@ final class SettingsModel {
     // macOS screenshot shortcut sources, swappable for visual checks.
     @ObservationIgnored var readSystemShortcuts: () -> [SystemScreenshotShortcut] = { SystemShortcuts.current() }
     @ObservationIgnored var setSystemShortcuts: (Bool) async throws -> Void = { try await SystemShortcuts.setEnabledInBackground($0) }
+    /// The other system shortcuts' bindings, checked when recording (read once per recording).
+    @ObservationIgnored var readSystemCombos: () -> Set<KeyCombo> = { SystemShortcuts.currentOtherEnabledCombos() }
+    @ObservationIgnored private var systemCombos: Set<KeyCombo>?
 
     static let genericFolderIcon = NSWorkspace.shared.icon(for: .folder)
 
@@ -231,6 +234,7 @@ final class SettingsModel {
         recording = action
         heldModifiers = 0
         message = nil
+        systemCombos = nil // read again: the user may have changed a system shortcut since
         prefs.isRecordingShortcut = true
         guard monitor == nil else { return }
         // Local monitors run on the main thread. Returning nil swallows the key while recording.
@@ -259,22 +263,32 @@ final class SettingsModel {
             heldModifiers = KeyCombo.carbonModifiers(from: flags)
             return true
         }
+        let combo = KeyCombo(keyCode: keyCode, cocoaModifiers: flags)
         switch keyCode {
-        case 0x35: // Esc cancels
+        case 0x35 where !combo.hasRequiredModifier: // Esc cancels
             stopRecording()
-        case 0x33, 0x75: // Delete / forward delete: back to the default
+        case 0x33 where !combo.hasRequiredModifier, 0x75 where !combo.hasRequiredModifier: // Delete: back to the default
             assign(action.defaultCombo, to: action)
         default:
-            let combo = KeyCombo(keyCode: keyCode, cocoaModifiers: flags)
             if !combo.hasRequiredModifier {
                 message = (action, "Use ⌘ or ⌃ with the key. ⇧ and ⌥ alone aren’t enough.")
             } else if KeyCombo.keyName(for: combo.keyCode) == nil {
                 message = (action, "That key can’t be used for a shortcut.")
+            } else if let reason = reservedReason(for: combo, action: action) {
+                message = (action, reason)
             } else {
                 assign(combo, to: action)
             }
         }
         return true
+    }
+
+    /// Why `combo` (or its ⌃ twin) can't be `action`'s shortcut. The defaults are always allowed.
+    private func reservedReason(for combo: KeyCombo, action: ShortcutAction) -> String? {
+        guard combo != action.defaultCombo else { return nil }
+        if systemCombos == nil { systemCombos = readSystemCombos() }
+        let system = systemCombos ?? []
+        return action.registeredCombos(for: combo).lazy.compactMap { ReservedShortcuts.reason(for: $0, systemCombos: system) }.first
     }
 
     private func assign(_ combo: KeyCombo, to action: ShortcutAction) {

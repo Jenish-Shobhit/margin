@@ -63,6 +63,22 @@ public enum SystemShortcuts {
         return shortcuts.filter { $0.enabled && taken.contains($0.combo) }
     }
 
+    /// The bindings of every enabled system shortcut except IDs 28–31 (which Margin offers to turn off), e.g.
+    /// ⌘Space for Spotlight. Only entries that carry a binding count: a missing entry's macOS default isn't known here.
+    public static func otherEnabledCombos(_ hotkeys: [String: Any]?) -> Set<KeyCombo> {
+        let screenshotIDs = Set(catalog.map { String($0.id) })
+        return Set((hotkeys ?? [:]).compactMap { id, value -> KeyCombo? in
+            guard !screenshotIDs.contains(id), let entry = value as? [String: Any],
+                  boolValue(entry["enabled"]) == true else { return nil }
+            return parseCombo(entry)
+        })
+    }
+
+    public static func currentOtherEnabledCombos() -> Set<KeyCombo> {
+        CFPreferencesAppSynchronize(domain)
+        return otherEnabledCombos(CFPreferencesCopyAppValue(hotKeysKey, domain) as? [String: Any])
+    }
+
     static func boolValue(_ value: Any?) -> Bool? {
         switch value {
         case let n as NSNumber: return n.boolValue

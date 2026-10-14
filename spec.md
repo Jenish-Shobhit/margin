@@ -233,7 +233,7 @@ There are six settings, in one small SwiftUI window:
 - **Shutter sound** (on).
 - **Show key hints while capturing** (on): the hint bar at the top of the capture overlay.
 - **Launch at login** (on; `SMAppService.mainApp`).
-- **Shortcuts:** recorders for Area, Screen, Repeat area and Tuck shelf. Window mode is always Space from area mode, and the ⌃ twins follow automatically.
+- **Shortcuts:** recorders for Area, Screen, Repeat area and Tuck shelf. A recorded combo needs ⌘ or ⌃, and is refused (with the reason, `ReservedShortcuts`) when it's ⌘ or ⌃ with one typing key, a combo macOS or most apps use (⇧⌘Z, ⇧⌘5, ⌃⌘Q, ⌥⌘⎋…), or an enabled system shortcut from `com.apple.symbolichotkeys`. Window mode is always Space from area mode, and the ⌃ twins follow automatically.
 
 ## 9. Not in 0.0.1
 
