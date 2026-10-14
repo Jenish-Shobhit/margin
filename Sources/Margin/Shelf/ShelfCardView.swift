@@ -237,11 +237,12 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
 
     // MARK: - State
 
-    /// Puts the card in its slot. Springs from the previous slot when `animated`.
+    /// Puts the card in its slot. Springs from the previous slot when `animated` (not while its fly-in is
+    /// in the air: the flyer heads for the new slot, and the card must be there when it lands).
     func setSlot(_ frame: CGRect, animated: Bool) {
         let old = self.frame
         self.frame = frame
-        if animated, placed, !isInPile {
+        if animated, placed, !isInPile, !isAwaitingFlyIn {
             ShelfMotion.slide(body, from: CGPoint(x: old.midX - frame.midX, y: old.midY - frame.midY))
         }
         placed = true
@@ -313,14 +314,18 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         ShelfMotion.fade(ring, to: (isNew || isSelected) ? 1 : 0, duration: 0.3)
     }
 
-    /// Hidden while the fly-in is in the air; revealed at hand-off.
+    /// Hidden while the fly-in is in the air (hover can't reveal it early); revealed at hand-off.
+    private(set) var isAwaitingFlyIn = false
+
     func setAwaitingFlyIn(_ waiting: Bool) {
+        isAwaitingFlyIn = waiting
         guard !isLeaving else { return }
+        body.removeAnimation(forKey: "fade")
         body.removeAnimation(forKey: "opacity")
-        body.opacity = waiting ? 0 : targetOpacity
+        body.opacity = targetOpacity
     }
 
-    private var targetOpacity: Float { isInPile ? 0 : (isDragging ? 0.32 : 1) }
+    private var targetOpacity: Float { isAwaitingFlyIn || isInPile ? 0 : (isDragging ? 0.32 : 1) }
 
     private var targetTransform: CATransform3D {
         if isInPile {

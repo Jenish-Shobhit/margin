@@ -324,6 +324,7 @@ extension ShelfController {
         // Cards tucked off-screen (not peeking) just go, and the shelf snaps back unseen.
         let emptiedWhileTucked = isTucked && store.items.isEmpty
         let offscreen = emptiedWhileTucked && !isPeeking
+        cancelFlights(ids)
         var longest = 0.0
         for id in ids {
             // Off the shelf it isn't pending any more (⌘Z re-checks), and a queued click-copy is moot.

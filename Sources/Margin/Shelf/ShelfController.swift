@@ -62,6 +62,8 @@ final class ShelfController: ShelfControlling {
     private var peekTask: Task<Void, Never>?
     private var peekPoll: Task<Void, Never>?
     private var hideTask: Task<Void, Never>?
+    /// Shots in the air, by item.
+    private var flights: [UUID: ShelfFlight] = [:]
     /// After the user empties the shelf, the (invisible) panel stays a moment so ⌘Z can still reach it.
     var lingerUntil = Date.distantPast
     private var observers: [NSObjectProtocol] = []
@@ -146,6 +148,7 @@ final class ShelfController: ShelfControlling {
         let intoTab = isTucked && !isPeeking
         let reduce = ShelfStyle.reduceMotion
         if intoTab && !reduce { pendingTabArrivals += 1 }
+        if !reduce { card.setAwaitingFlyIn(true) }
         relayout(animated: !appearing && !moved)
         showPanel()
 
@@ -153,19 +156,60 @@ final class ShelfController: ShelfControlling {
             if intoTab { tab.bump() } else { card.flashNewRing() }
             return
         }
-        if intoTab {
-            ShelfFlyIn.run(image: thumbnail, from: sourceRect, to: screenRect(of: tab), intoTab: true) { [weak self] in
-                guard let self else { return }
-                self.pendingTabArrivals = max(0, self.pendingTabArrivals - 1)
-                self.tab.count = self.store.items.count - self.pendingTabArrivals
-                self.tab.bump()
-            }
-        } else {
-            card.setAwaitingFlyIn(true)
-            ShelfFlyIn.run(image: thumbnail, from: sourceRect, to: screenRect(of: card), intoTab: false) { [weak card] in
-                card?.setAwaitingFlyIn(false)
-                card?.flashNewRing()
-            }
+        let id = item.id
+        let target = flightTarget(for: id) ?? (screenRect(of: card), .card)
+        let flight = ShelfFlight.start(image: thumbnail, from: sourceRect, to: target.rect, landing: target.landing,
+                                       shelf: fullFrame) { [weak self] landing in
+            self?.flightLanded(id, landing)
+        }
+        if let flight { flights[id] = flight }
+    }
+
+    // MARK: - Fly-in
+
+    /// Where a shot in the air should land right now: the tab while tucked, the pile if its card was
+    /// pushed into it, else its card's slot.
+    private func flightTarget(for id: UUID) -> (rect: CGRect, landing: ShelfFlight.Landing)? {
+        guard let card = cards[id] else { return nil }
+        if isTucked && !isPeeking { return (screenRect(of: tab), .tab) }
+        if card.isInPile, !pile.isHidden { return (screenRect(of: pile), .pile) }
+        return (screenRect(of: card), .card)
+    }
+
+    /// Re-aims every shot in the air at its card's live slot (after a relayout, tuck or peek).
+    private func retargetFlights() {
+        guard !flights.isEmpty else { return }
+        for (id, flight) in flights {
+            guard let t = flightTarget(for: id) else { continue }
+            if flight.landing == .tab, t.landing != .tab { pendingTabArrivals = max(0, pendingTabArrivals - 1) }
+            if flight.landing != .tab, t.landing == .tab { pendingTabArrivals += 1 }
+            flight.retarget(to: t.rect, landing: t.landing)
+        }
+        tab.count = store.items.count - pendingTabArrivals
+    }
+
+    private func flightLanded(_ id: UUID, _ landing: ShelfFlight.Landing) {
+        flights[id] = nil
+        let card = cards[id]
+        card?.setAwaitingFlyIn(false)
+        switch landing {
+        case .card:
+            card?.flashNewRing()
+        case .tab:
+            pendingTabArrivals = max(0, pendingTabArrivals - 1)
+            tab.count = store.items.count - pendingTabArrivals
+            tab.bump()
+        case .pile:
+            break
+        }
+    }
+
+    /// The shots left the shelf: anything still flying fades away.
+    func cancelFlights(_ ids: [UUID]) {
+        for id in ids {
+            guard let flight = flights.removeValue(forKey: id) else { continue }
+            if flight.landing == .tab { pendingTabArrivals = max(0, pendingTabArrivals - 1) }
+            flight.cancel()
         }
     }
 
@@ -309,6 +353,7 @@ final class ShelfController: ShelfControlling {
         tab.count = items.count - pendingTabArrivals
         positionToast(animated: animated)
         updateVisibility()
+        retargetFlights()
     }
 
     /// Sizes the panel: the full stage, or just the tab while tucked and idle.
@@ -429,6 +474,7 @@ final class ShelfController: ShelfControlling {
             hideTab(animated: true)
             if !store.items.isEmpty { showPanel() }
         }
+        retargetFlights()
     }
 
     private var tuckedToastText: String {
@@ -514,6 +560,7 @@ final class ShelfController: ShelfControlling {
             holdPanelFull(for: 0.4)
             setContainerOffset(stageSize.width, animated: true, spring: false)
         }
+        retargetFlights()
     }
 
     /// While peeking, tuck back once the pointer has been outside the shelf for ~0.3 s.
