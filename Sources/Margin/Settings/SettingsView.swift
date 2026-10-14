@@ -58,11 +58,54 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            Section {
+                SystemShortcutsRow(model: model)
+            }
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Turns the four macOS screenshot shortcuts off, or restores them, with a short status line (spec, 0.0.6).
+private struct SystemShortcutsRow: View {
+    let model: SettingsModel
+
+    var body: some View {
+        // Always two lines: the button title is too long to share a line with the status in a 460 pt window.
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("macOS screenshot shortcuts")
+                Text(model.systemShortcutsStatus)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .combine)
+            HStack(spacing: 8) {
+                Spacer(minLength: 0)
+                if model.systemShortcutsBusy {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel("Working")
+                }
+                Button(model.anySystemShortcutOn ? "Turn off macOS screenshot shortcuts" : "Restore macOS screenshot shortcuts") {
+                    model.toggleSystemShortcuts()
+                }
+                .disabled(model.systemShortcutsBusy)
+            }
+            if let error = model.systemShortcutsError {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(Color(nsColor: .systemOrange))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: model.systemShortcutsError)
     }
 }
 

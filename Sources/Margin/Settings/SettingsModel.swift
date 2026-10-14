@@ -32,6 +32,13 @@ final class SettingsModel {
     /// Shortcuts the hotkey center couldn't register, with the Carbon status (`RuntimeStatus.hotkeyFailures`).
     private(set) var hotkeyFailures: [ShortcutAction: Int32] = [:]
 
+    /// The four macOS screenshot shortcuts (IDs 28–31), as last read (`refreshSystemShortcuts`).
+    private(set) var systemShortcuts: [SystemScreenshotShortcut] = []
+    /// Turning them off or restoring them is running (about half a second).
+    private(set) var systemShortcutsBusy = false
+    /// Why the last turn off / restore didn't work.
+    private(set) var systemShortcutsError: String?
+
     @ObservationIgnored let status: RuntimeStatus
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
     @ObservationIgnored private var monitor: Any?
@@ -40,6 +47,9 @@ final class SettingsModel {
     // Login item sources, swappable for visual checks.
     @ObservationIgnored var readLoginItem: () -> LoginItem.State = { LoginItem.state }
     @ObservationIgnored var setLoginItem: (Bool) -> Void = { LoginItem.setEnabled($0) }
+    // macOS screenshot shortcut sources, swappable for visual checks.
+    @ObservationIgnored var readSystemShortcuts: () -> [SystemScreenshotShortcut] = { SystemShortcuts.current() }
+    @ObservationIgnored var setSystemShortcuts: (Bool) async throws -> Void = { try await SystemShortcuts.setEnabledInBackground($0) }
 
     static let genericFolderIcon = NSWorkspace.shared.icon(for: .folder)
 
@@ -51,6 +61,7 @@ final class SettingsModel {
         shutterSound = prefs.shutterSound
         reload()
         refreshLoginItem()
+        refreshSystemShortcuts()
         hotkeyFailures = status.hotkeyFailures
         let center = NotificationCenter.default
         observers.append(center.addObserver(forName: Preferences.didChange, object: prefs, queue: .main) { [weak self] _ in
@@ -136,6 +147,54 @@ final class SettingsModel {
     }
 
     func openLoginItemsSettings() { LoginItem.openSystemSettings() }
+
+    // MARK: macOS screenshot shortcuts
+
+    /// Re-reads `com.apple.symbolichotkeys` (cheap): when the window opens or becomes key again (the user may
+    /// have changed them in System Settings), and after turning them off or restoring them.
+    func refreshSystemShortcuts() {
+        systemShortcuts = readSystemShortcuts()
+    }
+
+    /// Any of the four is on, so the row offers to turn them off; otherwise it offers to restore them.
+    var anySystemShortcutOn: Bool { systemShortcuts.contains { $0.enabled } }
+
+    /// The row's short status line, e.g. "All four are on, so macOS takes them before Margin."
+    var systemShortcutsStatus: String {
+        let on = systemShortcuts.filter(\.enabled)
+        let keys = { (list: [SystemScreenshotShortcut]) in ListFormatter.localizedString(byJoining: list.map(\.keys)) }
+        let state = switch on.count {
+        case 0: "All four are off"
+        case systemShortcuts.count: "All four are on"
+        default: "\(keys(on)) \(on.count == 1 ? "is" : "are") on"
+        }
+        // From the observed `shortcuts`, so the line updates as soon as one of Margin's shortcuts is re-recorded.
+        let margin = ShortcutAction.allCases.flatMap { $0.registeredCombos(for: shortcut(for: $0)) }
+        let conflicts = SystemShortcuts.conflicts(systemShortcuts, with: margin)
+        guard !conflicts.isEmpty else { return state + "." }
+        let which = conflicts.count == on.count ? (on.count == 1 ? "it" : "them") : keys(conflicts)
+        return "\(state), so macOS takes \(which) before Margin."
+    }
+
+    /// "Turn off macOS screenshot shortcuts" when any are on, "Restore macOS screenshot shortcuts" when all are off.
+    /// Only ever on this click (spec, 0.0.6).
+    func toggleSystemShortcuts() {
+        guard !systemShortcutsBusy else { return }
+        let enable = !anySystemShortcutOn
+        systemShortcutsBusy = true
+        systemShortcutsError = nil
+        Task {
+            do {
+                try await setSystemShortcuts(enable)
+            } catch let error as SystemShortcutsError where error.isSaved {
+                systemShortcutsError = "Saved, but macOS hasn’t applied it yet. It will after you log out and back in."
+            } catch {
+                systemShortcutsError = "\(enable ? "Couldn’t restore them." : "Couldn’t turn them off.") \(error.localizedDescription)"
+            }
+            refreshSystemShortcuts()
+            systemShortcutsBusy = false
+        }
+    }
 
     var saveFolderDisplay: String { (saveFolder.path as NSString).abbreviatingWithTildeInPath }
 
