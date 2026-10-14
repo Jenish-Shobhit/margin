@@ -180,7 +180,7 @@ The shelf never steals focus. A click (copy) or double-click (open) leaves the k
 | ⌘Z | Restore the last removed card(s). Keeps up to 20 steps, covering drag-out, dismiss, clear and trash (trash restores the file from the Trash; a file already back through Finder's Put Back counts as restored). Steps restore one at a time, newest first: a ⌘Z pressed while a file is still coming back from the Trash waits for it. Files are checked first: a card whose file was deleted meanwhile stays off the shelf ("File not found"), and that step is used up |
 
 - **Drop success.** Never delete or move the file because of a drag. "Success" means only that the card leaves the shelf.
-  - If an app reports success wrongly, ⌘Z brings the card back.
+  - If an app reports success wrongly, **Restore Last Removed** in the menu bar brings the card back. A drag never gives the shelf the keys (§5 intro), so ⌘Z right after a drop goes to the app it was dropped into; on the shelf, ⌘Z works after a ⌘-click or a click on the pile.
   - If an app reports failure wrongly, the card stays and ⌫ removes it.
 - **⌘V mark.** A small accent pill reading "⌘V" sits at the bottom-right of the card whose image is on the clipboard.
   - Poll `NSPasteboard.general.changeCount` about once a second. If it differs from the count recorded after Margin's last write, clear the mark.

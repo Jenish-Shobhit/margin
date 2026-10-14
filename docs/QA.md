@@ -277,6 +277,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **Actions**
 
 - [ ] Restore Last Removed brings back the last removed card(s) like ⌘Z on the shelf, without clicking the shelf first (dismiss, drag-out, clear, trash)
+- [ ] After a drag-out the keyboard stays with the app the card was dropped into (⌘Z there undoes that app's last action, not the drag); Restore Last Removed brings the card back
 - [ ] Capture Window starts the capture in window mode (Space switches to area)
 - [ ] The menu itself never appears in a shot started from it
 - [ ] Open Screenshots Folder creates the folder if missing and opens it in Finder

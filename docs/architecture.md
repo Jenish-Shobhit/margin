@@ -193,7 +193,7 @@ Quitting while saves are in flight answers `.terminateLater`. Margin waits for t
 
 - `ShelfFlight` animates the thumbnail from the selection to its slot in about 0.45 s, in a temporary click-through panel. It re-aims if the slot moves (another capture, a tuck, a peek), lands in the tab or the pile when that's where the card is, and then hands off to the real card. The card's accent ring lasts 1.5 s.
 - A one-second timer compares the pasteboard's `changeCount` with the one recorded after Margin's last write. When they differ, the ⌘V mark clears. Margin never reads the clipboard's contents.
-- Drag-out writes a plain `NSURL` per item and offers `.copy` only. A non-empty drop operation without ⌥ removes the cards, as one undo step.
+- Drag-out writes a plain `NSURL` per item and offers `.copy` only. A non-empty drop operation without ⌥ removes the cards, as one undo step. The drag never makes the shelf key, so ⌘Z after a drop belongs to the app that took it; the menu's **Restore Last Removed** (`undo(fromMenu:)`) is the way back.
 
 ## Threading rules
 

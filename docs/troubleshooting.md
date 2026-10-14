@@ -119,7 +119,7 @@ It didn't. Margin offers every drag as a **copy** of the file and never moves or
 What you saw is the card leaving the shelf: a successful drop means "done with this one".
 
 - **Hold ⌥ when you drop** to keep the card on the shelf. The dragged image shows "Keep on shelf".
-- **⌘Z** on the shelf, or **Restore Last Removed** in the menu bar, brings the card back.
+- **Restore Last Removed** in the menu bar brings the card back. A drag leaves the keyboard with the app you dropped into, so ⌘Z right after the drop goes to that app; ⌘Z on the shelf works once you've ⌘-clicked a card or clicked the pile.
 
 The same goes for any app that wrongly reports a drop as successful. If an app wrongly reports a *failed* drop, the card stays on the shelf, and ⌫ dismisses it.
 
