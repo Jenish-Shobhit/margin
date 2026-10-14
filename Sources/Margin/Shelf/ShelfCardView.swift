@@ -77,7 +77,7 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         border.borderWidth = 1
         body.addSublayer(border)
 
-        // Selection check (top-right), under the hover chrome so ••• covers it.
+        // Selection check (top-left), under the hover chrome: on hover it gives way to the options button.
         check.bounds = CGRect(x: 0, y: 0, width: 18, height: 18)
         check.cornerRadius = 9
         check.backgroundColor = ShelfStyle.accent.cgColor
@@ -97,7 +97,7 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         check.addSublayer(tick)
         body.addSublayer(check)
 
-        // Hover chrome: bottom gradient + meta line, ✕ and •••. Faded as one.
+        // Hover chrome: bottom gradient + meta line, options (top-left) and ✕ (top-right). Faded as one.
         chrome.cornerRadius = ShelfStyle.cornerRadius
         chrome.cornerCurve = .continuous
         chrome.masksToBounds = true
@@ -111,23 +111,29 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         metaText.isWrapped = false
         chrome.addSublayer(metaText)
 
-        styleChip(closeChip, size: CGSize(width: 18, height: 18))
+        // ✕ (dismiss): a red circle with a white cross. The white rim and shadow keep it legible on any shot.
+        let d = Self.buttonDiameter
+        styleChip(closeChip, size: CGSize(width: d, height: d))
+        closeChip.borderColor = NSColor.white.withAlphaComponent(0.9).cgColor
         let x = shelfQuiet(CAShapeLayer())
         let xp = CGMutablePath()
-        xp.move(to: CGPoint(x: 6.3, y: 6.3)); xp.addLine(to: CGPoint(x: 11.7, y: 11.7))
-        xp.move(to: CGPoint(x: 6.3, y: 11.7)); xp.addLine(to: CGPoint(x: 11.7, y: 6.3))
+        let a = d / 2 - 3.4, b = d / 2 + 3.4
+        xp.move(to: CGPoint(x: a, y: a)); xp.addLine(to: CGPoint(x: b, y: b))
+        xp.move(to: CGPoint(x: a, y: b)); xp.addLine(to: CGPoint(x: b, y: a))
         x.path = xp
         x.strokeColor = NSColor.white.cgColor
-        x.lineWidth = 1.4
+        x.lineWidth = 2
         x.lineCap = .round
         x.frame = closeChip.bounds
         closeChip.addSublayer(x)
         chrome.addSublayer(closeChip)
 
-        styleChip(moreChip, size: CGSize(width: 26, height: 18))
+        // Options: a dark circle with an ellipsis (like SF Symbols' ellipsis.circle.fill).
+        styleChip(moreChip, size: CGSize(width: d, height: d))
+        moreChip.borderColor = NSColor.white.withAlphaComponent(0.4).cgColor
         let dots = shelfQuiet(CAShapeLayer())
         let dp = CGMutablePath()
-        for cx in [8.5, 13.0, 17.5] { dp.addEllipse(in: CGRect(x: cx - 1.25, y: 9 - 1.25, width: 2.5, height: 2.5)) }
+        for cx in [d / 2 - 4.6, d / 2, d / 2 + 4.6] { dp.addEllipse(in: CGRect(x: cx - 1.4, y: d / 2 - 1.4, width: 2.8, height: 2.8)) }
         dots.path = dp
         dots.fillColor = NSColor.white.cgColor
         dots.frame = moreChip.bounds
@@ -154,8 +160,14 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         body.addSublayer(pill)
 
         updateMeta()
-        updateBorderColor()
+        updateAppearanceColors()
     }
+
+    /// Visible size of the hover buttons; their hit areas are larger (`buttonHitSize`).
+    private static let buttonDiameter: CGFloat = 20
+    private static let buttonHitSize: CGFloat = 28
+    /// Inset of the hover buttons (and the selection check) from the card's top corners.
+    private static let buttonInset: CGFloat = 6
 
     private func styleChip(_ l: CALayer, size: CGSize) {
         l.bounds = CGRect(origin: .zero, size: size)
@@ -163,6 +175,11 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         l.backgroundColor = ShelfStyle.chip.cgColor
         l.borderColor = NSColor.white.withAlphaComponent(0.28).cgColor
         l.borderWidth = 1
+        l.shadowColor = NSColor.black.cgColor
+        l.shadowOpacity = 0.3
+        l.shadowRadius = 2
+        l.shadowOffset = CGSize(width: 0, height: -1)
+        l.shadowPath = CGPath(ellipseIn: l.bounds, transform: nil)
     }
 
     private func layoutLayers() {
@@ -177,9 +194,9 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         chrome.frame = b
         gradient.frame = CGRect(x: 0, y: 0, width: w, height: min(42, h))
         metaText.frame = CGRect(x: 9, y: 5, width: w - 18, height: 14)
-        closeChip.position = CGPoint(x: 6 + 9, y: h - 6 - 9)
-        moreChip.position = CGPoint(x: w - 6 - 13, y: h - 6 - 9)
-        check.position = CGPoint(x: w - 6 - 9, y: h - 6 - 9)
+        closeChip.position = CGPoint(x: closeHitRect.midX, y: closeHitRect.midY)
+        moreChip.position = CGPoint(x: moreHitRect.midX, y: moreHitRect.midY)
+        check.position = moreChip.position
         let textW = ceil((pillText.string as? NSAttributedString)?.size().width ?? 14)
         let ps = CGSize(width: textW + 12, height: 16)
         pill.bounds = CGRect(origin: .zero, size: ps)
@@ -187,6 +204,8 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         pill.shadowPath = CGPath(roundedRect: pill.bounds, cornerWidth: 6, cornerHeight: 6, transform: nil)
         pillText.frame = CGRect(x: 0, y: (ps.height - 12) / 2, width: ps.width, height: 12)
         renameBox?.frame = renameFrame
+        removeAllToolTips()
+        addToolTip(moreHitRect, owner: self, userData: nil)
     }
 
     override func setFrameSize(_ newSize: NSSize) {
@@ -203,12 +222,15 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        updateBorderColor()
+        updateAppearanceColors()
     }
 
-    private func updateBorderColor() {
+    private func updateAppearanceColors() {
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         border.borderColor = (dark ? NSColor.white.withAlphaComponent(0.16) : NSColor.black.withAlphaComponent(0.14)).cgColor
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            closeChip.backgroundColor = NSColor.systemRed.cgColor
+        }
     }
 
     // MARK: - Content
@@ -388,11 +410,20 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
 
     // MARK: - Hit areas
 
-    private var closeHitRect: CGRect { CGRect(x: 2, y: bounds.height - 28, width: 26, height: 26) }
-    private var moreHitRect: CGRect { CGRect(x: bounds.width - 36, y: bounds.height - 28, width: 34, height: 26) }
+    /// ✕, top-right. Each hit area is a square centered on its button, larger than the button.
+    private var closeHitRect: CGRect {
+        let s = Self.buttonHitSize, edge = Self.buttonInset + Self.buttonDiameter / 2 + s / 2
+        return CGRect(x: bounds.width - edge, y: bounds.height - edge, width: s, height: s)
+    }
 
-    /// Where the ••• menu pops up, in this view's coordinates.
-    var moreMenuAnchor: CGPoint { CGPoint(x: bounds.width - 32, y: bounds.height - 26) }
+    /// Options, top-left.
+    private var moreHitRect: CGRect {
+        let s = Self.buttonHitSize, edge = Self.buttonInset + Self.buttonDiameter / 2 + s / 2
+        return CGRect(x: edge - s, y: bounds.height - edge, width: s, height: s)
+    }
+
+    /// Where the options menu pops up (its top-left corner), in this view's coordinates: just below the button.
+    var moreMenuAnchor: CGPoint { CGPoint(x: Self.buttonInset, y: bounds.height - Self.buttonInset - Self.buttonDiameter - 4) }
 
     // MARK: - Mouse
 
@@ -581,5 +612,12 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     func controlTextDidEndEditing(_ obj: Notification) {
         // Focus left the field (e.g. a click in another app): keep what was typed, like Finder.
         if renameField != nil { endRename(commit: true) }
+    }
+}
+
+/// The options button's tooltip (registered over its hit area in `layoutLayers`).
+extension ShelfCardView: NSViewToolTipOwner {
+    func view(_ view: NSView, stringForToolTip tag: NSView.ToolTipTag, point: NSPoint, userData data: UnsafeMutableRawPointer?) -> String {
+        "Options"
     }
 }

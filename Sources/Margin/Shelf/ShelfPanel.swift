@@ -20,6 +20,8 @@ final class ShelfPanel: NSPanel {
         isReleasedWhenClosed = false
         animationBehavior = .none
         acceptsMouseMovedEvents = true
+        // Margin is almost never the active app; without this the card tooltips ("Options") never show.
+        allowsToolTipsWhenApplicationIsInactive = true
     }
 
     override var canBecomeKey: Bool { true }
