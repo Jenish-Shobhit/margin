@@ -173,7 +173,6 @@ final class CaptureController: CaptureControlling {
                 self.onFailure?(FailureText.screen)
             } else if session.abandonPendingDisplays() > 0 {
                 CaptureLog.capture.error("freeze: a display gave no frame in 3 s; dimmed")
-                self.refreshWindows(for: session)
             }
         }
 
@@ -188,12 +187,15 @@ final class CaptureController: CaptureControlling {
                 return
             }
             guard self.session === session else { return }
+            session.windowsDidRefresh()
             stream = Self.captureAll(jobs(for: displays), grab: grab)
         }
         guard let stream else { return }
 
         var first = true
         var firstError: (any Error)?
+        // The cold path's fetch already has fresh windows.
+        var windowsRequested = early == nil
         for await frame in stream {
             guard self.session === session else { return }
             switch frame.result {
@@ -206,6 +208,13 @@ final class CaptureController: CaptureControlling {
                 }
                 timings.record("freezeCapture.\(frame.displayID)", frame.ms)
                 permissionWorked()
+                // Windows may have moved, opened or closed since the last refresh: fetch them for snapping and window
+                // mode as soon as one display is frozen, not after the slowest. Not before: a fetch alongside the
+                // start of the captures slows them by about 20 ms.
+                if !windowsRequested {
+                    windowsRequested = true
+                    refreshWindows(for: session)
+                }
                 // Keys (Esc, Space) work from the first frozen display on, not after the slowest one. Every
                 // capture was already requested, so activating can change at most a display still in flight.
                 if !activatedForSession { takeFocus(session) }
@@ -226,13 +235,13 @@ final class CaptureController: CaptureControlling {
             fail(firstError ?? CaptureError.noImage, session: session, message: FailureText.screen)
             return
         }
-        refreshWindows(for: session)
     }
 
-    /// Window frames may have moved since the last refresh: update them for snapping and window mode.
+    /// Fetches the windows for snapping and window mode, then hands them to the session (whether or not the fetch
+    /// worked: the session must stop waiting for them either way).
     private func refreshWindows(for session: OverlaySession) {
         Task { [weak self] in
-            try? await self?.cache.refresh()
+            try? await self?.cache.refresh(onScreenOnly: true)
             guard let self, self.session === session else { return }
             session.windowsDidRefresh()
         }

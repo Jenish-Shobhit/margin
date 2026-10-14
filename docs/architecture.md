@@ -140,7 +140,7 @@ After that, the cache refreshes on display, app and Space changes (debounced 150
 2. If the cache is warm (and every display has the size it had at the last fetch), `SCScreenshotManager.captureImage` starts for every display at once (a task group, off the main thread). At the same time the transparent overlays go up, with a crosshair.
 3. Each display's frame is drawn as it arrives. With the first one, Margin activates and makes the overlay key, so Esc, Space and the arrows work.
 4. A display that fails is dimmed ("Can't capture this display"). If no frame arrives within 3 s the overlay cancels itself with a "Couldn't capture the screen" toast, so it can never be left eating clicks.
-5. Once every display is frozen, the window list is refreshed, for snapping and window mode.
+5. As soon as the first display is frozen (not after the slowest one), the window list is refreshed for snapping and window mode: `SCShareableContent` with on-screen windows only, about 60 % of the full fetch, since Margin is listed through its overlay. Not earlier: a fetch started alongside the captures slows them by about 20 ms. When it lands, a selection being drawn re-snaps its start to it and window mode re-picks the window under the pointer; a window-mode click that came first is held until then. (The cold path's fetch already has fresh windows.)
 
 The target is **≤ 80 ms from the hotkey to the first frozen frame**.
 

@@ -17,8 +17,8 @@ private struct ContentBox: @unchecked Sendable {
 }
 
 /// Cached `SCShareableContent`: displays, windows and Margin's own `SCRunningApplication`.
-/// Refreshed on display, app and Space changes once Screen Recording is confirmed (`startObserving`),
-/// and never fetched on the hotkey path.
+/// Refreshed on display, app and Space changes once Screen Recording is confirmed (`startObserving`), and for
+/// the windows during each ⌘⇧4, once the first display is frozen; never on the hotkey path itself.
 @MainActor
 final class ShareableContentCache {
     /// Freeze targets per display, built with Margin excluded.
@@ -135,26 +135,30 @@ final class ShareableContentCache {
     }
 
     /// Fetches fresh content now. Later requests win over earlier ones that finish late.
-    func refresh() async throws {
+    ///
+    /// `onScreenOnly` is for a refresh while the overlay is up: listing on-screen windows only is quicker (33 vs
+    /// 57 ms here), and everything the cache keeps is on screen anyway (snapping and window mode want on-screen
+    /// windows, and Margin is listed through its overlay). Should the overlay be gone by the time the fetch runs
+    /// and Margin with it, only the windows are taken from it.
+    func refresh(onScreenOnly: Bool = false) async throws {
         requested += 1
         let ticket = requested
         let state = CaptureLog.signposter.beginInterval("shareableContent")
         let clock = Stopwatch()
         // Before the fetch: a display that appears, or changes, while it runs must not count as "asked about".
         let screens = Dictionary(Displays.all.map { ($0.id, $0.pixelSize) }, uniquingKeysWith: { a, _ in a })
-        let box = try await Self.fetch()
+        let box = try await Self.fetch(onScreenOnly: onScreenOnly)
         CaptureLog.signposter.endInterval("shareableContent", state)
         guard ticket > applied else { return }
         applied = ticket
-        apply(box.content)
-        knownDisplays = screens
+        if apply(box.content, onScreenOnly: onScreenOnly) { knownDisplays = screens }
         CaptureLog.timing.debug("shareable content refreshed in \(clock.ms, format: .fixed(precision: 1), privacy: .public) ms")
     }
 
-    private nonisolated static func fetch() async throws -> ContentBox {
-        // All windows, not just on-screen ones: Margin is listed only if it owns a window, and its
+    private nonisolated static func fetch(onScreenOnly: Bool) async throws -> ContentBox {
+        // All windows by default, not just on-screen ones: Margin is listed only if it owns a window, and its
         // overlay panels exist (ordered out) from prewarm on.
-        ContentBox(content: try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false))
+        ContentBox(content: try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: onScreenOnly))
     }
 
     /// True when a capture of these displays must fetch first: nothing cached, Margin missing (its windows
@@ -183,9 +187,20 @@ final class ShareableContentCache {
         windows.first { $0.frame.contains(point) }
     }
 
-    private func apply(_ content: SCShareableContent) {
+    /// Takes the windows and rebuilds the targets, except from an on-screen-only fetch that doesn't list Margin (its
+    /// overlay closed before the fetch ran): the targets there are stay. Returns whether the targets were rebuilt.
+    private func apply(_ content: SCShareableContent, onScreenOnly: Bool) -> Bool {
         let pid = getpid()
         let margin = content.applications.filter { $0.processID == pid }
+        let rebuildTargets = !margin.isEmpty || !onScreenOnly || !isLoaded
+        if rebuildTargets { applyTargets(content, margin: margin) }
+        applyWindows(content)
+        isLoaded = true
+        return rebuildTargets
+    }
+
+    private func applyTargets(_ content: SCShareableContent, margin: [SCRunningApplication]) {
+        let pid = getpid()
         hasMarginApp = !margin.isEmpty
         if !hasMarginApp { CaptureLog.capture.error("Margin is not in SCShareableContent; its windows would not be excluded") }
 
@@ -202,7 +217,9 @@ final class ShareableContentCache {
             t[display.displayID] = ScreenGrabber.makeDisplayTarget(display: display, excluding: margin, keeping: kept)
         }
         targets = t
+    }
 
+    private func applyWindows(_ content: SCShareableContent) {
         // SCShareableContent's window order isn't z-order; CGWindowList's is (front to back).
         let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
         var rank: [CGWindowID: Int] = [:]
@@ -228,6 +245,5 @@ final class ShareableContentCache {
         snapFrames = frames.enumerated()
             .filter { i, f in !frames[..<i].contains { $0.contains(f) } }
             .map(\.element)
-        isLoaded = true
     }
 }
