@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import MarginKit
 import ScreenCaptureKit
 
 /// A CGImage that crosses actor boundaries. CGImage is immutable once made.
@@ -32,15 +33,14 @@ enum ScreenGrabber {
         let filter = SCContentFilter(display: display, excludingApplications: apps, exceptingWindows: keeping)
         let scale = CGFloat(SCShareableContent.info(for: filter).pointPixelScale)
         let config = SCStreamConfiguration()
-        let width = Int((CGFloat(display.width) * scale).rounded())
-        let height = Int((CGFloat(display.height) * scale).rounded())
-        config.width = width
-        config.height = height
+        let size = Geometry.pixelSize(points: CGSize(width: display.width, height: display.height), scale: scale)
+        config.width = Int(size.width)
+        config.height = Int(size.height)
         config.showsCursor = false
         config.captureResolution = .best
         config.scalesToFit = false
         return DisplayTarget(displayID: display.displayID, filter: filter, configuration: config, scale: scale,
-                             pixelSize: CGSize(width: width, height: height))
+                             pixelSize: size)
     }
 
     /// One full-resolution frame of the display.
@@ -73,6 +73,9 @@ enum ScreenGrabber {
             let config = SCScreenshotConfiguration()
             config.showsCursor = false
             config.ignoreShadows = false
+            // Like `ignoreGlobalClipSingleWindow` below: a window partly off-screen comes out whole. (macOS 27
+            // doesn't clip it either way; SCStream documents clipping as the default.)
+            config.ignoreClipping = true
             let output = try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: config)
             guard let image = output.sdrImage else { throw CaptureError.noImage }
             return (SendableImage(image: image), scale)

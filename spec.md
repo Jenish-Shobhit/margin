@@ -55,7 +55,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 |---|---|
 | ⌘⇧4 | Area capture on a frozen screen. Press Space for window mode |
 | ⌘⇧3 | Full screen: the display under the pointer |
-| ⌘⇧2 | Repeat the last area, with no overlay. Falls back to ⌘⇧4 if there's no last area or its display is gone |
+| ⌘⇧2 | Repeat the last area, with no overlay. Falls back to ⌘⇧4 if there's no last area, or its display is gone or at another resolution |
 | ⌃⌘⇧4 · ⌃⌘⇧3 · ⌃⌘⇧2 | Same as without ⌃ (every shot is already copied) |
 | ⌘⇧1 | Tuck or show the shelf |
 
@@ -65,7 +65,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
    - Filter: `SCContentFilter(display:excludingApplications:[Margin]…)`.
    - Configuration: full pixel size via `SCShareableContent.info(for:).pointPixelScale`, `showsCursor = false`, best resolution.
    - When each image arrives, draw it into that display's overlay. Margin's own windows are excluded from the capture, so overlay order doesn't matter and nothing visibly jumps.
-3. Keep `SCShareableContent` cached and **prewarm** at launch with one tiny capture. Refresh the cache on display or app changes, never on the hotkey path.
+3. Keep `SCShareableContent` cached and **prewarm** at launch with one tiny capture. Refresh the cache on display or app changes, never on the hotkey path (unless a display is new, or changed size or scale, since the last refresh: its cached target would capture at the old size).
 
 ### Selecting
 - Drag to select. **Releasing the mouse captures immediately.**
@@ -92,6 +92,12 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 ### Full screen (⌘⇧3) and repeat area (⌘⇧2)
 - Both capture directly with no overlay. They use the same filter, so the shelf never appears in the shot.
 - ⌘⇧2 briefly flashes the area outline (150 ms) *after* capturing.
+- The last area is remembered relative to its display (plus the display's size in points), not in global points, so it stays on the same part of that display when displays are added, removed or rearranged. Repeating it doesn't change it.
+
+### When a capture fails
+- A missing Screen Recording permission opens First run (§7).
+- Any other failure shows a shelf toast instead of doing nothing: "Couldn't capture that window" (it closed between hover and click), "Couldn't capture this display" (⌘⇧3 or ⌘⇧2 on a display ScreenCaptureKit can't capture) or "Couldn't capture the screen" (the freeze got no frame). An overlay closed by Esc gets no toast.
+- ⌘⇧2 with nothing to crop falls back to ⌘⇧4.
 
 ## 3. Save, copy, sound — the moment of release
 

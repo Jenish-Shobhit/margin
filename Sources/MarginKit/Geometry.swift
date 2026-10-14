@@ -24,6 +24,12 @@ public enum Geometry {
         return clamped.isNull ? .zero : clamped
     }
 
+    /// The pixel size of a whole-display capture: `points` × `scale`, each side rounded to the nearest pixel.
+    /// Two displays, or one display before and after a change, capture alike exactly when these are equal.
+    public static func pixelSize(points: CGSize, scale: CGFloat) -> CGSize {
+        CGSize(width: (points.width * scale).rounded(), height: (points.height * scale).rounded())
+    }
+
     /// Nearest candidate within `threshold` of `value`, or nil. Ties go to the earlier candidate.
     public static func snapValue(_ value: CGFloat, to candidates: [CGFloat], threshold: CGFloat = 8) -> CGFloat? {
         var best: CGFloat?
@@ -50,5 +56,15 @@ public enum Geometry {
         let sx = snapValue(point.x, to: xs, threshold: threshold)
         let sy = snapValue(point.y, to: ys, threshold: threshold)
         return (CGPoint(x: sx ?? point.x, y: sy ?? point.y), sx != nil, sy != nil)
+    }
+
+    /// `snap(_:to:threshold:)` for a point that must stay inside `bounds` (its display): a window hanging past
+    /// the display's edge would otherwise pull it off. The result is clamped to `bounds`, and an axis that had
+    /// to be clamped back doesn't count as snapped.
+    public static func snap(_ point: CGPoint, to windowFrames: [CGRect], within bounds: CGRect, threshold: CGFloat = 8) -> (point: CGPoint, snappedX: Bool, snappedY: Bool) {
+        let s = snap(point, to: windowFrames, threshold: threshold)
+        let x = min(max(s.point.x, bounds.minX), bounds.maxX)
+        let y = min(max(s.point.y, bounds.minY), bounds.maxY)
+        return (CGPoint(x: x, y: y), s.snappedX && x == s.point.x, s.snappedY && y == s.point.y)
     }
 }

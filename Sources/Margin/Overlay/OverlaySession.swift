@@ -187,7 +187,8 @@ final class OverlaySession {
         selectionDisplay = d
         prepareSnapping(on: d)
         var a = SelectionMath.align(SelectionMath.clamp(p, to: d.frame), in: d.frame, scale: scale(d))
-        let s = Geometry.snap(a, to: snapFrames)
+        // Kept on the display: a window hanging past its edge mustn't pull the start off it.
+        let s = Geometry.snap(a, to: snapFrames, within: d.frame)
         a = s.point
         anchorGuideX = s.snappedX ? a.x : nil
         anchorGuideY = s.snappedY ? a.y : nil
@@ -327,6 +328,10 @@ final class OverlaySession {
         if e.keyCode == Key.space, spaceHeld {
             spaceHeld = false
             lastDrag = selectionDisplay.map { SelectionMath.clamp(mouse, to: $0.frame) } ?? mouse
+            // Back to drawing: ⇧ / ⌥, pressed or released while moving, apply now, not at the next mouse move.
+            if case .dragging = phase, let d = selectionDisplay {
+                selection = dragRect(to: lastDrag, on: d)
+            }
             render()
         }
     }

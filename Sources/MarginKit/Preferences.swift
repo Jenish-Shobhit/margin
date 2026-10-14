@@ -48,14 +48,33 @@ public enum ShortcutAction: String, Codable, CaseIterable, Sendable {
     }
 }
 
+/// The area ⌘⇧2 repeats. It's kept relative to its display, not in global points: those depend on the
+/// arrangement and on which display is primary, so a display added, removed or moved would shift it.
+///
+/// Values stored by 0.0.8 and earlier (`rect` in global points) don't decode: ⌘⇧2 then falls back to ⌘⇧4 once,
+/// which beats guessing where an old global rect belongs now.
 public struct LastArea: Codable, Equatable, Sendable {
-    /// AppKit global points.
-    public var rect: CGRect
+    /// Points from the display's bottom-left corner (AppKit orientation, y up).
+    public var rectInDisplay: CGRect
     public var displayID: UInt32
+    /// The display's size in points when the area was chosen.
+    public var displaySize: CGSize
 
-    public init(rect: CGRect, displayID: UInt32) {
-        self.rect = rect
+    /// `rect` and `displayFrame` in AppKit global points. Any part of `rect` outside the display is dropped.
+    public init(rect: CGRect, displayID: UInt32, displayFrame: CGRect) {
+        let inside = rect.standardized.intersection(displayFrame)
+        rectInDisplay = inside.isNull ? .zero : inside.offsetBy(dx: -displayFrame.minX, dy: -displayFrame.minY)
         self.displayID = displayID
+        displaySize = displayFrame.size
+    }
+
+    /// The area in AppKit global points, on its display's frame as it is now. Nil when it can't be repeated as
+    /// chosen: the display's size in points changed (another resolution, where the same rect would show other
+    /// content), or there's no area.
+    public func rect(onDisplayFrame frame: CGRect) -> CGRect? {
+        guard frame.size == displaySize, rectInDisplay.width > 0, rectInDisplay.height > 0,
+              CGRect(origin: .zero, size: displaySize).contains(rectInDisplay) else { return nil }
+        return rectInDisplay.offsetBy(dx: frame.minX, dy: frame.minY)
     }
 }
 
@@ -122,6 +141,7 @@ public final class Preferences {
         set { set(newValue, "firstRunDone") }
     }
 
+    /// Nil when unset, unreadable or in the old global format (see `LastArea`).
     public var lastArea: LastArea? {
         get { defaults.data(forKey: "lastArea").flatMap { try? JSONDecoder().decode(LastArea.self, from: $0) } }
         set { set(newValue.flatMap { try? JSONEncoder().encode($0) }, "lastArea") }

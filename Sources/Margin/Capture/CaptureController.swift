@@ -17,6 +17,10 @@ private typealias FrameGrabber = @Sendable (CGDirectDisplayID, DisplayTarget?) a
 final class CaptureController: CaptureControlling {
     var onCapture: ((CaptureResult) -> Void)?
     var onPermissionMissing: (() -> Void)?
+    /// Called on the main actor with a short message when a capture fails for any reason but permission: the
+    /// window closed, a display ScreenCaptureKit can't capture… Not part of `CaptureControlling`: the
+    /// coordinator holds this class itself.
+    var onFailure: ((String) -> Void)?
     var isCapturing: Bool { session != nil }
 
     /// Latest timings in ms, for the DEBUG `dump-state` hook.
@@ -33,6 +37,14 @@ final class CaptureController: CaptureControlling {
     private var activatedForSession = false
     private var becameActiveDuringSession = false
     private var observers: [NSObjectProtocol] = []
+    /// What `onFailure` says.
+    private enum FailureText {
+        static let screen = "Couldn't capture the screen"
+        static let display = "Couldn't capture this display"
+        static let window = "Couldn't capture that window"
+        static let area = "Couldn't capture that area"
+    }
+
     /// Screen Recording confirmed (by preflight or a successful capture). `CGPreflightScreenCaptureAccess`
     /// costs 6–10 ms, too much for the hotkey path, so it only runs until access is confirmed; a revoked
     /// permission then shows up as a capture error instead.
@@ -113,9 +125,10 @@ final class CaptureController: CaptureControlling {
 
         // Start the captures first: they run off the main thread while the panels go up. A display that
         // ScreenCaptureKit didn't list at the last refresh (Sidecar, AirPlay, DisplayLink…) just fails in the
-        // stream; only a display the cache hasn't seen yet sends the freeze down the cold path.
+        // stream; only a display the cache hasn't seen yet, or has seen at another size or scale, sends the
+        // freeze down the cold path.
         let grab = Self.frameGrabber()
-        let early = cache.needsRefresh(for: displays.map(\.id)) ? nil : Self.captureAll(jobs(for: displays), grab: grab)
+        let early = cache.needsRefresh(for: displays) ? nil : Self.captureAll(jobs(for: displays), grab: grab)
 
         pool.sync()
         let session = OverlaySession(panels: pool.panels(for: displays), cache: cache, mode: mode,
@@ -157,6 +170,7 @@ final class CaptureController: CaptureControlling {
             if session.frozenCount == 0 {
                 CaptureLog.capture.error("freeze: no frame after 3 s, cancelling")
                 self.endSession()
+                self.onFailure?(FailureText.screen)
             } else if session.abandonPendingDisplays() > 0 {
                 CaptureLog.capture.error("freeze: a display gave no frame in 3 s; dimmed")
                 self.refreshWindows(for: session)
@@ -165,12 +179,12 @@ final class CaptureController: CaptureControlling {
 
         var stream = early
         if stream == nil {
-            // Cold cache, Margin missing from it, or a new display: fetch once, off the fast path.
+            // Cold cache, Margin missing from it, or a display that's new or changed: fetch once, off the fast path.
             CaptureLog.capture.info("freeze: cache cold, fetching shareable content first")
             do {
                 try await cache.refresh()
             } catch {
-                fail(error, session: session)
+                fail(error, session: session, message: FailureText.screen)
                 return
             }
             guard self.session === session else { return }
@@ -198,7 +212,7 @@ final class CaptureController: CaptureControlling {
             case let .failure(error):
                 // Permission is all or nothing; any other failure costs only that display.
                 if ScreenGrabber.isPermissionDenial(error) {
-                    fail(error, session: session)
+                    fail(error, session: session, message: FailureText.screen)
                     return
                 }
                 CaptureLog.capture.error("freeze: display \(frame.displayID, privacy: .public) can't be captured: \(String(describing: error), privacy: .public)")
@@ -209,7 +223,7 @@ final class CaptureController: CaptureControlling {
         guard self.session === session else { return }
         timings.record("hotkeyToAllFrozen", clock.ms)
         guard session.frozenCount > 0 else {
-            fail(firstError ?? CaptureError.noImage, session: session)
+            fail(firstError ?? CaptureError.noImage, session: session, message: FailureText.screen)
             return
         }
         refreshWindows(for: session)
@@ -288,9 +302,10 @@ final class CaptureController: CaptureControlling {
                 timings.record("releaseToResult", clock.ms)
                 onCapture?(CaptureResult(image: cropped.image, scale: scale, sourceRect: rect, displayID: display.id, kind: .area, date: date))
                 // After the hand-off: the write posts Preferences.didChange, which shouldn't delay the thumbnail.
-                Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id)
+                Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
             } else {
                 CaptureLog.capture.error("area crop was empty: \(String(describing: pixelRect), privacy: .public)")
+                onFailure?(FailureText.area)
             }
             // Focus goes back only now: AppKit's deactivation work holds the main actor for ~15 ms, which
             // would otherwise sit between the crop and the hand-off to the shelf.
@@ -313,7 +328,7 @@ final class CaptureController: CaptureControlling {
                 let displayID = Displays.display(bestFor: window.frame)?.id ?? CGMainDisplayID()
                 onCapture?(CaptureResult(image: image.image, scale: scale, sourceRect: window.frame, displayID: displayID, kind: .window, date: Date()))
             } catch {
-                fail(error, session: nil)
+                fail(error, session: nil, message: FailureText.window)
             }
         }
     }
@@ -328,13 +343,13 @@ final class CaptureController: CaptureControlling {
         pool.sync()  // Margin must own windows to be listed (and so excluded), even without a prewarm.
         Task {
             do {
-                let target = try await cache.target(for: display.id)
+                let target = try await cache.target(for: display)
                 let image = try await ScreenGrabber.capture(target)
                 timings.record("screenCapture", clock.ms)
                 permissionWorked()
                 onCapture?(CaptureResult(image: image.image, scale: target.scale, sourceRect: display.frame, displayID: display.id, kind: .screen, date: Date()))
             } catch {
-                fail(error, session: nil)
+                fail(error, session: nil, message: FailureText.display)
             }
         }
     }
@@ -343,17 +358,15 @@ final class CaptureController: CaptureControlling {
 
     func repeatLastArea() {
         guard session == nil else { return }
+        // The area is kept relative to its display, so it follows the display wherever the arrangement puts it
+        // now. No area, its display gone, or the display at another resolution: choose again.
         guard let last = Preferences.shared.lastArea,
-              let display = Displays.all.first(where: { $0.id == last.displayID }) else {
+              let display = Displays.all.first(where: { $0.id == last.displayID }),
+              let rect = last.rect(onDisplayFrame: display.frame) else {
             beginInteractiveCapture()
             return
         }
-        let rect = last.rect.intersection(display.frame)
-        guard !rect.isNull, rect.width > 0, rect.height > 0 else {
-            beginInteractiveCapture()
-            return
-        }
-        captureArea(rect, on: display, flash: true)
+        captureArea(rect, on: display, repeating: true)
     }
 
     func captureArea(_ rect: CGRect) {
@@ -361,28 +374,35 @@ final class CaptureController: CaptureControlling {
             CaptureLog.capture.error("captureArea: no display for \(String(describing: rect), privacy: .public)")
             return
         }
-        captureArea(rect.intersection(display.frame), on: display, flash: false)
+        captureArea(rect.intersection(display.frame), on: display, repeating: false)
     }
 
-    private func captureArea(_ rect: CGRect, on display: DisplayInfo, flash: Bool) {
+    /// `repeating` (⌘⇧2) flashes the outline and leaves the last area as it was; otherwise `rect` becomes it.
+    private func captureArea(_ rect: CGRect, on display: DisplayInfo, repeating: Bool) {
         guard session == nil else { return }
         guard hasPermission() else { onPermissionMissing?(); return }
         let clock = Stopwatch()
         pool.sync()
         Task {
             do {
-                let target = try await cache.target(for: display.id)
+                let target = try await cache.target(for: display)
                 let image = try await ScreenGrabber.capture(target)
                 permissionWorked()
                 let size = CGSize(width: image.image.width, height: image.image.height)
                 let pixelRect = Geometry.pixelRect(for: rect, displayFrame: display.frame, scale: target.scale, imageSize: size)
                 guard let cropped = await Self.crop(image, to: pixelRect) else { throw CaptureError.emptyCrop }
                 timings.record("areaCapture", clock.ms)
-                if flash { AreaFlash.show(rect) }
+                if repeating { AreaFlash.show(rect) }
                 onCapture?(CaptureResult(image: cropped.image, scale: target.scale, sourceRect: rect, displayID: display.id, kind: .area, date: Date()))
-                Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id)
+                if !repeating {
+                    Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
+                }
+            } catch CaptureError.emptyCrop where repeating {
+                // Nothing of the last area to crop from this display's image: choose again.
+                CaptureLog.capture.error("repeat area: empty crop of \(String(describing: rect), privacy: .public); choosing again")
+                beginInteractiveCapture()
             } catch {
-                fail(error, session: nil)
+                fail(error, session: nil, message: (error as? CaptureError) == .emptyCrop ? FailureText.area : FailureText.display)
             }
         }
     }
@@ -421,7 +441,10 @@ final class CaptureController: CaptureControlling {
         cache.stopObserving()
     }
 
-    private func fail(_ error: Error, session failed: OverlaySession?) {
+    /// Ends `failed` if it's still the live overlay. A missing permission goes to `onPermissionMissing`; any
+    /// other failure shows `message`, unless it belongs to an overlay already closed (Esc, a display change).
+    private func fail(_ error: Error, session failed: OverlaySession?, message: String) {
+        let closed = failed.map { $0 !== session } ?? false
         if let failed, session === failed { endSession() }
         if ScreenGrabber.isPermissionError(error) {
             permissionLost()
@@ -431,6 +454,7 @@ final class CaptureController: CaptureControlling {
             onPermissionMissing?()
         } else {
             CaptureLog.capture.error("capture failed: \(error.localizedDescription, privacy: .public)")
+            if !closed { onFailure?(message) }
         }
     }
 

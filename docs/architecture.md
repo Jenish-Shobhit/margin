@@ -89,6 +89,8 @@ flowchart LR
 - `isCapturing`;
 - the callbacks `onCapture` and `onPermissionMissing`.
 
+`CaptureController` also has `onFailure`, outside the protocol: a short message for any failure but permission, which the coordinator shows as an error toast in the shelf.
+
 **`ShelfControlling`** (implemented by `ShelfController`):
 
 - `restore()` at launch, `add(_:thumbnail:flyInFrom:displayID:)` and `toggleTucked()`;
@@ -128,12 +130,12 @@ At launch, once Screen Recording is confirmed, `CaptureController.prewarm()` get
 - It fetches `SCShareableContent` into `ShareableContentCache`. That builds a capture target per display, with a filter that excludes Margin's own windows.
 - It runs one 16 × 16 capture to warm up ScreenCaptureKit.
 
-After that, the cache refreshes on display, app and Space changes (debounced 150 ms), never on the hotkey path.
+After that, the cache refreshes on display, app and Space changes (debounced 150 ms), never on the hotkey path. A fetch that fails, or whose targets don't match the displays yet, is retried up to three times (0.5, 1 and 2 s apart). The cache remembers each display's pixel size at the last fetch: a display that's new, or has changed size or scale since (a refresh still pending or failed), isn't trusted, and its capture fetches first (the cold path).
 
 ### The freeze (⇧⌘4)
 
 1. The `AppCoordinator` checks permission without prompting and calls `beginInteractiveCapture()`.
-2. If the cache is warm, `SCScreenshotManager.captureImage` starts for every display at once (a task group, off the main thread). At the same time the transparent overlays go up, with a crosshair.
+2. If the cache is warm (and every display has the size it had at the last fetch), `SCScreenshotManager.captureImage` starts for every display at once (a task group, off the main thread). At the same time the transparent overlays go up, with a crosshair.
 3. Each display's frame is drawn as it arrives. With the first one, Margin activates and makes the overlay key, so Esc, Space and the arrows work.
 4. A display that fails is dimmed ("Can't capture this display"). If no frame arrives within 3 s the overlay cancels itself, so it can never be left eating clicks.
 5. Once every display is frozen, the window list is refreshed, for snapping and window mode.
@@ -158,7 +160,7 @@ The other kinds:
 
 - **Window mode** closes the overlay and waits for the previous app to be active again, so the window is shot with its own focused look. It then captures with `SCContentFilter(desktopIndependentWindow:)`: no shadow unless ⌥ was held.
 - **⇧⌘3** captures the display under the pointer with the cached target.
-- **⇧⌘2** captures the last area's display, crops it and flashes the outline.
+- **⇧⌘2** captures the last area's display, crops it and flashes the outline. `LastArea` keeps the rect relative to its display, with the display's size in points, so it's rebuilt on the display's current frame; at another size it falls back to ⇧⌘4.
 
 ### The release (`AppCoordinator+Save`)
 
@@ -229,7 +231,7 @@ All of them join every Space and float over full-screen apps.
 
 | Store | Where | Contents |
 |---|---|---|
-| `Preferences` | `UserDefaults`, domain `io.github.jenish-shobhit.margin` | `saveFolder`, `copyEachCapture`, `shutterSound`, `launchAtLogin`, `shortcut.<action>` (JSON `KeyCombo`), `lastArea` (JSON rect + display ID), `firstRunDone`, `completedCaptures`, `hintCaptures.r<n>`, `loginItemConfigured` |
+| `Preferences` | `UserDefaults`, domain `io.github.jenish-shobhit.margin` | `saveFolder`, `copyEachCapture`, `shutterSound`, `launchAtLogin`, `shortcut.<action>` (JSON `KeyCombo`), `lastArea` (JSON: rect relative to its display, display ID, display size), `firstRunDone`, `completedCaptures`, `hintCaptures.r<n>`, `loginItemConfigured` |
 | `ShelfStore` | `~/Library/Application Support/Margin/shelf.json` | The shelf, oldest first: `id`, `path`, `bookmark`, `createdAt`, `pixelWidth`, `pixelHeight`. Rewritten atomically on every change; an unreadable file means an empty shelf |
 | Fallback saves | `~/Library/Application Support/Margin/Unsaved/` | PNGs that couldn't go to the save folder |
 | Undo | Memory | Up to 20 steps. Thumbnails are kept for the newest 5 |

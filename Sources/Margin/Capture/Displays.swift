@@ -1,4 +1,5 @@
 import AppKit
+import MarginKit
 
 /// One display in AppKit terms.
 struct DisplayInfo: Equatable, Sendable {
@@ -7,6 +8,9 @@ struct DisplayInfo: Equatable, Sendable {
     let frame: CGRect
     /// Pixels per point.
     let scale: CGFloat
+
+    /// The size of a whole-display capture, in pixels.
+    var pixelSize: CGSize { Geometry.pixelSize(points: frame.size, scale: scale) }
 }
 
 extension NSScreen {
