@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Troubleshooting
+    url: https://github.com/Jenish-Shobhit/margin/blob/main/docs/troubleshooting.md
+    about: '"Margin can''t be opened", Screen Recording, ⇧⌘4 opening the macOS tool, pasting into terminals and more.'
+  - name: Report a security vulnerability
+    url: https://github.com/Jenish-Shobhit/margin/security/advisories/new
+    about: Please report security problems privately, not as a public issue.
