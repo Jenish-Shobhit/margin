@@ -164,7 +164,7 @@ The shelf survives quitting and restarting.
 | Do this | To |
 |---|---|
 | Click | Copy the shot (shows "Copied" and moves the ⌘V mark) |
-| Double-click | Open it in its default app |
+| Double-click | Open it in its default app (its first click copies it, too) |
 | Drag | Send the file to another app |
 | ⌘-click | Add it to, or remove it from, the selection |
 | ⌘A | Select every card that isn't in the pile |

@@ -75,29 +75,13 @@ extension ShelfController {
 
     // MARK: - Click, copy, open
 
-    /// Click: copy that shot (same clipboard write as a capture), move the ⌘V mark, toast "Copied".
-    /// Focus and selection change at once; the copy waits out the double-click interval, so a double-click
-    /// (open) never touches the clipboard.
+    /// Click: copy that shot (same clipboard write as a capture), move the ⌘V mark, toast "Copied". The copy
+    /// starts at once, so ⌘V straight after the click pastes it; a pending card's copy runs when its file lands.
+    /// The first click of a double-click copies too, and the second opens the file.
     func click(_ id: UUID) {
         focusedID = id
         clearSelection()
-        clickCopyTask?.cancel()
-        clickCopyTask = ShelfMotion.after(NSEvent.doubleClickInterval) { [weak self] in
-            guard let self else { return }
-            self.clickCopyTask = nil
-            guard self.item(for: id) != nil else { return }
-            if self.pending.contains(id) {
-                self.queuedCopy = id   // copied as soon as the file lands
-            } else {
-                self.copy([id])
-            }
-        }
-    }
-
-    /// A second click arrived: it's a double-click, so the first click's copy is off.
-    func cancelClickCopy() {
-        clickCopyTask?.cancel()
-        clickCopyTask = nil
+        copy([id])
     }
 
     func copyKeyTargets() {
@@ -141,7 +125,6 @@ extension ShelfController {
     }
 
     func open(_ id: UUID) {
-        cancelClickCopy()
         guard !pending.contains(id), let item = item(for: id) else { return }
         Task { [weak self] in
             let results = await ShelfFiles.check([item]) { $0 }

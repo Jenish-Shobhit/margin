@@ -168,11 +168,11 @@ The shelf never steals focus. Keys work only after a click on the shelf (the pan
 | Drag a card | Drags a **plain file URL** (`NSURL` pasteboard writer, `.copy` only, never `.move`). The card stays faint in its slot during the drag. If `operation` is non-empty at the end, the card collapses out and the rest settle. On cancel, it springs back |
 | ⌥ held when the drop lands | The card stays on the shelf |
 | ⌘-click | Toggle selection. Dragging a selected card drags all selected cards (stacked drag image with a count badge). ⌘C copies all selected cards as images |
-| Click | Copies that shot (same clipboard write as §3), moves the ⌘V mark to it, shows the toast "Copied" |
+| Click | Copies that shot at once (same clipboard write as §3), moves the ⌘V mark to it, shows the toast "Copied" |
 | Space | Quick Look (`QLPreviewPanel`) for the focused card or the selection |
 | ⌫ | Dismiss. The file stays on disk |
 | Two-finger swipe right on a card | Dismiss |
-| Double-click | Open with the default app |
+| Double-click | Open with the default app (its first click has already copied the shot) |
 | ••• / right-click | Copy path · Reveal in Finder · Rename… (inline; renames on disk) · Move to Trash |
 | ⌘Z | Restore the last removed card(s). Keeps up to 20 steps, covering drag-out, dismiss, clear and trash (trash restores the file from the Trash) |
 
