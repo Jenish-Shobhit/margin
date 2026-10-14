@@ -96,6 +96,7 @@ final class ShelfPileView: NSView {
         }
         downEvent = event
         didDrag = false
+        controller?.refreshFiles()   // see ShelfCardView.mouseDown
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -121,7 +122,11 @@ final class ShelfPileView: NSView {
         return menu
     }
 
-    @objc private func clearShelf() { controller?.clear() }
+    /// Counts as a click on the shelf (spec §5): the panel takes key, so ⌘Z brings everything back.
+    @objc private func clearShelf() {
+        controller?.focusShelf()
+        controller?.clear()
+    }
 }
 
 /// Mini cards that rise out from behind the pile on hover ("a light peek of the top few").

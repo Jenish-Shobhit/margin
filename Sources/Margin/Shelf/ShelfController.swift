@@ -34,10 +34,21 @@ final class ShelfController: ShelfControlling {
     var dragSource: ShelfDragSource?
     /// Where click/⌘C copies and Copy Path write. `.general` except in tests.
     var pasteboard: NSPasteboard = .general
-    /// Added but not yet on disk (contract v2): never pruned; drag, copy and Quick Look wait for `itemDidSave`.
+    /// On the shelf but not yet on disk (contract v2): never pruned; drag, copy and Quick Look wait for
+    /// `itemDidSave`. Only cards on the shelf are in here; `detach` takes ids out.
     var pending: Set<UUID> = []
+    /// Added this session with no `itemDidSave`/`itemSaveFailed` yet, on the shelf or not. When ⌘Z brings
+    /// one of these back, it's pending again until its file shows up on disk.
+    var awaitingSave: Set<UUID> = []
     /// A click-copy on a pending card, done when its file lands.
     var queuedCopy: UUID?
+    /// Background file checks (`refreshFiles`): one at a time, rerun once if asked meanwhile.
+    var fileRefreshRunning = false
+    var fileRefreshQueued = false
+    /// Bumped by every copy; a slower read that finishes after a newer copy started doesn't write.
+    var copyGeneration = 0
+    /// A single click's copy, waiting out the double-click interval.
+    var clickCopyTask: Task<Void, Never>?
     private(set) var isPeeking = false
     private(set) var layout = ShelfLayout.layout(heights: [], availableHeight: 0)
 
@@ -51,6 +62,8 @@ final class ShelfController: ShelfControlling {
     private var peekTask: Task<Void, Never>?
     private var peekPoll: Task<Void, Never>?
     private var hideTask: Task<Void, Never>?
+    /// Shots in the air, by item.
+    private var flights: [UUID: ShelfFlight] = [:]
     /// After the user empties the shelf, the (invisible) panel stays a moment so ⌘Z can still reach it.
     var lingerUntil = Date.distantPast
     private var observers: [NSObjectProtocol] = []
@@ -98,9 +111,11 @@ final class ShelfController: ShelfControlling {
 
     func restore() {
         pending = []
+        awaitingSave = []
         queuedCopy = nil
+        // shelf.json lives in Application Support (no privacy prompt); the shots themselves are checked
+        // in the background, so the cards show right away from the persisted list.
         store.load()
-        store.pruneMissing()
         for card in cards.values { card.removeFromSuperview() }
         cards = [:]
         selection = []
@@ -110,15 +125,17 @@ final class ShelfController: ShelfControlling {
         }
         relayout(animated: false)
         updateVisibility()
+        refreshFiles(quietWithin: 0.5)
     }
 
     func add(_ item: ShelfItem, thumbnail: CGImage, flyInFrom sourceRect: CGRect, displayID: CGDirectDisplayID) {
         let appearing = !panel.isVisible
-        if appearing { pruneMissing() }
+        if appearing { refreshFiles() }
         let moved = targetDisplayID != displayID && screen(for: displayID) != nil
         if screen(for: displayID) != nil { targetDisplayID = displayID }
 
         pending.insert(item.id)
+        awaitingSave.insert(item.id)
         if self.item(for: item.id) == nil { store.append(item) }
         let card = makeCard(item)
         card.setThumbnail(thumbnail)
@@ -131,6 +148,7 @@ final class ShelfController: ShelfControlling {
         let intoTab = isTucked && !isPeeking
         let reduce = ShelfStyle.reduceMotion
         if intoTab && !reduce { pendingTabArrivals += 1 }
+        if !reduce { card.setAwaitingFlyIn(true) }
         relayout(animated: !appearing && !moved)
         showPanel()
 
@@ -138,46 +156,104 @@ final class ShelfController: ShelfControlling {
             if intoTab { tab.bump() } else { card.flashNewRing() }
             return
         }
-        if intoTab {
-            ShelfFlyIn.run(image: thumbnail, from: sourceRect, to: screenRect(of: tab), intoTab: true) { [weak self] in
-                guard let self else { return }
-                self.pendingTabArrivals = max(0, self.pendingTabArrivals - 1)
-                self.tab.count = self.store.items.count - self.pendingTabArrivals
-                self.tab.bump()
-            }
-        } else {
-            card.setAwaitingFlyIn(true)
-            ShelfFlyIn.run(image: thumbnail, from: sourceRect, to: screenRect(of: card), intoTab: false) { [weak card] in
-                card?.setAwaitingFlyIn(false)
-                card?.flashNewRing()
-            }
+        let id = item.id
+        let target = flightTarget(for: id) ?? (screenRect(of: card), .card)
+        let flight = ShelfFlight.start(image: thumbnail, from: sourceRect, to: target.rect, landing: target.landing,
+                                       shelf: fullFrame) { [weak self] landing in
+            self?.flightLanded(id, landing)
+        }
+        if let flight { flights[id] = flight }
+    }
+
+    // MARK: - Fly-in
+
+    /// Where a shot in the air should land right now: the tab while tucked, the pile if its card was
+    /// pushed into it, else its card's slot.
+    private func flightTarget(for id: UUID) -> (rect: CGRect, landing: ShelfFlight.Landing)? {
+        guard let card = cards[id] else { return nil }
+        if isTucked && !isPeeking { return (screenRect(of: tab), .tab) }
+        if card.isInPile, !pile.isHidden { return (screenRect(of: pile), .pile) }
+        return (screenRect(of: card), .card)
+    }
+
+    /// Re-aims every shot in the air at its card's live slot (after a relayout, tuck or peek).
+    private func retargetFlights() {
+        guard !flights.isEmpty else { return }
+        for (id, flight) in flights {
+            guard let t = flightTarget(for: id) else { continue }
+            if flight.landing == .tab, t.landing != .tab { pendingTabArrivals = max(0, pendingTabArrivals - 1) }
+            if flight.landing != .tab, t.landing == .tab { pendingTabArrivals += 1 }
+            flight.retarget(to: t.rect, landing: t.landing)
+        }
+        tab.count = store.items.count - pendingTabArrivals
+    }
+
+    private func flightLanded(_ id: UUID, _ landing: ShelfFlight.Landing) {
+        flights[id] = nil
+        let card = cards[id]
+        card?.setAwaitingFlyIn(false)
+        switch landing {
+        case .card:
+            card?.flashNewRing()
+        case .tab:
+            pendingTabArrivals = max(0, pendingTabArrivals - 1)
+            tab.count = store.items.count - pendingTabArrivals
+            tab.bump()
+        case .pile:
+            break
+        }
+    }
+
+    /// The shots left the shelf: anything still flying fades away.
+    func cancelFlights(_ ids: [UUID]) {
+        for id in ids {
+            guard let flight = flights.removeValue(forKey: id) else { continue }
+            if flight.landing == .tab { pendingTabArrivals = max(0, pendingTabArrivals - 1) }
+            flight.cancel()
         }
     }
 
     func toggleTucked() { setTucked(!isTucked) }
 
-    /// The PNG is on disk. The coordinator already wrote the final path and bookmark to the store.
+    /// The PNG is on disk. Called whether or not the item is still on the shelf.
     func itemDidSave(_ item: ShelfItem) {
-        pending.remove(item.id)
-        if let current = self.item(for: item.id) {
+        awaitingSave.remove(item.id)
+        if var current = self.item(for: item.id) {
+            // The coordinator normally wrote the final path and bookmark already; make sure either way.
+            if current.path != item.path || (item.bookmark != nil && current.bookmark != item.bookmark) {
+                current.path = item.path
+                if item.bookmark != nil { current.bookmark = item.bookmark }
+                store.update(current)
+            }
             cards[item.id]?.update(item: current)
         } else {
-            // Dismissed while saving: point its undo record at the real file.
+            // Removed while saving: point its undo record at the real file, so ⌘Z brings back a working card.
             for i in undoStack.indices {
-                undoStack[i].removals = undoStack[i].removals.map {
-                    $0.item.id == item.id ? ShelfStore.Removal(index: $0.index, item: item) : $0
+                undoStack[i].removals = undoStack[i].removals.map { r in
+                    guard r.item.id == item.id else { return r }
+                    var saved = r.item
+                    saved.path = item.path
+                    if item.bookmark != nil { saved.bookmark = item.bookmark }
+                    return ShelfStore.Removal(index: r.index, item: saved)
                 }
             }
         }
-        if queuedCopy == item.id {
+        markReady(item.id)
+    }
+
+    /// The item's file is on disk: drag, copy and the menu work, and a click-copy queued meanwhile runs.
+    func markReady(_ id: UUID) {
+        pending.remove(id)
+        if queuedCopy == id {
             queuedCopy = nil
-            copy([item.id])
+            if item(for: id) != nil { copy([id]) }
         }
     }
 
     /// Saving failed: the card goes (no undo) and the message shows as a toast.
     func itemSaveFailed(_ id: UUID, message: String) {
         pending.remove(id)
+        awaitingSave.remove(id)
         if queuedCopy == id { queuedCopy = nil }
         for i in undoStack.indices { undoStack[i].removals.removeAll { $0.item.id == id } }
         undoStack.removeAll { $0.removals.isEmpty }
@@ -277,6 +353,7 @@ final class ShelfController: ShelfControlling {
         tab.count = items.count - pendingTabArrivals
         positionToast(animated: animated)
         updateVisibility()
+        retargetFlights()
     }
 
     /// Sizes the panel: the full stage, or just the tab while tucked and idle.
@@ -375,8 +452,10 @@ final class ShelfController: ShelfControlling {
 
     // MARK: - Tuck, tab, peek
 
-    func setTucked(_ on: Bool) {
-        guard on != isTucked else { return }
+    /// ⌘⇧1. Tucking an empty shelf does nothing (later shots would otherwise fly into a bare tab).
+    /// Without `animated`, the shelf snaps back into place (the tab still fades).
+    func setTucked(_ on: Bool, animated: Bool = true) {
+        guard on != isTucked, !(on && store.items.isEmpty) else { return }
         isTucked = on
         isPeeking = false
         peekTask?.cancel()
@@ -389,12 +468,13 @@ final class ShelfController: ShelfControlling {
             showTab(animated: true)
             if !store.items.isEmpty { showToast(tuckedToastText, isError: false) }
         } else {
-            pruneMissing()
+            refreshFiles()
             applyGeometry(deferShrink: false)
-            setContainerOffset(0, animated: true, spring: true)
+            setContainerOffset(0, animated: animated, spring: true)
             hideTab(animated: true)
             if !store.items.isEmpty { showPanel() }
         }
+        retargetFlights()
     }
 
     private var tuckedToastText: String {
@@ -469,7 +549,7 @@ final class ShelfController: ShelfControlling {
         guard isTucked, on != isPeeking, !store.items.isEmpty else { return }
         isPeeking = on
         if on {
-            pruneMissing()
+            refreshFiles()
             applyGeometry(deferShrink: false)
             setContainerOffset(-ShelfStyle.leftPad, animated: true, spring: true)
             startPeekPoll()
@@ -480,6 +560,7 @@ final class ShelfController: ShelfControlling {
             holdPanelFull(for: 0.4)
             setContainerOffset(stageSize.width, animated: true, spring: false)
         }
+        retargetFlights()
     }
 
     /// While peeking, tuck back once the pointer has been outside the shelf for ~0.3 s.
