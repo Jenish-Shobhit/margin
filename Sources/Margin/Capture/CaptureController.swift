@@ -77,10 +77,11 @@ final class CaptureController: CaptureControlling {
             if let target = cache.targets[main] ?? cache.targets.values.first {
                 try await ScreenGrabber.warmUp(target)
             }
-            permissionConfirmed = true
+            permissionWorked()
             timings.record("prewarm", clock.ms)
         } catch {
             CaptureLog.capture.error("prewarm failed: \(error.localizedDescription, privacy: .public)")
+            if ScreenGrabber.isPermissionError(error) { permissionLost() }
         }
     }
 
@@ -172,6 +173,7 @@ final class CaptureController: CaptureControlling {
                     }
                 }
                 timings.record("freezeCapture.\(frame.displayID)", frame.ms)
+                permissionWorked()
             case let .failure(error):
                 fail(error, session: session)
                 return
@@ -251,6 +253,7 @@ final class CaptureController: CaptureControlling {
             do {
                 let (image, scale) = try await ScreenGrabber.captureWindow(window.target, keepShadow: keepShadow)
                 timings.record("windowCapture", clock.ms)
+                permissionWorked()
                 let displayID = Displays.display(bestFor: window.frame)?.id ?? CGMainDisplayID()
                 onCapture?(CaptureResult(image: image.image, scale: scale, sourceRect: window.frame, displayID: displayID, kind: .window, date: Date()))
             } catch {
@@ -272,6 +275,7 @@ final class CaptureController: CaptureControlling {
                 let target = try await cache.target(for: display.id)
                 let image = try await ScreenGrabber.capture(target)
                 timings.record("screenCapture", clock.ms)
+                permissionWorked()
                 onCapture?(CaptureResult(image: image.image, scale: target.scale, sourceRect: display.frame, displayID: display.id, kind: .screen, date: Date()))
             } catch {
                 fail(error, session: nil)
@@ -313,6 +317,7 @@ final class CaptureController: CaptureControlling {
             do {
                 let target = try await cache.target(for: display.id)
                 let image = try await ScreenGrabber.capture(target)
+                permissionWorked()
                 let size = CGSize(width: image.image.width, height: image.image.height)
                 let pixelRect = Geometry.pixelRect(for: rect, displayFrame: display.frame, scale: target.scale, imageSize: size)
                 guard let cropped = await Self.crop(image, to: pixelRect) else { throw CaptureError.emptyCrop }
@@ -346,10 +351,23 @@ final class CaptureController: CaptureControlling {
         return permissionConfirmed
     }
 
+    /// A capture worked, so Screen Recording is granted: from now on the cache may touch ScreenCaptureKit in
+    /// the background.
+    private func permissionWorked() {
+        permissionConfirmed = true
+        cache.startObserving()
+    }
+
+    /// A capture failed for lack of permission: nothing touches ScreenCaptureKit until one works again.
+    private func permissionLost() {
+        permissionConfirmed = false
+        cache.stopObserving()
+    }
+
     private func fail(_ error: Error, session failed: OverlaySession?) {
         if let failed, session === failed { endSession() }
         if ScreenGrabber.isPermissionError(error) {
-            permissionConfirmed = false
+            permissionLost()
             CaptureLog.capture.error("capture failed: Screen Recording permission missing")
             onPermissionMissing?()
         } else {

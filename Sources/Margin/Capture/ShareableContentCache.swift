@@ -17,7 +17,8 @@ private struct ContentBox: @unchecked Sendable {
 }
 
 /// Cached `SCShareableContent`: displays, windows and Margin's own `SCRunningApplication`.
-/// Refreshed on display, app and Space changes, and never fetched on the hotkey path.
+/// Refreshed on display, app and Space changes once Screen Recording is confirmed (`startObserving`),
+/// and never fetched on the hotkey path.
 @MainActor
 final class ShareableContentCache {
     /// Freeze targets per display, built with Margin excluded.
@@ -35,7 +36,11 @@ final class ShareableContentCache {
     private var debounce: Task<Void, Never>?
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
 
-    init() {
+    /// Starts refreshing on display, app and Space changes. Call only once Screen Recording is confirmed (a
+    /// successful prewarm or capture): any ScreenCaptureKit call without it can raise the system prompt at a
+    /// random moment, long before the user reaches "Allow…".
+    func startObserving() {
+        guard observers.isEmpty else { return }
         let ws = NSWorkspace.shared.notificationCenter
         let app = NotificationCenter.default
         for (center, name) in [
@@ -49,6 +54,18 @@ final class ShareableContentCache {
             }
             observers.append((center, token))
         }
+    }
+
+    /// Screen Recording was lost: no more background fetches until a capture works again, and drop the targets
+    /// so the next capture fetches fresh content (changes went unobserved in between).
+    func stopObserving() {
+        for (center, token) in observers { center.removeObserver(token) }
+        observers = []
+        debounce?.cancel()
+        debounce = nil
+        targets = [:]
+        hasMarginApp = false
+        isLoaded = false
     }
 
     /// Coalesces bursts of notifications into one fetch.
