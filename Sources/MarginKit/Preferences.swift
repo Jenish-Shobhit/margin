@@ -31,6 +31,21 @@ public enum ShortcutAction: String, Codable, CaseIterable, Sendable {
 
     /// Capture actions also register a ⌃ twin that does the same thing.
     public var hasControlTwin: Bool { self != .toggleShelf }
+
+    /// Every combo registered for this action when it's bound to `combo`: the combo itself plus,
+    /// for capture actions, its ⌃ twin (unless `combo` already has ⌃).
+    public func registeredCombos(for combo: KeyCombo) -> [KeyCombo] {
+        hasControlTwin && combo != combo.withControl ? [combo, combo.withControl] : [combo]
+    }
+
+    /// The other action that already uses `combo` (directly or through a ⌃ twin), if any.
+    /// `current` returns each action's binding, e.g. `Preferences.shared.shortcut(for:)`.
+    public func conflict(assigning combo: KeyCombo, current: (ShortcutAction) -> KeyCombo) -> ShortcutAction? {
+        let mine = Set(registeredCombos(for: combo))
+        return Self.allCases.first { other in
+            other != self && !mine.isDisjoint(with: other.registeredCombos(for: current(other)))
+        }
+    }
 }
 
 public struct LastArea: Codable, Equatable, Sendable {
@@ -59,6 +74,16 @@ public final class Preferences {
     public static var defaultSaveFolder: URL {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop/Screenshots", isDirectory: true)
     }
+
+    /// Where captures go when `saveFolder` isn't writable (spec §3): `~/Library/Application Support/Margin/Unsaved`.
+    public static var fallbackSaveFolder: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Margin/Unsaved", isDirectory: true)
+    }
+
+    /// Posted (object: the `Preferences`) when `isRecordingShortcut` changes. It isn't a settings change,
+    /// so `didChange` isn't posted for it.
+    public static let recordingShortcutDidChange = Notification.Name("MarginPreferencesRecordingShortcutDidChange")
 
     public var saveFolder: URL {
         get { defaults.string(forKey: "saveFolder").map { URL(fileURLWithPath: $0, isDirectory: true) } ?? Self.defaultSaveFolder }
@@ -103,6 +128,28 @@ public final class Preferences {
 
     public func setShortcut(_ combo: KeyCombo, for action: ShortcutAction) {
         set(try? JSONEncoder().encode(combo), "shortcut.\(action.rawValue)")
+    }
+
+    /// Back to `action.defaultCombo`.
+    public func resetShortcut(for action: ShortcutAction) {
+        set(nil, "shortcut.\(action.rawValue)")
+    }
+
+    /// Every combo Margin should register right now: each action's shortcut plus the ⌃ twins.
+    public func registeredCombos() -> [(action: ShortcutAction, combo: KeyCombo)] {
+        ShortcutAction.allCases.flatMap { action in
+            action.registeredCombos(for: shortcut(for: action)).map { (action: action, combo: $0) }
+        }
+    }
+
+    /// True while a Settings shortcut recorder is listening for keys. The hotkey manager should unregister
+    /// Margin's hotkeys while this is true, so pressing a current shortcut records it instead of firing it.
+    /// Not persisted. Posts `recordingShortcutDidChange` (not `didChange`).
+    public var isRecordingShortcut = false {
+        didSet {
+            guard isRecordingShortcut != oldValue else { return }
+            NotificationCenter.default.post(name: Self.recordingShortcutDidChange, object: self)
+        }
     }
 
     private func set(_ value: Any?, _ key: String) {

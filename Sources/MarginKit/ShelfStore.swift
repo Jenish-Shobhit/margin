@@ -1,10 +1,11 @@
 import CoreGraphics
 import Foundation
+import os
 
 public struct ShelfItem: Codable, Identifiable, Equatable, Sendable {
     public let id: UUID
     public var path: String
-    /// Bookmark so a file moved in Finder is followed.
+    /// Bookmark so a file moved in Finder is followed. Nil until the file exists (see `refreshBookmark()`).
     public var bookmark: Data?
     public var createdAt: Date
     public var pixelWidth: Int
@@ -13,13 +14,65 @@ public struct ShelfItem: Codable, Identifiable, Equatable, Sendable {
     public var url: URL { URL(fileURLWithPath: path) }
     public var pixelSize: CGSize { CGSize(width: pixelWidth, height: pixelHeight) }
 
+    /// The bookmark is only created if the file already exists. If you create the item before the PNG is
+    /// renamed into place, call `refreshBookmark()` afterwards (`ShelfStore.pruneMissing()` also fills it in).
     public init(id: UUID = UUID(), url: URL, createdAt: Date, pixelSize: CGSize) {
         self.id = id
         self.path = url.path
-        self.bookmark = try? url.bookmarkData()
+        self.bookmark = Self.makeBookmark(for: url)
         self.createdAt = createdAt
         self.pixelWidth = Int(pixelSize.width)
         self.pixelHeight = Int(pixelSize.height)
+    }
+
+    /// Re-creates the bookmark from `path`. Call once the file exists on disk (or after renaming it).
+    /// Returns false, and keeps the old bookmark, if the file isn't there.
+    @discardableResult
+    public mutating func refreshBookmark() -> Bool {
+        guard let data = Self.makeBookmark(for: url) else { return false }
+        bookmark = data
+        return true
+    }
+
+    /// Finds the file: follows the bookmark first (so a file moved or renamed in Finder is found), then
+    /// falls back to `path`. Updates `path` and `bookmark` when the file moved, and fills in a missing
+    /// bookmark. Returns nil when the file is gone or in the Trash.
+    public mutating func resolveFile() -> URL? {
+        if let bookmark, let resolved = Self.resolve(bookmark), FileManager.default.fileExists(atPath: resolved.url.path) {
+            let url = resolved.url
+            if Self.isInTrash(url) { return nil }
+            if resolved.stale || !Self.samePath(url, self.url) {
+                path = url.path
+                refreshBookmark()
+            }
+            return url
+        }
+        let url = self.url
+        guard FileManager.default.fileExists(atPath: url.path), !Self.isInTrash(url) else { return nil }
+        refreshBookmark()
+        return url
+    }
+
+    /// True for anything inside a Trash folder: `~/.Trash`, `/Volumes/X/.Trashes/501`, iCloud Drive's `.Trash`.
+    public static func isInTrash(_ url: URL) -> Bool {
+        url.standardizedFileURL.pathComponents.contains { $0 == ".Trash" || $0 == ".Trashes" }
+    }
+
+    static func makeBookmark(for url: URL) -> Data? {
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return try? url.bookmarkData()
+    }
+
+    static func resolve(_ bookmark: Data) -> (url: URL, stale: Bool)? {
+        var stale = false
+        guard let url = try? URL(resolvingBookmarkData: bookmark, options: [.withoutUI, .withoutMounting],
+                                 relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+        return (url, stale)
+    }
+
+    /// Compares paths after resolving symlinks (`/var` vs `/private/var`).
+    static func samePath(_ a: URL, _ b: URL) -> Bool {
+        a.resolvingSymlinksInPath().path == b.resolvingSymlinksInPath().path
     }
 }
 
@@ -29,7 +82,14 @@ public final class ShelfStore {
     public struct Removal: Equatable, Sendable {
         public let index: Int
         public let item: ShelfItem
+
+        public init(index: Int, item: ShelfItem) {
+            self.index = index
+            self.item = item
+        }
     }
+
+    private static let log = Logger(subsystem: "io.github.jenish-shobhit.margin", category: "ShelfStore")
 
     public static var defaultFileURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -43,15 +103,24 @@ public final class ShelfStore {
         self.fileURL = fileURL
     }
 
+    /// Replaces `items` with the file's contents (empty if the file is missing or unreadable).
     public func load() {
-        guard let data = try? Data(contentsOf: fileURL),
-              let decoded = try? JSONDecoder().decode([ShelfItem].self, from: data) else { items = []; return }
-        items = decoded
+        guard let data = try? Data(contentsOf: fileURL) else { items = []; return }
+        do {
+            items = try JSONDecoder().decode([ShelfItem].self, from: data)
+        } catch {
+            Self.log.error("shelf.json unreadable, starting empty: \(error.localizedDescription, privacy: .public)")
+            items = []
+        }
     }
 
     public func save() {
-        try? FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let data = try? JSONEncoder().encode(items) { try? data.write(to: fileURL, options: .atomic) }
+        do {
+            try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try JSONEncoder().encode(items).write(to: fileURL, options: .atomic)
+        } catch {
+            Self.log.error("shelf.json not saved: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     public func append(_ item: ShelfItem) {
@@ -69,6 +138,7 @@ public final class ShelfStore {
     @discardableResult
     public func remove(ids: Set<UUID>) -> [Removal] {
         let removals = items.enumerated().filter { ids.contains($0.element.id) }.map { Removal(index: $0.offset, item: $0.element) }
+        guard !removals.isEmpty else { return [] }
         items.removeAll { ids.contains($0.id) }
         save()
         return removals
@@ -77,36 +147,24 @@ public final class ShelfStore {
     @discardableResult
     public func removeAll() -> [Removal] { remove(ids: Set(items.map(\.id))) }
 
-    /// Undo of `remove`: re-inserts at the original indices.
+    /// Undo of `remove`: re-inserts at the original indices. Items already on the shelf are skipped.
     public func restore(_ removals: [Removal]) {
-        for r in removals.sorted(by: { $0.index < $1.index }) {
-            items.insert(r.item, at: min(r.index, items.count))
+        var present = Set(items.map(\.id))
+        for r in removals.sorted(by: { $0.index < $1.index }) where !present.contains(r.item.id) {
+            items.insert(r.item, at: min(max(r.index, 0), items.count))
+            present.insert(r.item.id)
         }
         save()
     }
 
-    /// Follows moved files via bookmarks and drops items whose file is gone (or in the Trash). Returns dropped items.
+    /// Follows moved files via bookmarks, fills in missing bookmarks, and drops items whose file is gone
+    /// or in the Trash. Returns the dropped items.
     @discardableResult
     public func pruneMissing() -> [ShelfItem] {
         var dropped: [ShelfItem] = []
         var kept: [ShelfItem] = []
         for var item in items {
-            if let bookmark = item.bookmark {
-                var stale = false
-                if let url = try? URL(resolvingBookmarkData: bookmark, options: [.withoutUI], bookmarkDataIsStale: &stale),
-                   FileManager.default.fileExists(atPath: url.path), !url.path.contains("/.Trash/") {
-                    if url.path != item.path || stale {
-                        item.path = url.path
-                        item.bookmark = (try? url.bookmarkData()) ?? item.bookmark
-                    }
-                    kept.append(item)
-                    continue
-                }
-            } else if FileManager.default.fileExists(atPath: item.path) {
-                kept.append(item)
-                continue
-            }
-            dropped.append(item)
+            if item.resolveFile() != nil { kept.append(item) } else { dropped.append(item) }
         }
         if kept != items { items = kept; save() }
         return dropped
