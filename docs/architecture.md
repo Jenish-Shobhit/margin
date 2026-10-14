@@ -45,7 +45,7 @@ flowchart LR
 | `FileNamer.swift` | `Screenshot yyyy-MM-dd at HH.mm.ss.png` (en_US_POSIX, 24-hour, ASCII spaces) and ` (2)` collisions |
 | `Geometry.swift` | AppKit ↔ CG coordinate flips, point → pixel rects, snapping to window edges |
 | `ShelfLayout.swift` | Card sizes, slots, how many cards fit and the `+N older` pile |
-| `ShelfStore.swift` | `ShelfItem` (path, bookmark, date, pixel size) and the ordered, JSON-persisted list |
+| `ShelfStore.swift` | `ShelfItem` (path, bookmark, date, pixel size; whether its volume is mounted) and the ordered, JSON-persisted list |
 | `PNGWriter.swift` | One ImageIO encode (no filtering, colour profile, DPI) and the atomic write: temp file, then an exclusive rename |
 | `ClipboardMark.swift` | The ⌘V mark's change-count bookkeeping, and `ClipboardWriter` (PNG + file URL per item) |
 | `Preferences.swift` | `KeyCombo`, `ShortcutAction` (defaults, ⌃ twins, conflicts), `LastArea` and the `Preferences` store |
@@ -242,7 +242,7 @@ More on how these behave:
 - **`Preferences.didChange`** is posted on every write. The hotkeys, Settings and the menu observe it, and `HotkeyCenter` re-registers only when the shortcuts actually changed.
 - **The hint bar** shows while `Preferences.showsCaptureHints` is on (the default; a Settings toggle).
 - **Bookmarks** let a card follow a file renamed or moved in Finder.
-- **When a shelf file counts as gone:** `ShelfFiles.status` tells a file that's definitely gone (`ENOENT`, or in a `.Trash` folder) from one Margin can't see right now (access denied). Only the first drops the card, so a folder Margin may not read never empties the shelf.
+- **When a shelf file counts as gone:** `ShelfFiles.status` tells a file that's definitely gone (`ENOENT` on a mounted volume, or in a `.Trash` folder) from one Margin can't see right now (access denied, or its volume isn't mounted: `ShelfItem.isOnUnmountedVolume` checks the mount point the bookmark recorded, or `/Volumes/<name>`). Only the first drops the card, so a folder Margin may not read, or an unplugged disk, never empties the shelf.
 - **When files are checked:** at launch, when the shelf appears, and on a mouse-down that may become a drag.
 
 ## Permissions

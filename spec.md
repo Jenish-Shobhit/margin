@@ -158,6 +158,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - Store items in order with **bookmark data**, so moved files are followed, plus the date and pixel size.
   - Items survive quit and reboot.
   - Drop any item whose file no longer resolves. Check at launch, whenever the shelf appears, and when a drag starts.
+  - A file on a volume that isn't mounted (an unplugged disk, a disconnected share) hasn't gone: keep its card.
 
 ## 5. Shelf interactions
 

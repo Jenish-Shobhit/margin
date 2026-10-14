@@ -5,14 +5,14 @@ import MarginKit
 
 /// The shelf's disk access, which always runs off the main thread. The first access to ~/Desktop can block
 /// on the privacy prompt, and a folder Margin may not read must never empty the shelf: only a file that's
-/// definitely gone (ENOENT, or moved to the Trash) counts as missing.
+/// definitely gone (ENOENT on a mounted volume, or moved to the Trash) counts as missing.
 enum ShelfFiles {
     enum Status: Sendable, Equatable {
         /// The file is there. The item follows a file moved in Finder and has a fresh bookmark.
         case found(ShelfItem)
-        /// Definitely gone: no such file, or it's in the Trash.
+        /// Definitely gone: no such file on its (mounted) volume, or it's in the Trash.
         case gone
-        /// Couldn't tell (access denied, privacy prompt refused, I/O error). Keep the item.
+        /// Couldn't tell (access denied, privacy prompt refused, I/O error, volume not mounted). Keep the item.
         case unknown
 
         var isGone: Bool { self == .gone }
@@ -63,7 +63,8 @@ enum ShelfFiles {
         }
         switch probe(item.url) {
         case .exists: return ShelfItem.isInTrash(item.url) ? .gone : .unknown
-        case .absent: return .gone
+        // On an unplugged disk or a disconnected share, "no such file" only means the volume is away.
+        case .absent: return item.isOnUnmountedVolume ? .unknown : .gone
         case .unknown: return .unknown
         }
     }

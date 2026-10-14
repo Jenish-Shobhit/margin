@@ -76,6 +76,38 @@ public struct ShelfItem: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
+extension ShelfItem {
+    /// True when the file's volume isn't mounted: an external disk that's unplugged, a network share that's
+    /// disconnected. "No such file" then says nothing about the file, which comes back with its volume, so the
+    /// item must stay. Blocking: it looks at the file system.
+    public var isOnUnmountedVolume: Bool {
+        Self.volumeRoots(path: path, bookmark: bookmark).contains { !Self.isMountPoint($0) }
+    }
+
+    /// Where the file's volume is (or was) mounted, other than the startup disk: the volume the bookmark
+    /// recorded (it keeps it while the volume is away), and `/Volumes/<name>` for a path under `/Volumes`.
+    static func volumeRoots(path: String, bookmark: Data?) -> [String] {
+        var roots: [String] = []
+        if let bookmark, let volume = URL.resourceValues(forKeys: [.volumeURLKey], fromBookmarkData: bookmark)?.volume {
+            roots.append(volume.path)
+        }
+        let parts = URL(fileURLWithPath: path).standardizedFileURL.pathComponents
+        if parts.count > 2, parts[1] == "Volumes" { roots.append("/Volumes/" + parts[2]) }
+        return roots.filter { $0 != "/" }
+    }
+
+    /// True when a volume is mounted right at `path` (after symlinks: `/Volumes/Macintosh HD` is `/`).
+    /// A missing folder, or a leftover empty one, isn't a mount point.
+    static func isMountPoint(_ path: String) -> Bool {
+        guard let real = realpath(path, nil) else { return false }
+        defer { free(real) }
+        var fs = statfs()
+        guard statfs(real, &fs) == 0 else { return false }
+        let mountedOn = withUnsafeBytes(of: &fs.f_mntonname) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
+        return mountedOn == String(cString: real)
+    }
+}
+
 /// Ordered shelf contents (oldest → newest), persisted as JSON.
 @MainActor
 public final class ShelfStore {

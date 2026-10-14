@@ -209,6 +209,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] A file renamed in Finder stays on the shelf and drags under its new name
 - [ ] A file moved in Finder is followed (bookmark) and still drags
 - [ ] A file moved to the Trash drops off the shelf
+- [ ] Shots saved to an external disk (or a disk image) stay on the shelf while it's ejected, through clicks and a relaunch, and work again once it's back (`MARGIN_DISK_IMAGE_TESTS=1 scripts/test.sh` covers the check itself)
 
 ## Paste into apps (⌘V after a capture)
 
