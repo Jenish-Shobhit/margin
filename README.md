@@ -47,7 +47,7 @@ Margin needs macOS 26 (Tahoe) or later on Apple silicon.
 A small window walks you through three steps:
 
 1. **Allow Screen Recording.** Margin needs it to see the screen. Grant it in System Settings › Privacy & Security › Screen & System Audio Recording, then relaunch Margin if asked.
-2. **Hand over the shortcuts.** Turn off the four macOS screenshot shortcuts (⌘⇧3, ⌃⌘⇧3, ⌘⇧4, ⌃⌘⇧4) in System Settings › Keyboard › Keyboard Shortcuts › Screenshots, so Margin receives them. The checklist updates live.
+2. **Hand over the shortcuts.** Click **Turn off for me** and Margin turns off the four macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4, ⌃⇧⌘4) so it receives them. It applies at once; **Restore macOS screenshot shortcuts** in Settings undoes it.
 3. **Take your first shot.** Press ⌘⇧4. Launch at login is on; you can change it in Settings.
 
 Until step 2 is done, everything also works from the menu bar icon, and its menu shows "macOS still uses ⇧⌘4 — Fix…" to take you back to the checklist.

@@ -210,7 +210,7 @@ One window with three steps. It shows on first launch or whenever permission is 
      - **30** Save picture of selected area as a file, ⌘⇧4.
      - **31** Copy picture of selected area to the clipboard, ⌃⌘⇧4.
    - A **missing entry means enabled.**
-   - A button opens Keyboard › Keyboard Shortcuts. **Never write** to these preferences.
+   - **Since 0.0.3:** the primary button **Turn off for me** writes `enabled = 0` for 28–31 and applies it (see "Changes after 0.0.1"); a secondary link opens Keyboard › Keyboard Shortcuts.
    - Show the note: ⌘⇧5 stays with macOS for screen recording.
 3. **Take your first shot:** "Press ⌘⇧4". It also notes that launch at login is on.
 
@@ -313,7 +313,7 @@ Write it at M0 and grow it with each milestone. It must cover at least these:
 
 ## Changes after 0.0.1 (user feedback, 14 Oct 2026)
 
-Each item ships as its own patch release (version bump, CHANGELOG entry, tag, GitHub release with the zip).
+Each item ships as its own patch release (version bump, CHANGELOG entry, tag, GitHub release with the zip), numbered in the order it lands. The version column was the plan; shipped versions: ⌘V in terminals → 0.0.2, turn off macOS shortcuts → 0.0.3.
 
 | Version | Change |
 |---|---|
