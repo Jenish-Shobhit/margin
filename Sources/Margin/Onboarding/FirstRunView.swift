@@ -197,7 +197,7 @@ private struct Tick: View {
 }
 
 /// A key cap, like `<kbd>`.
-struct Kbd: View {
+private struct Kbd: View {
     let keys: String
     init(_ keys: String) { self.keys = keys }
 
