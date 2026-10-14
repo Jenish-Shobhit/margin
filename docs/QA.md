@@ -106,6 +106,8 @@ Check `log stream --predicate 'subsystem == "io.github.jenish-shobhit.margin" AN
 - [ ] Double-click opens the file in the default app
 - [ ] ••• and right-click offer Copy path · Reveal in Finder · Rename… (renames on disk) · Move to Trash
 - [ ] ⌘Z restores the last removed card(s), up to 20 steps: drag-out, dismiss, clear and trash (the file comes back from the Trash)
+- [ ] Rename field: ⌘X ⌘C ⌘V ⌘A edit the text, ⌘Z undoes typing and ⇧⌘Z redoes it; none of them reach the shelf (⌘Z while renaming never brings back a card)
+- [ ] After clicking a card (shelf key, another app frontmost), ⌘Q does not quit Margin and ⌘W does not close anything; with Settings in front, ⌘Q quits and ⌘W closes the window
 - [ ] A drag never deletes or moves the file
 - [ ] The ⌘V pill sits on the card whose image is on the clipboard
 - [ ] Copying something else clears the ⌘V mark within about a second

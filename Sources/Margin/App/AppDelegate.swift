@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: AppCoordinator?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        MainMenu.install()
         let coordinator = AppCoordinator()
         self.coordinator = coordinator
         coordinator.start()
