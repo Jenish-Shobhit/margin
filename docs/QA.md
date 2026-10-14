@@ -159,7 +159,8 @@ Check `log stream --predicate 'subsystem == "io.github.jenish-shobhit.margin" AN
 ## Menu bar (§6)
 
 - [ ] The template icon follows the menu bar's appearance
-- [ ] Items: Capture Area, Capture Window, Capture Screen, Repeat Last Area, Show/Tuck Shelf, Open Screenshots Folder, Settings…, About Margin 0.0.1, Quit
+- [ ] Items: Capture Area, Capture Window, Capture Screen, Repeat Last Area, Show/Tuck Shelf, Restore Last Removed, Open Screenshots Folder, Settings…, About Margin 0.0.1, Quit
+- [ ] Restore Last Removed brings back the last removed card(s) like ⌘Z on the shelf, without clicking the shelf first (dismiss, drag-out, clear, trash)
 - [ ] The shortcuts shown match Settings
 - [ ] Capture Window starts area capture (Space switches to window mode)
 - [ ] The menu itself never appears in a shot started from it

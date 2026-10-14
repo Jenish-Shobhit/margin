@@ -153,6 +153,10 @@ final class AppCoordinator {
 
     func toggleShelf() { shelf.toggleTucked() }
 
+    /// Menu "Restore Last Removed": the shelf's ⌘Z, for when the shelf isn't key.
+    // TODO(after merge): switch to the Shelf's no-beep menu variant, `shelf.undo(fromMenu: true)`.
+    func restoreLastRemoved() { shelf.undo() }
+
     /// DEBUG `clear`: everything off the shelf (undoable).
     func clearShelf() { shelf.clear() }
 

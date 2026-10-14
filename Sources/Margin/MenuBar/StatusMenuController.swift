@@ -167,6 +167,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         let tucked = coordinator?.isShelfTucked ?? false
         menu.addItem(item(tucked ? "Show Shelf" : "Tuck Shelf", symbol: "sidebar.right", action: #selector(toggleShelf),
                           combo: prefs.shortcut(for: .toggleShelf)))
+        menu.addItem(item("Restore Last Removed", symbol: "arrow.uturn.backward", action: #selector(restoreLastRemoved)))
         menu.addItem(item("Open Screenshots Folder", symbol: "folder", action: #selector(openFolder)))
         menu.addItem(.separator())
         // Quiet: no warning symbol or dot. The welcome window closes after the first shot, so this is how
@@ -216,6 +217,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func captureScreen() { afterMenuCloses { [weak self] in self?.coordinator?.captureScreen() } }
     @objc private func repeatArea() { afterMenuCloses { [weak self] in self?.coordinator?.repeatArea() } }
     @objc private func toggleShelf() { coordinator?.toggleShelf() }
+    @objc private func restoreLastRemoved() { coordinator?.restoreLastRemoved() }
     @objc private func openFolder() { coordinator?.openScreenshotsFolder() }
     @objc private func openSettings() { coordinator?.showSettings() }
     @objc private func fixShortcuts() { coordinator?.showShortcutsStep() }
