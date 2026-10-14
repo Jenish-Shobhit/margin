@@ -99,7 +99,7 @@ While dragging:
 
 **Hint bar.** A bar at the top of the screen lists the keys (turn it off with Settings › Show key hints while capturing): Space Window, ⇧ Square, ⌥ From center, ←↑→↓ Nudge, Z Magnifier, ↩ Capture, Esc Cancel. The key you're holding is highlighted. While you drag, "Space Window" becomes "Space Move". The bar steps aside if your selection reaches under it.
 
-**Cancelling.** Press **Esc** or right-click. Nothing is saved, no sound plays and the clipboard is unchanged. Switching apps with ⌘Tab, or a display change, also cancels.
+**Cancelling.** Press **Esc** or right-click. Nothing is saved, no sound plays and the clipboard is unchanged. Switching apps with ⌘Tab, switching Space, a display change, or the Mac or its displays going to sleep also cancels.
 
 A display that macOS can't capture (some Sidecar, AirPlay or DisplayLink setups) is dimmed with the note "Can't capture this display"; select on another display.
 
