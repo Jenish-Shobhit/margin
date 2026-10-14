@@ -11,9 +11,18 @@ public enum UnsavedShots {
     }
 
     /// The shelf toast after a capture went to Unsaved: which folder refused it, where the shot is, and how to
-    /// find it. The menu item's name has no-break spaces, so the wrapped toast keeps it on one line.
+    /// find it. The menu item's name has no-break spaces, so the wrapped toast keeps it on one line. A long folder
+    /// name is shortened: in full it could push the way back past the toast's three lines.
     public static func fallbackToast(saveFolder: URL) -> String {
-        "Can't write to “\(saveFolder.lastPathComponent)”. Saved to Unsaved: menu bar › \(menuItemTitle.replacingOccurrences(of: " ", with: "\u{00A0}"))"
+        "Can't write to “\(shortened(saveFolder.lastPathComponent))”. Saved to Unsaved: menu bar › \(menuItemTitle.replacingOccurrences(of: " ", with: "\u{00A0}"))"
+    }
+
+    /// The longest folder name the toast shows in full (a Dutch "Schermafbeeldingen" already takes a fourth line).
+    static let maxFolderNameLength = 16
+
+    private static func shortened(_ name: String) -> String {
+        guard name.count > maxFolderNameLength else { return name }
+        return name.prefix(maxFolderNameLength - 1).trimmingCharacters(in: .whitespaces) + "…"
     }
 
     /// The menu bar item that opens the Unsaved folder.

@@ -39,4 +39,15 @@ import Testing
         #expect(text.hasSuffix("Show\u{00A0}Unsaved\u{00A0}Shots"))
         #expect(text.replacingOccurrences(of: "\u{00A0}", with: " ").contains(UnsavedShots.menuItemTitle))
     }
+
+    @Test func aLongFolderNameIsShortened() {
+        let long = UnsavedShots.fallbackToast(saveFolder: URL(fileURLWithPath: "/Users/me/Bildschirmfotos und Aufnahmen", isDirectory: true))
+        #expect(long.hasPrefix("Can't write to “Bildschirmfotos…”."))
+        #expect(long.hasSuffix("Show\u{00A0}Unsaved\u{00A0}Shots"))
+        // No space left before the ellipsis, and a name that fits stays whole.
+        let spaced = UnsavedShots.fallbackToast(saveFolder: URL(fileURLWithPath: "/Users/me/Screenshots of the Mac", isDirectory: true))
+        #expect(spaced.hasPrefix("Can't write to “Screenshots of…”."))
+        let fits = UnsavedShots.fallbackToast(saveFolder: URL(fileURLWithPath: "/Users/me/Bildschirmfotos", isDirectory: true))
+        #expect(fits.hasPrefix("Can't write to “Bildschirmfotos”."))
+    }
 }

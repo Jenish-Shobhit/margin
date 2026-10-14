@@ -105,7 +105,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 Release starts three things in parallel. The in-memory image feeds the shelf thumbnail right away, and **one** PNG encode feeds both the file and the clipboard.
 
 - **Folder.** `~/Desktop/Screenshots` by default (Settings can change it). Create it if missing.
-  - If the folder can't be written, save to `~/Library/Application Support/Margin/Unsaved/` and show the shelf toast "Can't write to “Screenshots”. Saved to Unsaved: menu bar › Show Unsaved Shots" (with the save folder's name; an error toast that wraps and stays 4 s). The menu bar offers **Show Unsaved Shots** while that folder holds shots (§6).
+  - If the folder can't be written, save to `~/Library/Application Support/Margin/Unsaved/` and show the shelf toast "Can't write to “Screenshots”. Saved to Unsaved: menu bar › Show Unsaved Shots" (with the save folder's name, shortened with “…” past 16 characters so the toast's three lines still reach the menu item; an error toast that wraps and stays 4 s). The menu bar offers **Show Unsaved Shots** while that folder holds shots (§6).
   - `Info.plist` gives the reason for the folder prompts: `NSDesktopFolderUsageDescription` (the default folder is on the Desktop), plus the Documents, Downloads, removable and network volume strings for a folder chosen in Settings.
 - **Name.** `Screenshot yyyy-MM-dd 'at' HH.mm.ss.png`.
   - Use the `en_US_POSIX` locale and the local time zone, 24-hour time and plain ASCII spaces.
