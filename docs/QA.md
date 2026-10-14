@@ -35,12 +35,17 @@ Before starting: turn off the four macOS screenshot shortcuts (System Settings �
 - [ ] ⌥ while dragging draws from the centre
 - [ ] Holding Space while dragging moves the selection
 - [ ] Each of the 8 handles resizes the selection
-- [ ] Arrow keys nudge by 1 px, ⇧+arrow by 10 px
+- [ ] Arrow keys nudge by 1 px per tap, ⇧+arrow by 10 px; holding an arrow is smooth and speeds up (2 px, then 4 px)
 - [ ] ↩ captures the adjusted selection
 - [ ] The size pill reads `W × H` in pixels
 - [ ] Edges snap to window edges within 8 pt; the "Snapped to window" pill and guides show while snapped
-- [ ] The loupe shows an 11×11 pixel grid and `x, y · #RRGGBB` with display-local pixel coordinates
-- [ ] The HUD hint bar shows at the top centre, and is gone after the 5th successful capture
+- [ ] No loupe by default; Z shows it (11×11 pixel grid, `x, y · #RRGGBB` in display-local pixels) and Z again hides it, for that capture only
+- [ ] The HUD hint bar shows at the top centre for 5 captures, and again for 5 after an update that changes its hints
+- [ ] Holding ⇧ / ⌥ / Space while dragging highlights that hint and shows a pill ("Square", "From center"); in window mode ⌥ shows "Keep shadow"
+- [ ] ⌥-dragging a card shows "Keep on shelf" on the drag image, live as ⌥ changes
+- [ ] Card hover: red ✕ top-right dismisses; Options (•••) top-left opens the menu and shows an "Options" tooltip
+- [ ] After a capture, ⌘V in Claude Code (Ghostty/herdr) attaches the image; image apps still paste the picture
+- [ ] First run "Turn off for me" disables the four macOS shortcuts at once; Settings "Restore" re-enables them
 - [ ] Esc cancels: no file, no sound, clipboard unchanged
 - [ ] Changing displays during selection cancels it
 

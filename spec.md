@@ -78,8 +78,8 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 - To fine-tune instead of releasing: drag a handle (8 handles) or nudge with the arrow keys (⇧ = 10 px), then press ↩ to capture.
 - The size pill reads `W × H` in **pixels**.
 - **Snapping.** Selection edges snap to window edges within 8 pt (window frames come from the cached `SCShareableContent`). Show the "Snapped to window" pill and thin guides while snapped.
-- **Loupe.** An 11×11 pixel grid that follows the cursor, with a label `x, y · #RRGGBB`. Pixel coordinates are display-local.
-- **HUD hint bar** at the top center: Space Window · ⇧ Square · ⌥ From center · ←↑→↓ Nudge · ↩ Capture · Esc Cancel. It is hidden after the 5th successful capture (stored setting).
+- **Loupe** (since 0.0.7: off by default, Z toggles it for the current capture). An 11×11 pixel grid that follows the cursor, with a label `x, y · #RRGGBB`. Pixel coordinates are display-local.
+- **HUD hint bar** at the top center: Space Window · ⇧ Square · ⌥ From center · ←↑→↓ Nudge · ↩ Capture · Esc Cancel. It shows for the first 5 captures, and again for 5 whenever its hints change (`Preferences.hintsRevision`).
 - **Esc cancels.** Nothing is saved, no sound plays, and the clipboard is unchanged.
 - A display change during selection cancels.
 
@@ -313,7 +313,7 @@ Write it at M0 and grow it with each milestone. It must cover at least these:
 
 ## Changes after 0.0.1 (user feedback, 14 Oct 2026)
 
-Each item ships as its own patch release (version bump, CHANGELOG entry, tag, GitHub release with the zip), numbered in the order it lands. The version column was the plan; shipped versions: ⌘V in terminals → 0.0.2, turn off macOS shortcuts → 0.0.3.
+Each item ships as its own patch release (version bump, CHANGELOG entry, tag, GitHub release with the zip), numbered in the order it lands. The version column was the plan; shipped versions: ⌘V in terminals → 0.0.2, turn off macOS shortcuts → 0.0.3, nudge → 0.0.4, ⌥ discoverability (+ hint bar re-shows after hint changes) → 0.0.5, card buttons → 0.0.6, magnifier on demand → 0.0.7.
 
 | Version | Change |
 |---|---|
