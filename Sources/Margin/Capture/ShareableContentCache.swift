@@ -30,6 +30,9 @@ final class ShareableContentCache {
     private(set) var snapFrames: [CGRect] = []
     private(set) var hasMarginApp = false
     private(set) var isLoaded = false
+    /// The displays (NSScreen) that existed when the applied fetch started. One of these without a target is a
+    /// display ScreenCaptureKit can't list (Sidecar, AirPlay, DisplayLink…), not one it hasn't been asked about.
+    private var knownDisplays: Set<CGDirectDisplayID> = []
 
     private var requested = 0
     private var applied = 0
@@ -66,6 +69,7 @@ final class ShareableContentCache {
         targets = [:]
         hasMarginApp = false
         isLoaded = false
+        knownDisplays = []
     }
 
     /// Coalesces bursts of notifications into one fetch.
@@ -84,11 +88,14 @@ final class ShareableContentCache {
         let ticket = requested
         let state = CaptureLog.signposter.beginInterval("shareableContent")
         let clock = Stopwatch()
+        // Before the fetch: a display that appears while it runs must not count as "asked about".
+        let screens = Set(Displays.all.map(\.id))
         let box = try await Self.fetch()
         CaptureLog.signposter.endInterval("shareableContent", state)
         guard ticket > applied else { return }
         applied = ticket
         apply(box.content)
+        knownDisplays = screens
         CaptureLog.timing.debug("shareable content refreshed in \(clock.ms, format: .fixed(precision: 1), privacy: .public) ms")
     }
 
@@ -98,10 +105,18 @@ final class ShareableContentCache {
         ContentBox(content: try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false))
     }
 
-    /// The freeze target for a display, refreshing first if the cache is cold, stale, or lacks Margin.
+    /// True when a capture of these displays must fetch first: nothing cached, Margin missing (its windows
+    /// wouldn't be excluded), or a display that appeared since the last fetch. A known display without a target
+    /// can't be captured, and refetching on every capture wouldn't change that.
+    func needsRefresh(for displayIDs: [CGDirectDisplayID]) -> Bool {
+        !isLoaded || !hasMarginApp || displayIDs.contains { !knownDisplays.contains($0) }
+    }
+
+    /// The freeze target for a display, refreshing first if the cache is cold, lacks Margin, or predates the
+    /// display. Throws `noDisplay` for a display ScreenCaptureKit doesn't list.
     func target(for displayID: CGDirectDisplayID) async throws -> DisplayTarget {
         if let t = targets[displayID], hasMarginApp { return t }
-        try await refresh()
+        if needsRefresh(for: [displayID]) { try await refresh() }
         guard let t = targets[displayID] else { throw CaptureError.noDisplay }
         return t
     }

@@ -40,9 +40,13 @@ final class OverlayView: NSView {
     }
     weak var session: OverlaySession?
     private(set) var image: CGImage?
+    /// This display can't be captured: the live screen shows through, dimmed, with a note.
+    private(set) var isUnavailable = false
 
     private let canvas: CanvasView
     private let imageLayer = CALayer()
+    private let unavailableLayer = CALayer()
+    private let unavailablePill = PillView(style: .note)
     private let dimLayers = (0..<4).map { _ in CALayer() }
     private let borderLayer = CALayer()
     private let handleLayers = Handle.allCases.map { _ in CALayer() }
@@ -69,6 +73,8 @@ final class OverlayView: NSView {
         let root = canvas.root
         imageLayer.contentsGravity = .resize
         root.addSublayer(imageLayer)
+        unavailableLayer.backgroundColor = OverlayStyle.dim
+        root.addSublayer(unavailableLayer)
         for d in dimLayers {
             d.backgroundColor = OverlayStyle.dim
             root.addSublayer(d)
@@ -93,7 +99,7 @@ final class OverlayView: NSView {
             h.bounds = CGRect(x: 0, y: 0, width: OverlayStyle.handleSize, height: OverlayStyle.handleSize)
             root.addSublayer(h)
         }
-        for v in [windowPill, snapPill, sizePill, loupe, loupeLabel, hud] as [NSView] { addSubview(v) }
+        for v in [unavailablePill, windowPill, snapPill, sizePill, loupe, loupeLabel, hud] as [NSView] { addSubview(v) }
         layoutCanvas()
         reset()
     }
@@ -104,22 +110,41 @@ final class OverlayView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         let scale = display.scale
-        for l in [imageLayer, borderLayer, guideXLayer, guideYLayer, windowLayer] + dimLayers + handleLayers { l.contentsScale = scale }
+        for l in [imageLayer, unavailableLayer, borderLayer, guideXLayer, guideYLayer, windowLayer] + dimLayers + handleLayers { l.contentsScale = scale }
         imageLayer.frame = CGRect(origin: .zero, size: display.frame.size)
+        unavailableLayer.frame = imageLayer.frame
         CATransaction.commit()
     }
 
     /// Back to an empty, transparent overlay.
     func reset() {
         image = nil
+        isUnavailable = false
         loupe.clear()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         imageLayer.contents = nil
-        for l in dimLayers + handleLayers + [borderLayer, guideXLayer, guideYLayer, windowLayer] { l.isHidden = true }
+        for l in dimLayers + handleLayers + [unavailableLayer, borderLayer, guideXLayer, guideYLayer, windowLayer] { l.isHidden = true }
         CATransaction.commit()
-        for v in [windowPill, snapPill, sizePill, loupe, loupeLabel, hud] as [NSView] { v.isHidden = true }
+        for v in [unavailablePill, windowPill, snapPill, sizePill, loupe, loupeLabel, hud] as [NSView] { v.isHidden = true }
     }
+
+    /// Marks this display as one that can't be captured (or clears that when its frame turns up late).
+    func setUnavailable(_ on: Bool) {
+        isUnavailable = on
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        unavailableLayer.isHidden = !on
+        CATransaction.commit()
+        if on {
+            unavailablePill.setText(Self.unavailableText)
+            let s = unavailablePill.frame.size
+            unavailablePill.setFrameOrigin(CGPoint(x: ((bounds.width - s.width) / 2).rounded(), y: ((bounds.height - s.height) / 2).rounded()))
+        }
+        unavailablePill.isHidden = !on
+    }
+
+    private static let unavailableText = "Can't capture this display"
 
     /// Draws every piece of chrome once (fonts, text layout, layer setup) so the first ⌘⇧4 doesn't pay for it.
     func warmUp() {
@@ -138,7 +163,8 @@ final class OverlayView: NSView {
         frame.windowText = "Margin · 400 × 400"
         render(frame)
         loupeLabel.setText("0, 0 · #000000")
-        for v in [windowPill, snapPill, sizePill, loupeLabel, hud] as [NSView] { v.isHidden = false }
+        unavailablePill.setText(Self.unavailableText)
+        for v in [unavailablePill, windowPill, snapPill, sizePill, loupeLabel, hud] as [NSView] { v.isHidden = false }
         displayIfNeeded()
         reset()
     }
@@ -184,9 +210,9 @@ final class OverlayView: NSView {
                     layer.isHidden = !(handle.isCorner || showEdges)
                 }
             } else {
-                // The selection is on another display: dim this one entirely.
+                // The selection is on another display: dim this one entirely (unless it already is).
                 dimLayers[0].frame = b
-                dimLayers[0].isHidden = false
+                dimLayers[0].isHidden = isUnavailable
                 for d in dimLayers.dropFirst() { d.isHidden = true }
                 borderLayer.isHidden = true
                 for h in handleLayers { h.isHidden = true }

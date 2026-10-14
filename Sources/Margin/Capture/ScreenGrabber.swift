@@ -109,14 +109,19 @@ enum ScreenGrabber {
 
     /// True when an error means Screen Recording permission is missing.
     static func isPermissionError(_ error: Error) -> Bool {
+        isPermissionDenial(error) || !CGPreflightScreenCaptureAccess()
+    }
+
+    /// True when the error itself says permission was denied. Cheap (no preflight), so fine per display.
+    static func isPermissionDenial(_ error: Error) -> Bool {
         let ns = error as NSError
-        if ns.domain == SCStreamErrorDomain, ns.code == SCStreamError.userDeclined.rawValue { return true }
-        return !CGPreflightScreenCaptureAccess()
+        return ns.domain == SCStreamErrorDomain && ns.code == SCStreamError.userDeclined.rawValue
     }
 }
 
 enum CaptureError: Error {
     case noImage
+    /// ScreenCaptureKit doesn't list the display.
     case noDisplay
     case emptyCrop
 }

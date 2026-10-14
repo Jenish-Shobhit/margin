@@ -22,9 +22,10 @@ private func srgb(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat) -> CGC
     CGColor(colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, components: [r, g, b, a])!
 }
 
-/// A small rounded label: the size pill, "Snapped to window", the window pill and the loupe label.
+/// A small rounded label: the size pill, "Snapped to window", the window pill, the loupe label and notes.
 final class PillView: NSView {
-    enum Style { case dark, accent }
+    /// `dark`: figures in a monospaced font; `note`: the same look for a sentence; `accent`: highlighted.
+    enum Style { case dark, note, accent }
 
     private let style: Style
     private(set) var text = ""
@@ -40,7 +41,7 @@ final class PillView: NSView {
     @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
     private var font: NSFont {
-        style == .accent ? .systemFont(ofSize: 11, weight: .semibold) : .monospacedSystemFont(ofSize: 11, weight: .semibold)
+        style == .dark ? .monospacedSystemFont(ofSize: 11, weight: .semibold) : .systemFont(ofSize: 11, weight: .semibold)
     }
 
     /// Sets the text and resizes to fit (4 × 8 pt padding).
@@ -57,7 +58,7 @@ final class PillView: NSView {
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 7, yRadius: 7)
         (style == .accent ? OverlayStyle.accent : OverlayStyle.pillFill).setFill()
         path.fill()
-        if style == .dark {
+        if style != .accent {
             OverlayStyle.pillRing.setStroke()
             path.lineWidth = 1
             path.stroke()

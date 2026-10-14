@@ -21,7 +21,14 @@ extension NSScreen {
 
 @MainActor
 enum Displays {
-    static var all: [DisplayInfo] { NSScreen.screens.compactMap(\.displayInfo) }
+    static var all: [DisplayInfo] {
+        let screens = NSScreen.screens.compactMap(\.displayInfo)
+        #if DEBUG
+        return screens + CaptureSimulation.extraDisplays
+        #else
+        return screens
+        #endif
+    }
 
     /// Height of the primary (menu bar) screen, for AppKit ↔ CG flips.
     static var primaryHeight: CGFloat { NSScreen.screens.first?.frame.height ?? 0 }

@@ -9,6 +9,9 @@ private struct FrozenFrame: Sendable {
     let ms: Double
 }
 
+/// Captures one display's frozen frame; the target is nil when ScreenCaptureKit doesn't list the display.
+private typealias FrameGrabber = @Sendable (CGDirectDisplayID, DisplayTarget?) async throws -> SendableImage
+
 /// Area, window and full-screen capture (spec §2).
 @MainActor
 final class CaptureController: CaptureControlling {
@@ -108,10 +111,11 @@ final class CaptureController: CaptureControlling {
         let displays = Displays.all
         guard !displays.isEmpty else { return }
 
-        // Start the captures first: they run off the main thread while the panels go up.
-        let targets = displays.compactMap { cache.targets[$0.id] }
-        let warm = cache.hasMarginApp && targets.count == displays.count
-        let early = warm ? Self.captureAll(targets) : nil
+        // Start the captures first: they run off the main thread while the panels go up. A display that
+        // ScreenCaptureKit didn't list at the last refresh (Sidecar, AirPlay, DisplayLink…) just fails in the
+        // stream; only a display the cache hasn't seen yet sends the freeze down the cold path.
+        let grab = Self.frameGrabber()
+        let early = cache.needsRefresh(for: displays.map(\.id)) ? nil : Self.captureAll(jobs(for: displays), grab: grab)
 
         pool.sync()
         let session = OverlaySession(panels: pool.panels(for: displays), cache: cache, mode: mode,
@@ -131,24 +135,37 @@ final class CaptureController: CaptureControlling {
         timings.record("hotkeyToOverlay", clock.ms)
 
         Task { [weak self] in
-            await self?.freeze(session, displays: displays, early: early, clock: clock)
+            await self?.freeze(session, displays: displays, early: early, grab: grab, clock: clock)
             CaptureLog.signposter.endInterval("freeze", signpost)
         }
     }
 
-    /// Draws each display's frozen frame as it arrives, then takes keyboard focus.
-    private func freeze(_ session: OverlaySession, displays: [DisplayInfo], early: AsyncStream<FrozenFrame>?, clock: Stopwatch) async {
-        // Never leave a transparent overlay eating clicks if SCK stalls.
+    /// What to capture for each display; `nil` where ScreenCaptureKit doesn't list it.
+    private func jobs(for displays: [DisplayInfo]) -> [(CGDirectDisplayID, DisplayTarget?)] {
+        displays.map { ($0.id, cache.targets[$0.id]) }
+    }
+
+    /// Draws each display's frozen frame as it arrives and takes keyboard focus with the first one. A display
+    /// that can't be captured is dimmed and refuses selections; the session ends only if none could be.
+    private func freeze(_ session: OverlaySession, displays: [DisplayInfo], early: AsyncStream<FrozenFrame>?,
+                        grab: @escaping FrameGrabber, clock: Stopwatch) async {
+        // Never leave a transparent overlay eating clicks if SCK stalls: with no frame at all, cancel; otherwise
+        // stop waiting for the displays still blank.
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(3))
-            guard let self, self.session === session, session.frozenCount == 0 else { return }
-            CaptureLog.capture.error("freeze: no frame after 3 s, cancelling")
-            self.endSession()
+            guard let self, self.session === session else { return }
+            if session.frozenCount == 0 {
+                CaptureLog.capture.error("freeze: no frame after 3 s, cancelling")
+                self.endSession()
+            } else if session.abandonPendingDisplays() > 0 {
+                CaptureLog.capture.error("freeze: a display gave no frame in 3 s; dimmed")
+                self.refreshWindows(for: session)
+            }
         }
 
         var stream = early
         if stream == nil {
-            // Cold cache (or Margin missing from it): fetch once, off the fast path.
+            // Cold cache, Margin missing from it, or a new display: fetch once, off the fast path.
             CaptureLog.capture.info("freeze: cache cold, fetching shareable content first")
             do {
                 try await cache.refresh()
@@ -157,11 +174,12 @@ final class CaptureController: CaptureControlling {
                 return
             }
             guard self.session === session else { return }
-            stream = Self.captureAll(displays.compactMap { cache.targets[$0.id] })
+            stream = Self.captureAll(jobs(for: displays), grab: grab)
         }
         guard let stream else { return }
 
         var first = true
+        var firstError: (any Error)?
         for await frame in stream {
             guard self.session === session else { return }
             switch frame.result {
@@ -174,21 +192,31 @@ final class CaptureController: CaptureControlling {
                 }
                 timings.record("freezeCapture.\(frame.displayID)", frame.ms)
                 permissionWorked()
+                // Keys (Esc, Space) work from the first frozen display on, not after the slowest one. Every
+                // capture was already requested, so activating can change at most a display still in flight.
+                if !activatedForSession { takeFocus(session) }
             case let .failure(error):
-                fail(error, session: session)
-                return
+                // Permission is all or nothing; any other failure costs only that display.
+                if ScreenGrabber.isPermissionDenial(error) {
+                    fail(error, session: session)
+                    return
+                }
+                CaptureLog.capture.error("freeze: display \(frame.displayID, privacy: .public) can't be captured: \(String(describing: error), privacy: .public)")
+                firstError = firstError ?? error
+                session.setUnavailable(frame.displayID)
             }
         }
         guard self.session === session else { return }
         timings.record("hotkeyToAllFrozen", clock.ms)
-        if session.frozenCount == 0 {
-            endSession()
+        guard session.frozenCount > 0 else {
+            fail(firstError ?? CaptureError.noImage, session: session)
             return
         }
+        refreshWindows(for: session)
+    }
 
-        // The frames are in, so activating can't change what was frozen (window focus looks, open menus).
-        takeFocus(session)
-        // Window frames may have moved since the last refresh: update them for snapping and window mode.
+    /// Window frames may have moved since the last refresh: update them for snapping and window mode.
+    private func refreshWindows(for session: OverlaySession) {
         Task { [weak self] in
             try? await self?.cache.refresh()
             guard let self, self.session === session else { return }
@@ -206,19 +234,19 @@ final class CaptureController: CaptureControlling {
         activatedForSession = true
     }
 
-    /// Captures every target in parallel; yields frames as they finish.
-    private nonisolated static func captureAll(_ targets: [DisplayTarget]) -> AsyncStream<FrozenFrame> {
+    /// Captures every display in parallel; yields frames, or why one failed, as they finish.
+    private nonisolated static func captureAll(_ jobs: [(CGDirectDisplayID, DisplayTarget?)], grab: @escaping FrameGrabber) -> AsyncStream<FrozenFrame> {
         let (stream, continuation) = AsyncStream.makeStream(of: FrozenFrame.self)
         Task.detached(priority: .userInitiated) {
             await withTaskGroup(of: Void.self) { group in
-                for target in targets {
+                for (id, target) in jobs {
                     group.addTask {
                         let clock = Stopwatch()
                         do {
-                            let image = try await ScreenGrabber.capture(target)
-                            continuation.yield(FrozenFrame(displayID: target.displayID, result: .success(image), ms: clock.ms))
+                            let image = try await grab(id, target)
+                            continuation.yield(FrozenFrame(displayID: id, result: .success(image), ms: clock.ms))
                         } catch {
-                            continuation.yield(FrozenFrame(displayID: target.displayID, result: .failure(error), ms: clock.ms))
+                            continuation.yield(FrozenFrame(displayID: id, result: .failure(error), ms: clock.ms))
                         }
                     }
                 }
@@ -226,6 +254,26 @@ final class CaptureController: CaptureControlling {
             continuation.finish()
         }
         return stream
+    }
+
+    /// One display's freeze capture. A display ScreenCaptureKit doesn't list fails right away.
+    private nonisolated static func grab(_ id: CGDirectDisplayID, _ target: DisplayTarget?) async throws -> SendableImage {
+        guard let target else { throw CaptureError.noDisplay }
+        return try await ScreenGrabber.capture(target)
+    }
+
+    /// ScreenCaptureKit, or in DEBUG builds whatever `CaptureSimulation` scripts for a display.
+    private static func frameGrabber() -> FrameGrabber {
+        #if DEBUG
+        let faults = CaptureSimulation.faults
+        if !faults.isEmpty {
+            return { id, target in
+                if let fault = faults[id] { return try await fault.perform() }
+                return try await grab(id, target)
+            }
+        }
+        #endif
+        return { id, target in try await grab(id, target) }
     }
 
     private func finishArea(_ rect: CGRect, display: DisplayInfo, image: CGImage, pixelRect: CGRect, scale: CGFloat) {
