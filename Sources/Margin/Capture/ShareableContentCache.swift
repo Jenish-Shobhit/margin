@@ -117,9 +117,15 @@ final class ShareableContentCache {
         hasMarginApp = !margin.isEmpty
         if !hasMarginApp { CaptureLog.capture.error("Margin is not in SCShareableContent; its windows would not be excluded") }
 
+        // Margin's menu bar icon belongs in shots, even though the app is excluded. Where AppKit draws status
+        // items in-process, each is a Margin window at the status level; no other Margin window uses that level
+        // (shelf, fly-in and overlay sit at .screenSaver and above, menus at the pop-up menu level). macOS 27
+        // draws every status item inside MenuBarAgent's menu bar window instead, so this finds none there.
+        let statusLevel = Int(CGWindowLevelForKey(.statusWindow))
+        let statusItems = content.windows.filter { $0.owningApplication?.processID == pid && $0.windowLayer == statusLevel }
         var t: [CGDirectDisplayID: DisplayTarget] = [:]
         for display in content.displays {
-            t[display.displayID] = ScreenGrabber.makeDisplayTarget(display: display, excluding: margin)
+            t[display.displayID] = ScreenGrabber.makeDisplayTarget(display: display, excluding: margin, keeping: statusItems)
         }
         targets = t
 
