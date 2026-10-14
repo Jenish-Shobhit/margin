@@ -187,15 +187,23 @@ final class CaptureController: CaptureControlling {
         }
 
         // The frames are in, so activating can't change what was frozen (window focus looks, open menus).
-        NSApp.activate()
-        session.makeKey()
-        activatedForSession = true
+        takeFocus(session)
         // Window frames may have moved since the last refresh: update them for snapping and window mode.
         Task { [weak self] in
             try? await self?.cache.refresh()
             guard let self, self.session === session else { return }
             session.windowsDidRefresh()
         }
+    }
+
+    /// Activates Margin and makes the overlay key, so Esc, Space and the arrows reach it.
+    private func takeFocus(_ session: OverlaySession) {
+        // Already active (Settings or Welcome in front): no didBecomeActive will arrive, but losing activation
+        // from here on (⌘Tab) must still cancel, or the frozen screen stays up with no keyboard.
+        if NSApp.isActive { becameActiveDuringSession = true }
+        NSApp.activate()
+        session.makeKey()
+        activatedForSession = true
     }
 
     /// Captures every target in parallel; yields frames as they finish.
