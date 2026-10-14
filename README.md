@@ -12,7 +12,7 @@ Every capture is saved to disk, copied to the clipboard, and put on a shelf of t
 - **Instant capture.** Area, window and full-screen shots on a frozen screen. Releasing the mouse captures; there is no extra confirm step.
 - **Saved and copied every time.** Each shot lands in `~/Desktop/Screenshots` as a PNG (24-hour names, never a half-written file) and on the clipboard, ready for ⌘V.
 - **The shelf.** Thumbnails stack on the right edge, newest at the bottom. Drag one into Slack, Chrome, Finder or Terminal; it leaves the shelf when the drop lands. Older shots fold into a `+N older` pile.
-- **Precise selection.** Pixel loupe with the colour under the cursor, snapping to window edges, resize handles, arrow-key nudging, ⇧ for a square, ⌥ from the centre.
+- **Precise selection.** A pixel magnifier on demand (Z) with the colour under the cursor, snapping to window edges, resize handles, arrow-key nudging, ⇧ for a square, ⌥ from the centre.
 - **Window mode.** Press Space while selecting to capture a single window with transparent corners and no shadow (hold ⌥ to keep it).
 - **Repeat last area.** ⌘⇧2 captures the same rectangle again with no overlay.
 - **Stays out of the way.** No Dock icon, the shelf never takes focus, tucks away with ⌘⇧1, and never appears in its own screenshots.
@@ -28,7 +28,7 @@ Every capture is saved to disk, copied to the clipboard, and put on a shelf of t
 | ⌘⇧1 | Tuck or show the shelf |
 | ⌃⌘⇧4 · ⌃⌘⇧3 · ⌃⌘⇧2 | Same as without ⌃ (every shot is already copied) |
 
-While selecting: drag, then release to capture · ⇧ square · ⌥ from centre · hold Space to move · ←↑→↓ nudge (⇧ for 10 px) · ↩ capture · Esc cancel.
+While selecting: drag, then release to capture · ⇧ square · ⌥ from centre · hold Space to move · Z magnifier · ←↑→↓ nudge (hold to speed up, ⇧ for 10 px) · ↩ capture · Esc cancel.
 
 On the shelf (click it first): click to copy · drag to send · ⌘-click to select several · Space for Quick Look · ⌫ to dismiss · double-click to open · ⌘Z to undo.
 
