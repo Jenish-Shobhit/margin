@@ -24,6 +24,9 @@ final class ShareableContentCache {
     private(set) var targets: [CGDirectDisplayID: DisplayTarget] = [:]
     /// Front-to-back.
     private(set) var windows: [CapturableWindow] = []
+    /// Frames to snap to: `windows` minus any window entirely hidden behind a single window in front of it,
+    /// so invisible edges don't pull the selection.
+    private(set) var snapFrames: [CGRect] = []
     private(set) var hasMarginApp = false
     private(set) var isLoaded = false
 
@@ -124,6 +127,10 @@ final class ShareableContentCache {
                                  frame: Geometry.flip(w.frame, primaryHeight: primaryHeight),
                                  appName: w.owningApplication?.applicationName ?? "Window")
             }
+        let frames = windows.map(\.frame)
+        snapFrames = frames.enumerated()
+            .filter { i, f in !frames[..<i].contains { $0.contains(f) } }
+            .map(\.element)
         isLoaded = true
     }
 }

@@ -319,7 +319,8 @@ final class OverlayView: NSView {
     override func mouseUp(with event: NSEvent) { session?.mouseUp(at: global(event), event: event) }
     override func mouseMoved(with event: NSEvent) { session?.mouseMoved(to: global(event)) }
     override func mouseEntered(with event: NSEvent) { session?.mouseMoved(to: global(event)) }
-    override func rightMouseDown(with event: NSEvent) {}
+    /// A second way out besides Esc, so the overlay can never be stuck if keys don't reach it.
+    override func rightMouseDown(with event: NSEvent) { session?.cancel() }
     override func scrollWheel(with event: NSEvent) {}
     override func cursorUpdate(with event: NSEvent) { session?.updateCursor() }
     override func keyDown(with event: NSEvent) { session?.keyDown(event) }

@@ -364,7 +364,7 @@ final class OverlaySession {
     }
 
     private func prepareSnapping(on d: DisplayInfo) {
-        snapFrames = cache.windows.map(\.frame).filter { $0.intersects(d.frame) }
+        snapFrames = cache.snapFrames.filter { $0.intersects(d.frame) }
     }
 
     private func commitArea() {

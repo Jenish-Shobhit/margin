@@ -137,6 +137,14 @@ final class CaptureController: CaptureControlling {
 
     /// Draws each display's frozen frame as it arrives, then takes keyboard focus.
     private func freeze(_ session: OverlaySession, displays: [DisplayInfo], early: AsyncStream<FrozenFrame>?, clock: Stopwatch) async {
+        // Never leave a transparent overlay eating clicks if SCK stalls.
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard let self, self.session === session, session.frozenCount == 0 else { return }
+            CaptureLog.capture.error("freeze: no frame after 3 s, cancelling")
+            self.endSession()
+        }
+
         var stream = early
         if stream == nil {
             // Cold cache (or Margin missing from it): fetch once, off the fast path.
@@ -151,14 +159,6 @@ final class CaptureController: CaptureControlling {
             stream = Self.captureAll(displays.compactMap { cache.targets[$0.id] })
         }
         guard let stream else { return }
-
-        // Never leave a transparent overlay eating clicks if SCK stalls.
-        Task { [weak self] in
-            try? await Task.sleep(for: .seconds(3))
-            guard let self, self.session === session, session.frozenCount == 0 else { return }
-            CaptureLog.capture.error("freeze: no frame after 3 s, cancelling")
-            self.endSession()
-        }
 
         var first = true
         for await frame in stream {
@@ -222,16 +222,21 @@ final class CaptureController: CaptureControlling {
         let clock = Stopwatch()
         let date = Date()
         // Overlay first: the shelf's fly-in starts from the selection, over the live screen.
-        endSession()
-        Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id)
+        let previous = activatedForSession ? previousApp : nil
+        endSession(restoreFocus: false)
         let source = SendableImage(image: image)
         Task {
-            guard let cropped = await Self.crop(source, to: pixelRect) else {
+            if let cropped = await Self.crop(source, to: pixelRect) {
+                timings.record("releaseToResult", clock.ms)
+                onCapture?(CaptureResult(image: cropped.image, scale: scale, sourceRect: rect, displayID: display.id, kind: .area, date: date))
+                // After the hand-off: the write posts Preferences.didChange, which shouldn't delay the thumbnail.
+                Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id)
+            } else {
                 CaptureLog.capture.error("area crop was empty: \(String(describing: pixelRect), privacy: .public)")
-                return
             }
-            timings.record("releaseToResult", clock.ms)
-            onCapture?(CaptureResult(image: cropped.image, scale: scale, sourceRect: rect, displayID: display.id, kind: .area, date: date))
+            // Focus goes back only now: AppKit's deactivation work holds the main actor for ~15 ms, which
+            // would otherwise sit between the crop and the hand-off to the shelf.
+            Self.restoreFocus(to: previous)
         }
     }
 
@@ -313,8 +318,8 @@ final class CaptureController: CaptureControlling {
                 guard let cropped = await Self.crop(image, to: pixelRect) else { throw CaptureError.emptyCrop }
                 timings.record("areaCapture", clock.ms)
                 if flash { AreaFlash.show(rect) }
-                Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id)
                 onCapture?(CaptureResult(image: cropped.image, scale: target.scale, sourceRect: rect, displayID: display.id, kind: .area, date: Date()))
+                Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id)
             } catch {
                 fail(error, session: nil)
             }
@@ -352,15 +357,21 @@ final class CaptureController: CaptureControlling {
         }
     }
 
+    /// Gives activation back to the app that had it before the overlay.
+    private static func restoreFocus(to previous: NSRunningApplication?) {
+        guard let previous, previous.processIdentifier != ProcessInfo.processInfo.processIdentifier,
+              !previous.isTerminated else { return }
+        NSApp.yieldActivation(to: previous)
+        previous.activate(from: .current, options: [])
+    }
+
     /// Takes the overlay down and hands focus back to the app that had it.
     private func endSession(restoreFocus: Bool = true) {
         guard let s = session else { return }
         session = nil
         s.close()
-        if activatedForSession, restoreFocus, let previous = previousApp,
-           previous.processIdentifier != ProcessInfo.processInfo.processIdentifier, !previous.isTerminated {
-            NSApp.yieldActivation(to: previous)
-            previous.activate(from: .current, options: [])
+        if activatedForSession, restoreFocus {
+            Self.restoreFocus(to: previousApp)
         }
         activatedForSession = false
         becameActiveDuringSession = false
