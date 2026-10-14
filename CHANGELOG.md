@@ -2,7 +2,7 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
-## 0.0.1 — unreleased
+## 0.0.1 — 2026-10-14
 
 The first public preview.
 

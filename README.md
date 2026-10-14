@@ -4,7 +4,6 @@
 
 Screenshots that wait in the margin of your screen until you drag them where they belong. Native macOS.
 
-<!-- TODO before release: a screenshot or short GIF of the shelf with a few captures on the right edge. -->
 
 Every capture is saved to disk, copied to the clipboard, and put on a shelf of thumbnails at the right edge of the screen. A thumbnail stays there until you drag it into another app or dismiss it.
 
