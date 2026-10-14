@@ -171,7 +171,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         let tucked = coordinator?.isShelfTucked ?? false
         menu.addItem(item(tucked ? "Show Shelf" : "Tuck Shelf", symbol: "sidebar.right", action: #selector(toggleShelf),
                           combo: prefs.shortcut(for: .toggleShelf)))
-        menu.addItem(item("Restore Last Removed", symbol: "arrow.uturn.backward", action: #selector(restoreLastRemoved)))
+        let restore = item("Restore Last Removed", symbol: "arrow.uturn.backward", action: #selector(restoreLastRemoved))
+        restore.isEnabled = coordinator?.canRestoreLastRemoved ?? false
+        menu.addItem(restore)
         menu.addItem(item("Open Screenshots Folder", symbol: "folder", action: #selector(openFolder)))
         menu.addItem(.separator())
         // Quiet: no warning symbol or dot. The welcome window closes after the first shot, so this is how
