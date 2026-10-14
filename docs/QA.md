@@ -125,6 +125,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] During a fly-in: the flying thumbnail isn't in the next shot
 - [ ] Toasts, the overlay, the hint bar and the magnifier never appear in shots
 - [ ] `screencapture -x` *does* show the shelf (sanity check)
+- [ ] Settings, the welcome window and About stay visible when the frozen frame lands, appear in area and ⇧⌘3 shots, and window mode can pick them (also right after opening Settings for the first time)
 
 ## The shelf (§4)
 

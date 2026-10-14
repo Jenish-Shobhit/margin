@@ -236,4 +236,4 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 - **Reduce Motion:** there's no fly-in; new cards appear in place, and cards stop springing.
 - **Reduce Transparency:** the pile, the tab and the toasts use a solid background instead of Liquid Glass.
 
-Margin's own windows (the shelf, the overlay, toasts, the fly-in) never appear in its captures. To check what the shelf looks like on screen, use macOS's `screencapture -x`, which does see it.
+Margin's capture UI (the shelf, the overlay, toasts, the fly-in) never appears in its captures. To check what the shelf looks like on screen, use macOS's `screencapture -x`, which does see it. Its ordinary windows (Settings, the welcome window, About) are captured like any other app's, and window mode can pick them.

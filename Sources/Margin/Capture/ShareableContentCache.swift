@@ -2,7 +2,7 @@ import AppKit
 import MarginKit
 import ScreenCaptureKit
 
-/// A normal on-screen window from another app, for snapping and window mode.
+/// A normal on-screen window (another app's, or Margin's Settings, First run or About), for snapping and window mode.
 struct CapturableWindow {
     let target: WindowTarget
     let id: CGWindowID
@@ -30,6 +30,8 @@ final class ShareableContentCache {
     private(set) var snapFrames: [CGRect] = []
     private(set) var hasMarginApp = false
     private(set) var isLoaded = false
+    /// Margin's ordinary windows the targets keep in shots (see `apply`).
+    private var keptWindowIDs: Set<CGWindowID> = []
     /// The displays (NSScreen) that existed when the applied fetch started, with their pixel size then. One of
     /// these without a target is a display ScreenCaptureKit can't list (Sidecar, AirPlay, DisplayLink…), not one it
     /// hasn't been asked about. One whose size or scale has changed since has a target for the old size.
@@ -61,6 +63,33 @@ final class ShareableContentCache {
             }
             observers.append((center, token))
         }
+        // Margin's own windows appearing (made key, or shown in the background).
+        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didChangeOcclusionStateNotification] {
+            let token = app.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+                // Posted on the main thread (queue .main), where the window lives.
+                nonisolated(unsafe) let object = note.object
+                MainActor.assumeIsolated {
+                    guard let window = object as? NSWindow else { return }
+                    self?.marginWindowChanged(window)
+                }
+            }
+            observers.append((app, token))
+        }
+    }
+
+    /// Whether a Margin window at this level is one of its ordinary windows, kept in shots: below the pop-up menu
+    /// level, where the capture chrome starts.
+    nonisolated static func isOrdinary(level: Int) -> Bool {
+        level < Int(CGWindowLevelForKey(.popUpMenuWindow))
+    }
+
+    /// An ordinary window the targets don't know yet (Settings opened for the first time since the last fetch)
+    /// would be cut out of shots: fetch again.
+    private func marginWindowChanged(_ window: NSWindow) {
+        // Read once, and checked: a window can lose its number (-1) between two reads, as it closes.
+        guard isLoaded, let id = CGWindowID(exactly: window.windowNumber), id > 0, window.isVisible,
+              Self.isOrdinary(level: window.level.rawValue), !keptWindowIDs.contains(id) else { return }
+        scheduleRefresh()
     }
 
     /// Screen Recording was lost: no more background fetches until a capture works again, and drop the targets
@@ -74,6 +103,7 @@ final class ShareableContentCache {
         hasMarginApp = false
         isLoaded = false
         knownDisplays = [:]
+        keptWindowIDs = []
     }
 
     /// Coalesces bursts of notifications into one fetch. A fetch that fails (displays still reconfiguring after
@@ -159,15 +189,17 @@ final class ShareableContentCache {
         hasMarginApp = !margin.isEmpty
         if !hasMarginApp { CaptureLog.capture.error("Margin is not in SCShareableContent; its windows would not be excluded") }
 
-        // Margin's menu bar icon belongs in shots, even though the app is excluded. Where AppKit draws status
-        // items in-process, each is a Margin window at the status level; no other Margin window uses that level
-        // (shelf, fly-in and overlay sit at .screenSaver and above, menus at the pop-up menu level). macOS 27
-        // draws every status item inside MenuBarAgent's menu bar window instead, so this finds none there.
-        let statusLevel = Int(CGWindowLevelForKey(.statusWindow))
-        let statusItems = content.windows.filter { $0.owningApplication?.processID == pid && $0.windowLayer == statusLevel }
+        // Margin is excluded as an app, so a window it makes later (each fly-in, a ⇧⌘2 outline) is never in a shot.
+        // Its ordinary windows are kept, like any app's: Settings, First run, About, an open panel, Quick Look, and
+        // the menu bar icon where AppKit draws status items in-process (macOS 27 draws them in MenuBarAgent's menu
+        // bar instead). The capture chrome all sits at the pop-up menu level or above: menus, the shelf and fly-in
+        // (.screenSaver), the overlay and outline (.screenSaver + 1). One opened since this fetch is excluded
+        // until the refresh it schedules (`marginWindowChanged`).
+        let kept = content.windows.filter { $0.owningApplication?.processID == pid && Self.isOrdinary(level: $0.windowLayer) }
+        keptWindowIDs = Set(kept.map(\.windowID))
         var t: [CGDirectDisplayID: DisplayTarget] = [:]
         for display in content.displays {
-            t[display.displayID] = ScreenGrabber.makeDisplayTarget(display: display, excluding: margin, keeping: statusItems)
+            t[display.displayID] = ScreenGrabber.makeDisplayTarget(display: display, excluding: margin, keeping: kept)
         }
         targets = t
 
@@ -180,10 +212,10 @@ final class ShareableContentCache {
             rank[id] = i
         }
         let primaryHeight = Displays.primaryHeight
+        // Margin's own Settings, First run and About windows included: they're in shots, so they can be picked.
         windows = content.windows
             .filter { w in
                 w.isOnScreen && w.windowLayer == 0 && rank[w.windowID] != nil
-                    && w.owningApplication?.processID != pid
                     && w.frame.width >= 24 && w.frame.height >= 24
             }
             .sorted { rank[$0.windowID]! < rank[$1.windowID]! }

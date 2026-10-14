@@ -65,7 +65,8 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 2. In parallel (a `TaskGroup`), capture every display with `SCScreenshotManager.captureImage(contentFilter:configuration:)`.
    - Filter: `SCContentFilter(display:excludingApplications:[Margin]…)`.
    - Configuration: full pixel size via `SCShareableContent.info(for:).pointPixelScale`, `showsCursor = false`, best resolution.
-   - When each image arrives, draw it into that display's overlay. Margin's own windows are excluded from the capture, so overlay order doesn't matter and nothing visibly jumps.
+   - When each image arrives, draw it into that display's overlay. Margin's capture UI (overlay, shelf, fly-in, toasts, outline, menus) is excluded from the capture, so overlay order doesn't matter and nothing visibly jumps.
+   - Margin's ordinary windows (Settings, First run, About, open panels) are `exceptingWindows`, so they appear in shots and window mode like any app's: everything of Margin's below the pop-up menu level. A window opened since the last cache refresh is left out until the refresh it triggers (≈ 0.2 s).
 3. Keep `SCShareableContent` cached and **prewarm** at launch with one tiny capture. Refresh the cache on display or app changes, never on the hotkey path (unless a display is new, or changed size or scale, since the last refresh: its cached target would capture at the old size).
 
 ### Selecting
