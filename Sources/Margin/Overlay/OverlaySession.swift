@@ -55,9 +55,11 @@ final class OverlaySession {
     private var snapFrames: [CGRect] = []
     private(set) var isFinished = false
 
-    init(panels: [OverlayPanel], cache: ShareableContentCache, showsHUD: Bool) {
+    /// `mode`: `.area` for ⌘⇧4, `.window` for the menu's Capture Window. Space switches either way.
+    init(panels: [OverlayPanel], cache: ShareableContentCache, mode: Mode = .area, showsHUD: Bool) {
         self.panels = panels
         self.cache = cache
+        self.mode = mode
         self.showsHUD = showsHUD
         mouse = NSEvent.mouseLocation
     }
@@ -75,8 +77,16 @@ final class OverlaySession {
             p.orderFrontRegardless()
         }
         mouse = NSEvent.mouseLocation
+        if mode == .window { hovered = cache.window(at: mouse) }
         render()
         updateCursor()
+    }
+
+    /// Window frames were refreshed after the freeze: re-pick the window under the pointer.
+    func windowsDidRefresh() {
+        guard !isFinished, mode == .window else { return }
+        hovered = cache.window(at: mouse)
+        render()
     }
 
     /// Shows a display's frozen frame. `committed` runs once the frame is handed to the render server,

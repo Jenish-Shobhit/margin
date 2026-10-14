@@ -87,10 +87,16 @@ enum SelectionMath {
     }
 
     /// Snaps whichever edge of a moved rect is nearest a window edge (per axis) without resizing it.
+    /// Like `Geometry.snap`, a window's vertical edges count only when it's level with the rect (their
+    /// y spans overlap, ± threshold), and its horizontal edges only when their x spans overlap.
     /// Returns the snapped rect and the guide lines it snapped to.
     static func snapEdges(of r: CGRect, to frames: [CGRect], threshold: CGFloat = 8) -> (rect: CGRect, guideX: CGFloat?, guideY: CGFloat?) {
-        let xs = frames.flatMap { [$0.minX, $0.maxX] }
-        let ys = frames.flatMap { [$0.minY, $0.maxY] }
+        let xs = frames
+            .filter { $0.minY - threshold <= r.maxY && $0.maxY + threshold >= r.minY }
+            .flatMap { [$0.minX, $0.maxX] }
+        let ys = frames
+            .filter { $0.minX - threshold <= r.maxX && $0.maxX + threshold >= r.minX }
+            .flatMap { [$0.minY, $0.maxY] }
         func best(_ a: CGFloat, _ b: CGFloat, in candidates: [CGFloat]) -> (shift: CGFloat, line: CGFloat)? {
             let sa = Geometry.snapValue(a, to: candidates, threshold: threshold).map { (shift: $0 - a, line: $0) }
             let sb = Geometry.snapValue(b, to: candidates, threshold: threshold).map { (shift: $0 - b, line: $0) }

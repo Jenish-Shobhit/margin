@@ -84,9 +84,18 @@ final class CaptureController: CaptureControlling {
         }
     }
 
-    // MARK: ⌘⇧4
+    // MARK: ⌘⇧4 and Capture Window
 
     func beginInteractiveCapture() {
+        begin(in: .area)
+    }
+
+    /// Menu "Capture Window": the same frozen overlay, starting in window mode (Space switches to area).
+    func beginWindowCapture() {
+        begin(in: .window)
+    }
+
+    private func begin(in mode: OverlaySession.Mode) {
         guard session == nil else { return }
         let clock = Stopwatch()
         let signpost = CaptureLog.signposter.beginInterval("freeze")
@@ -104,7 +113,7 @@ final class CaptureController: CaptureControlling {
         let early = warm ? Self.captureAll(targets) : nil
 
         pool.sync()
-        let session = OverlaySession(panels: pool.panels(for: displays), cache: cache,
+        let session = OverlaySession(panels: pool.panels(for: displays), cache: cache, mode: mode,
                                      showsHUD: Preferences.shared.completedCaptures < 5)
         session.onArea = { [weak self] rect, display, image, pixelRect, scale in
             self?.finishArea(rect, display: display, image: image, pixelRect: pixelRect, scale: scale)
@@ -180,7 +189,11 @@ final class CaptureController: CaptureControlling {
         session.makeKey()
         activatedForSession = true
         // Window frames may have moved since the last refresh: update them for snapping and window mode.
-        cache.scheduleRefresh(after: .zero)
+        Task { [weak self] in
+            try? await self?.cache.refresh()
+            guard let self, self.session === session else { return }
+            session.windowsDidRefresh()
+        }
     }
 
     /// Captures every target in parallel; yields frames as they finish.
