@@ -85,7 +85,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 - **Loupe** (since 0.0.7: off by default, Z toggles it for the current capture). An 11×11 pixel grid that follows the cursor, with a label `x, y · #RRGGBB`. Pixel coordinates are display-local.
 - **HUD hint bar** at the top center: Space Window · ⇧ Square · ⌥ From center · ←↑→↓ Nudge · ↩ Capture · Esc Cancel. It always shows, unless **Show key hints while capturing** is off in Settings.
 - **Esc cancels.** Nothing is saved, no sound plays, and the clipboard is unchanged.
-- A display change during selection cancels.
+- A display change during selection cancels, and so do a Space switch, the Mac or its displays going to sleep, and a switch to another user: the frozen frame no longer matches the screen. After a Space switch, focus goes to the app in front on the new Space rather than back to the old one.
 
 ### Window mode
 - Space (from area mode) toggles it.

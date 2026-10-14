@@ -89,6 +89,28 @@ final class CaptureController: CaptureControlling {
             }
         })
         let workspace = NSWorkspace.shared.notificationCenter
+        // The frozen frame no longer matches the screen: another Space came forward (the panels join every Space, so
+        // the old one's frame would sit over it), the Mac or its displays went to sleep, or another user took over.
+        // Focus goes back after sleep. Not after a Space switch, which would switch back: the app in front on the new
+        // Space gets it instead (unless one of Margin's own windows is key there), as it would without the overlay.
+        for (name, restoreFocus) in [
+            (NSWorkspace.activeSpaceDidChangeNotification, false),
+            (NSWorkspace.willSleepNotification, true),
+            (NSWorkspace.screensDidSleepNotification, true),
+            (NSWorkspace.sessionDidResignActiveNotification, false),
+        ] {
+            observers.append(workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, self.session != nil else { return }
+                    CaptureLog.capture.info("\(name.rawValue, privacy: .public): cancelling the overlay")
+                    let activated = self.activatedForSession
+                    self.endSession(restoreFocus: restoreFocus)
+                    if !restoreFocus, activated, NSApp.keyWindow == nil {
+                        self.giveFocusBack(to: Self.frontmostWindowOwner())
+                    }
+                }
+            })
+        }
         observers.append(workspace.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] note in
             let pid = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier
             MainActor.assumeIsolated {
@@ -523,6 +545,19 @@ final class CaptureController: CaptureControlling {
             CaptureLog.capture.error("capture failed: \(error.localizedDescription, privacy: .public)")
             if !closed { onFailure?(message) }
         }
+    }
+
+    /// The app that owns the frontmost ordinary window on screen (on the current Space), Margin aside.
+    private static func frontmostWindowOwner() -> NSRunningApplication? {
+        let me = ProcessInfo.processInfo.processIdentifier
+        let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        for info in list {
+            guard (info[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+                  (info[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1 > 0,
+                  let pid = (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value, pid != me else { continue }
+            return NSRunningApplication(processIdentifier: pid)
+        }
+        return nil
     }
 
     /// Gives activation back to the app that had it before the overlay.

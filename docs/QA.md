@@ -77,6 +77,9 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] Right-click cancels the same way
 - [ ] ⌘Tab to another app while selecting cancels it
 - [ ] Changing displays during selection cancels it
+- [ ] Switching Space (⌃→, a swipe, or a full-screen app leaving full screen) while selecting cancels it; the app in front on the new Space has focus
+- [ ] ⇧⌘4 over a full-screen app stays up (no Space switch) and gives that app its focus back after Esc
+- [ ] Sleeping the Mac or its displays with the overlay up cancels it
 - [ ] ⌘ shortcuts are swallowed while the overlay is up
 
 ## Capture: window mode (§2)
