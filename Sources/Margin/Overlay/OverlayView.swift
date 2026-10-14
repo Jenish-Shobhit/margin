@@ -29,7 +29,10 @@ struct OverlayFrame {
     var windowText: String?
     var mouse: CGPoint = .zero
     var mouseDisplayID: CGDirectDisplayID?
+    /// The loupe (and its `x, y · #RRGGBB` label) is drawn on the pointer's display.
     var showsLoupe = false
+    /// Z turned the magnifier on (highlighted in the HUD even while the loupe steps aside, e.g. moving).
+    var magnifier = false
     var showsHUD = false
     /// Drawing a new selection: Space moves it instead of switching to window mode.
     var drawing = false
@@ -187,6 +190,7 @@ final class OverlayView: NSView {
         frame.showsHUD = true
         frame.drawing = true
         frame.held = [.square, .fromCenter]
+        frame.magnifier = true
         render(frame)
         frame.mode = .window
         frame.window = frame.selection
@@ -348,7 +352,8 @@ final class OverlayView: NSView {
 
         // Hint bar at the top center, below the menu bar and the notch.
         if f.showsHUD, f.mouseDisplayID == here {
-            hud.setItems(f.mode == .area ? HUDView.areaItems(drawing: f.drawing, held: f.held) : HUDView.windowItems(held: f.held))
+            hud.setItems(f.mode == .area ? HUDView.areaItems(drawing: f.drawing, held: f.held, magnifier: f.magnifier)
+                                         : HUDView.windowItems(held: f.held))
             var top: CGFloat = 24
             if let screen = Displays.screen(for: here) {
                 top = max(top, screen.safeAreaInsets.top, screen.frame.maxY - screen.visibleFrame.maxY)

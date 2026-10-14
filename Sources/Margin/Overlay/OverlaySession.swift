@@ -56,6 +56,8 @@ final class OverlaySession {
     private var spaceHeld = false
     /// When the held arrow key began repeating (`NSEvent.timestamp`), for nudge acceleration.
     private var nudgeRepeatStart: TimeInterval?
+    /// The loupe: off until Z turns it on, for this capture only.
+    private var showsMagnifier = false
     private var modifiers: NSEvent.ModifierFlags = []
     private var snapFrames: [CGRect] = []
     private(set) var isFinished = false
@@ -262,11 +264,30 @@ final class OverlaySession {
     private enum Key {
         static let escape: UInt16 = 53, returnKey: UInt16 = 36, enter: UInt16 = 76, space: UInt16 = 49
         static let left: UInt16 = 123, right: UInt16 = 124, down: UInt16 = 125, up: UInt16 = 126
+        /// Where Z is on a US keyboard.
+        static let z: UInt16 = 6
+
+        /// Z, by the character it types, so it follows the layout (QWERTZ and AZERTY put Z elsewhere), or by
+        /// position where the layout has no Latin letters. With or without ⇧ / ⌥ / ⌃, so it works mid-drag;
+        /// ⌘ never gets here (the overlay swallows ⌘ shortcuts).
+        static func isZ(_ e: NSEvent) -> Bool {
+            let c = e.charactersIgnoringModifiers?.lowercased() ?? ""
+            if c == "z" { return true }
+            return e.keyCode == z && !c.unicodeScalars.contains { $0.isASCII }
+        }
     }
 
     func keyDown(_ e: NSEvent) {
         guard !isFinished else { return }
         modifiers = e.modifierFlags
+        if Key.isZ(e) {
+            // The magnifier, toggled for the rest of this capture. Holding Z doesn't flicker it.
+            if !e.isARepeat, mode == .area {
+                showsMagnifier.toggle()
+                render()
+            }
+            return
+        }
         switch e.keyCode {
         case Key.escape:
             cancel()
@@ -473,10 +494,11 @@ final class OverlaySession {
         }
         f.mouse = mouse
         f.mouseDisplayID = display(containing: mouse)?.id
+        f.magnifier = showsMagnifier
         if case .moving = phase {
             f.showsLoupe = false
         } else {
-            f.showsLoupe = mode == .area
+            f.showsLoupe = showsMagnifier && mode == .area
         }
         f.showsHUD = showsHUD
         f.held = held

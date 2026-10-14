@@ -93,13 +93,15 @@ final class HUDView: NSView {
         static let keepShadow = Held(rawValue: 1 << 3)
     }
 
-    /// While drawing a selection, Space moves it; otherwise it switches to window mode.
-    static func areaItems(drawing: Bool, held: Held) -> [Item] {
+    /// While drawing a selection, Space moves it; otherwise it switches to window mode. "Z Magnifier" is
+    /// highlighted while the loupe is on.
+    static func areaItems(drawing: Bool, held: Held, magnifier: Bool) -> [Item] {
         [
             Item(key: "Space", label: drawing ? "Move" : "Window", highlighted: held.contains(.move), reserve: drawing ? "Window" : "Move"),
             Item(key: "⇧", label: "Square", highlighted: held.contains(.square)),
             Item(key: "⌥", label: "From center", highlighted: held.contains(.fromCenter)),
-            Item(key: "←↑→↓", label: "Nudge"), Item(key: "↩", label: "Capture"), Item(key: "Esc", label: "Cancel"),
+            Item(key: "←↑→↓", label: "Nudge"), Item(key: "Z", label: "Magnifier", highlighted: magnifier),
+            Item(key: "↩", label: "Capture"), Item(key: "Esc", label: "Cancel"),
         ]
     }
 
