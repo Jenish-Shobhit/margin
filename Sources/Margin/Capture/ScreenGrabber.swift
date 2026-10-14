@@ -26,9 +26,10 @@ struct WindowTarget: @unchecked Sendable {
 
 /// ScreenCaptureKit calls and pixel work. Everything here runs off the main thread.
 enum ScreenGrabber {
-    /// The freeze filter for a display: everything except Margin's own windows.
-    static func makeDisplayTarget(display: SCDisplay, excluding apps: [SCRunningApplication]) -> DisplayTarget {
-        let filter = SCContentFilter(display: display, excludingApplications: apps, exceptingWindows: [])
+    /// The freeze filter for a display: everything except Margin's own windows, but with `keeping` (Margin's
+    /// menu bar icon) left in.
+    static func makeDisplayTarget(display: SCDisplay, excluding apps: [SCRunningApplication], keeping: [SCWindow]) -> DisplayTarget {
+        let filter = SCContentFilter(display: display, excludingApplications: apps, exceptingWindows: keeping)
         let scale = CGFloat(SCShareableContent.info(for: filter).pointPixelScale)
         let config = SCStreamConfiguration()
         let width = Int((CGFloat(display.width) * scale).rounded())
@@ -108,14 +109,19 @@ enum ScreenGrabber {
 
     /// True when an error means Screen Recording permission is missing.
     static func isPermissionError(_ error: Error) -> Bool {
+        isPermissionDenial(error) || !CGPreflightScreenCaptureAccess()
+    }
+
+    /// True when the error itself says permission was denied. Cheap (no preflight), so fine per display.
+    static func isPermissionDenial(_ error: Error) -> Bool {
         let ns = error as NSError
-        if ns.domain == SCStreamErrorDomain, ns.code == SCStreamError.userDeclined.rawValue { return true }
-        return !CGPreflightScreenCaptureAccess()
+        return ns.domain == SCStreamErrorDomain && ns.code == SCStreamError.userDeclined.rawValue
     }
 }
 
 enum CaptureError: Error {
     case noImage
+    /// ScreenCaptureKit doesn't list the display.
     case noDisplay
     case emptyCrop
 }

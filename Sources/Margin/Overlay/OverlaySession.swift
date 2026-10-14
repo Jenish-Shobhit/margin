@@ -42,6 +42,9 @@ final class OverlaySession {
     private(set) var selection: CGRect?
     private(set) var selectionDisplay: DisplayInfo?
     private var images: [CGDirectDisplayID: CGImage] = [:]
+    /// Displays that can't be captured (ScreenCaptureKit failed or never answered): dimmed over the live
+    /// screen, and nothing can be selected there.
+    private var unavailable: Set<CGDirectDisplayID> = []
     private var guideX: CGFloat?
     private var guideY: CGFloat?
     private var anchorGuideX: CGFloat?
@@ -77,7 +80,7 @@ final class OverlaySession {
             p.orderFrontRegardless()
         }
         mouse = NSEvent.mouseLocation
-        if mode == .window { hovered = cache.window(at: mouse) }
+        if mode == .window { hovered = window(at: mouse) }
         render()
         updateCursor()
     }
@@ -85,7 +88,7 @@ final class OverlaySession {
     /// Window frames were refreshed after the freeze: re-pick the window under the pointer.
     func windowsDidRefresh() {
         guard !isFinished, mode == .window else { return }
-        hovered = cache.window(at: mouse)
+        hovered = window(at: mouse)
         render()
     }
 
@@ -93,9 +96,30 @@ final class OverlaySession {
     /// before the chrome (loupe, pills) catches up.
     func setFrozen(_ image: CGImage, for id: CGDirectDisplayID, committed: () -> Void = {}) {
         images[id] = image
-        panels.first { $0.display.id == id }?.overlayView.setFrozen(image)
+        let view = panels.first { $0.display.id == id }?.overlayView
+        // A frame that arrives after the display was given up on still counts.
+        if unavailable.remove(id) != nil { view?.setUnavailable(false) }
+        view?.setFrozen(image)
         committed()
+        if mode == .window { hovered = window(at: mouse) }
         render()
+        updateCursor()
+    }
+
+    /// A display that can't be captured: dim it over the live screen and refuse selections there.
+    func setUnavailable(_ id: CGDirectDisplayID) {
+        guard !isFinished, images[id] == nil, unavailable.insert(id).inserted else { return }
+        panels.first { $0.display.id == id }?.overlayView.setUnavailable(true)
+        render()
+        updateCursor()
+    }
+
+    /// Gives up on the displays still waiting for a frame; returns how many there were.
+    @discardableResult
+    func abandonPendingDisplays() -> Int {
+        let pending = displays.filter { images[$0.id] == nil && !unavailable.contains($0.id) }
+        for d in pending { setUnavailable(d.id) }
+        return pending.count
     }
 
     /// Makes the panel under the pointer key so it gets keyboard input.
@@ -114,6 +138,7 @@ final class OverlaySession {
             p.overlayView.reset()
         }
         images.removeAll()
+        unavailable.removeAll()
         NSCursor.arrow.set()
     }
 
@@ -130,12 +155,14 @@ final class OverlaySession {
         mouse = p
         modifiers = event.modifierFlags
         if mode == .window {
-            if let w = cache.window(at: p) {
+            if let w = window(at: p) {
                 isFinished = true
                 onWindow?(w, event.modifierFlags.contains(.option))
             }
             return
         }
+        // Nothing to select on a display without a frozen frame (still arriving, or it can't be captured).
+        guard images[d.id] != nil else { return }
         if case .adjusting = phase, let sel = selection, selectionDisplay?.id == d.id {
             if let h = SelectionMath.handle(at: p, in: sel) {
                 phase = .resizing(h, start: sel)
@@ -223,7 +250,7 @@ final class OverlaySession {
     func mouseMoved(to p: CGPoint) {
         guard !isFinished else { return }
         mouse = p
-        if mode == .window { hovered = cache.window(at: p) }
+        if mode == .window { hovered = window(at: p) }
         updateCursor()
         render()
     }
@@ -358,7 +385,7 @@ final class OverlaySession {
 
     private func toggleMode() {
         mode = mode == .area ? .window : .area
-        hovered = mode == .window ? cache.window(at: mouse) : nil
+        hovered = mode == .window ? window(at: mouse) : nil
         updateCursor()
         render()
     }
@@ -405,6 +432,12 @@ final class OverlaySession {
         displays.first { NSMouseInRect(p, $0.frame, false) }
     }
 
+    /// The window under `p`, only where the display is frozen: nothing can be picked on one that isn't.
+    private func window(at p: CGPoint) -> CapturableWindow? {
+        guard let d = display(containing: p), images[d.id] != nil else { return nil }
+        return cache.window(at: p)
+    }
+
     // MARK: Rendering
 
     private func render() {
@@ -441,6 +474,12 @@ final class OverlaySession {
     }
 
     private func cursor() -> NSCursor {
+        switch phase {
+        case .idle, .adjusting:
+            if let d = display(containing: mouse), unavailable.contains(d.id) { return .operationNotAllowed }
+        case .dragging, .pinned, .moving, .resizing:
+            break
+        }
         if mode == .window { return .pointingHand }
         switch phase {
         case .moving:

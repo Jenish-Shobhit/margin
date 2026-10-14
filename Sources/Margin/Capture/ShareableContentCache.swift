@@ -17,7 +17,8 @@ private struct ContentBox: @unchecked Sendable {
 }
 
 /// Cached `SCShareableContent`: displays, windows and Margin's own `SCRunningApplication`.
-/// Refreshed on display, app and Space changes, and never fetched on the hotkey path.
+/// Refreshed on display, app and Space changes once Screen Recording is confirmed (`startObserving`),
+/// and never fetched on the hotkey path.
 @MainActor
 final class ShareableContentCache {
     /// Freeze targets per display, built with Margin excluded.
@@ -29,13 +30,20 @@ final class ShareableContentCache {
     private(set) var snapFrames: [CGRect] = []
     private(set) var hasMarginApp = false
     private(set) var isLoaded = false
+    /// The displays (NSScreen) that existed when the applied fetch started. One of these without a target is a
+    /// display ScreenCaptureKit can't list (Sidecar, AirPlay, DisplayLink…), not one it hasn't been asked about.
+    private var knownDisplays: Set<CGDirectDisplayID> = []
 
     private var requested = 0
     private var applied = 0
     private var debounce: Task<Void, Never>?
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
 
-    init() {
+    /// Starts refreshing on display, app and Space changes. Call only once Screen Recording is confirmed (a
+    /// successful prewarm or capture): any ScreenCaptureKit call without it can raise the system prompt at a
+    /// random moment, long before the user reaches "Allow…".
+    func startObserving() {
+        guard observers.isEmpty else { return }
         let ws = NSWorkspace.shared.notificationCenter
         let app = NotificationCenter.default
         for (center, name) in [
@@ -49,6 +57,19 @@ final class ShareableContentCache {
             }
             observers.append((center, token))
         }
+    }
+
+    /// Screen Recording was lost: no more background fetches until a capture works again, and drop the targets
+    /// so the next capture fetches fresh content (changes went unobserved in between).
+    func stopObserving() {
+        for (center, token) in observers { center.removeObserver(token) }
+        observers = []
+        debounce?.cancel()
+        debounce = nil
+        targets = [:]
+        hasMarginApp = false
+        isLoaded = false
+        knownDisplays = []
     }
 
     /// Coalesces bursts of notifications into one fetch.
@@ -67,11 +88,14 @@ final class ShareableContentCache {
         let ticket = requested
         let state = CaptureLog.signposter.beginInterval("shareableContent")
         let clock = Stopwatch()
+        // Before the fetch: a display that appears while it runs must not count as "asked about".
+        let screens = Set(Displays.all.map(\.id))
         let box = try await Self.fetch()
         CaptureLog.signposter.endInterval("shareableContent", state)
         guard ticket > applied else { return }
         applied = ticket
         apply(box.content)
+        knownDisplays = screens
         CaptureLog.timing.debug("shareable content refreshed in \(clock.ms, format: .fixed(precision: 1), privacy: .public) ms")
     }
 
@@ -81,10 +105,18 @@ final class ShareableContentCache {
         ContentBox(content: try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false))
     }
 
-    /// The freeze target for a display, refreshing first if the cache is cold, stale, or lacks Margin.
+    /// True when a capture of these displays must fetch first: nothing cached, Margin missing (its windows
+    /// wouldn't be excluded), or a display that appeared since the last fetch. A known display without a target
+    /// can't be captured, and refetching on every capture wouldn't change that.
+    func needsRefresh(for displayIDs: [CGDirectDisplayID]) -> Bool {
+        !isLoaded || !hasMarginApp || displayIDs.contains { !knownDisplays.contains($0) }
+    }
+
+    /// The freeze target for a display, refreshing first if the cache is cold, lacks Margin, or predates the
+    /// display. Throws `noDisplay` for a display ScreenCaptureKit doesn't list.
     func target(for displayID: CGDirectDisplayID) async throws -> DisplayTarget {
         if let t = targets[displayID], hasMarginApp { return t }
-        try await refresh()
+        if needsRefresh(for: [displayID]) { try await refresh() }
         guard let t = targets[displayID] else { throw CaptureError.noDisplay }
         return t
     }
@@ -100,9 +132,15 @@ final class ShareableContentCache {
         hasMarginApp = !margin.isEmpty
         if !hasMarginApp { CaptureLog.capture.error("Margin is not in SCShareableContent; its windows would not be excluded") }
 
+        // Margin's menu bar icon belongs in shots, even though the app is excluded. Where AppKit draws status
+        // items in-process, each is a Margin window at the status level; no other Margin window uses that level
+        // (shelf, fly-in and overlay sit at .screenSaver and above, menus at the pop-up menu level). macOS 27
+        // draws every status item inside MenuBarAgent's menu bar window instead, so this finds none there.
+        let statusLevel = Int(CGWindowLevelForKey(.statusWindow))
+        let statusItems = content.windows.filter { $0.owningApplication?.processID == pid && $0.windowLayer == statusLevel }
         var t: [CGDirectDisplayID: DisplayTarget] = [:]
         for display in content.displays {
-            t[display.displayID] = ScreenGrabber.makeDisplayTarget(display: display, excluding: margin)
+            t[display.displayID] = ScreenGrabber.makeDisplayTarget(display: display, excluding: margin, keeping: statusItems)
         }
         targets = t
 
