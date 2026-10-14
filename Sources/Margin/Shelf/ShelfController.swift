@@ -31,6 +31,8 @@ final class ShelfController: ShelfControlling {
     var focusedID: UUID?
     var hoveredID: UUID?
     var undoStack: [ShelfUndoStep] = []
+    /// ⌘Z one step at a time: a Trash step restores off the main thread, and the next mustn't overtake it.
+    var undoSequencer = UndoSequencer()
     var dragSource: ShelfDragSource?
     /// Where click/⌘C copies and Copy Path write. `.general` except in tests.
     var pasteboard: NSPasteboard = .general

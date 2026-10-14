@@ -367,13 +367,24 @@ extension ShelfController {
 
     /// "Restore Last Removed" in the menu bar (`fromMenu: true`): never beeps. Works any time, even with the
     /// panel hidden: the cards come back and the panel shows. Trash moves the files back first (off main).
+    /// A ⌘Z pressed while a step is still restoring runs right after it, so steps land newest first.
     func undo(fromMenu: Bool) {
+        switch undoSequencer.request(available: undoStack.count) {
+        case .run: runUndo()
+        case .wait: break
+        case .nothing: if !fromMenu { NSSound.beep() }
+        }
+    }
+
+    /// Restores the newest step; when it's back, a ⌘Z that waited meanwhile runs.
+    private func runUndo() {
         guard let step = undoStack.popLast() else {
-            if !fromMenu { NSSound.beep() }
+            undoSequencer.reset()   // waiting ⌘Zs lost their steps (a failed save dropped them)
             return
         }
         guard step.kind == .trash else {
             bringBack(step.removals, thumbnails: step.thumbnails, failed: false)
+            undoFinished()
             return
         }
         let removals = step.removals
@@ -390,8 +401,14 @@ extension ShelfController {
                     return ShelfStore.Removal(index: r.index, item: item)
                 }
             }.value
-            self?.bringBack(restored, thumbnails: thumbnails, failed: restored.count < removals.count)
+            guard let self else { return }
+            self.bringBack(restored, thumbnails: thumbnails, failed: restored.count < removals.count)
+            self.undoFinished()
         }
+    }
+
+    private func undoFinished() {
+        if undoSequencer.finished() { runUndo() }
     }
 
     /// Puts removed items back in their old places and shows them, with the panel.

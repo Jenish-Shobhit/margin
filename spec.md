@@ -175,7 +175,7 @@ The shelf never steals focus. A click (copy) or double-click (open) leaves the k
 | Two-finger swipe right on a card | Dismiss |
 | Double-click | Open with the default app (its first click has already copied the shot) |
 | ••• / right-click | Copy path · Reveal in Finder · Rename… (inline; renames on disk) · Move to Trash |
-| ⌘Z | Restore the last removed card(s). Keeps up to 20 steps, covering drag-out, dismiss, clear and trash (trash restores the file from the Trash) |
+| ⌘Z | Restore the last removed card(s). Keeps up to 20 steps, covering drag-out, dismiss, clear and trash (trash restores the file from the Trash). Steps restore one at a time, newest first: a ⌘Z pressed while a file is still coming back from the Trash waits for it |
 
 - **Drop success.** Never delete or move the file because of a drag. "Success" means only that the card leaves the shelf.
   - If an app reports success wrongly, ⌘Z brings the card back.

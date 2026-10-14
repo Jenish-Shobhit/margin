@@ -54,6 +54,7 @@ flowchart LR
 | `SystemShortcuts.swift` | Reading the macOS screenshot shortcuts (IDs 28–31) |
 | `SystemShortcuts+Write.swift` | Turning them off or on: the pure dictionary rewrite, `activateSettings -u`, and the check that it stuck |
 | `LoginItem.swift` | `SMAppService.mainApp` state and registration |
+| `ShelfUndo.swift` | `UndoSequencer`: the shelf's ⌘Z one step at a time, so a quick second ⌘Z waits for a slow first one |
 | `ShutterSound.swift` | The system Screen Capture sound, honouring "Play user interface sound effects" |
 
 **`Sources/Margin/`**
@@ -234,7 +235,7 @@ All of them join every Space and float over full-screen apps.
 | `Preferences` | `UserDefaults`, domain `io.github.jenish-shobhit.margin` | `saveFolder`, `copyEachCapture`, `shutterSound`, `launchAtLogin`, `shortcut.<action>` (JSON `KeyCombo`), `lastArea` (JSON: rect relative to its display, display ID, display size), `firstRunDone`, `completedCaptures`, `hintCaptures.r<n>`, `loginItemConfigured` |
 | `ShelfStore` | `~/Library/Application Support/Margin/shelf.json` | The shelf, oldest first: `id`, `path`, `bookmark`, `createdAt`, `pixelWidth`, `pixelHeight`. Rewritten atomically on every change; an unreadable file means an empty shelf |
 | Fallback saves | `~/Library/Application Support/Margin/Unsaved/` | PNGs that couldn't go to the save folder |
-| Undo | Memory | Up to 20 steps. Thumbnails are kept for the newest 5 |
+| Undo | Memory | Up to 20 steps. Thumbnails are kept for the newest 5. Steps restore one at a time (`UndoSequencer`), since each goes back to the indices it had, which holds only once newer steps are back |
 | `RuntimeStatus` | Memory | Hotkey failures and revoked Screen Recording |
 
 More on how these behave:
