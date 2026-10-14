@@ -10,9 +10,13 @@ public struct SystemScreenshotShortcut: Equatable, Sendable, Identifiable {
     public let combo: KeyCombo
 }
 
-/// Reads (never writes) the macOS screenshot shortcuts from `com.apple.symbolichotkeys`.
-/// IDs 28–31. A missing entry means the shortcut is still enabled (the macOS default).
+/// The macOS screenshot shortcuts in `com.apple.symbolichotkeys`, IDs 28–31. A missing entry means the shortcut
+/// is still enabled (the macOS default). Reading is free; writing (`setEnabled`, in SystemShortcuts+Write.swift)
+/// only ever happens on an explicit click.
 public enum SystemShortcuts {
+    static var domain: CFString { "com.apple.symbolichotkeys" as CFString }
+    static var hotKeysKey: CFString { "AppleSymbolicHotKeys" as CFString }
+
     /// Keys are in the macOS menu order (⌃⌥⇧⌘), matching System Settings › Keyboard Shortcuts › Screenshots.
     public static let catalog: [(id: Int, title: String, keys: String)] = [
         (28, "Save picture of screen as a file", "⇧⌘3"),
@@ -47,9 +51,8 @@ public enum SystemShortcuts {
     }
 
     public static func current() -> [SystemScreenshotShortcut] {
-        let domain = "com.apple.symbolichotkeys" as CFString
         CFPreferencesAppSynchronize(domain)
-        let value = CFPreferencesCopyAppValue("AppleSymbolicHotKeys" as CFString, domain) as? [String: Any]
+        let value = CFPreferencesCopyAppValue(hotKeysKey, domain) as? [String: Any]
         return parse(value)
     }
 
