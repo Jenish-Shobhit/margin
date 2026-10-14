@@ -143,6 +143,7 @@ import Testing
     @Test func errorsSayWhetherTheSettingWasSaved() {
         #expect(!SystemShortcutsError.writeFailed.isSaved)
         #expect(!SystemShortcutsError.unreadable.isSaved)
+        #expect(!SystemShortcutsError.didNotStick.isSaved)
         #expect(SystemShortcutsError.activationTimedOut.isSaved)
         #expect(SystemShortcutsError.activationFailed(1).isSaved)
         #expect(SystemShortcutsError.writeFailed.errorDescription?.isEmpty == false)

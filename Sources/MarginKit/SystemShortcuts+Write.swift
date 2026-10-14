@@ -12,11 +12,13 @@ public enum SystemShortcutsError: Error, Equatable, LocalizedError {
     case activationFailed(Int32)
     /// `activateSettings` didn't finish in time, so it was stopped.
     case activationTimedOut
+    /// Something kept putting the old setting back (System Settings open on Keyboard can do this).
+    case didNotStick
 
     /// True when the new setting is saved but macOS may not use it until the next login.
     public var isSaved: Bool {
         switch self {
-        case .unreadable, .writeFailed: false
+        case .unreadable, .writeFailed, .didNotStick: false
         case .activationUnavailable, .activationFailed, .activationTimedOut: true
         }
     }
@@ -28,6 +30,7 @@ public enum SystemShortcutsError: Error, Equatable, LocalizedError {
         case .activationUnavailable(let reason): "macOS couldn’t apply the change (\(reason))."
         case .activationFailed(let status): "macOS couldn’t apply the change (activateSettings failed with \(status))."
         case .activationTimedOut: "macOS took too long to apply the change."
+        case .didNotStick: "Something changed the shortcuts back. If System Settings is open, quit it and try again."
         }
     }
 }
@@ -74,20 +77,22 @@ extension SystemShortcuts {
     ///
     /// Rewrites `AppleSymbolicHotKeys` in `com.apple.symbolichotkeys` (current user, any host) with
     /// `applying(enabled:ids:to:)`, then runs `activateSettings -u` so macOS uses it at once.
-    /// Blocks for up to `timeout` seconds while that runs: call it off the main thread
-    /// (`setEnabledInBackground` does).
+    ///
+    /// While macOS applies the change one shortcut at a time, a process that mirrors these settings (seen with
+    /// System Settings' Keyboard pane loaded) can save a half-applied snapshot back, which leaves some shortcuts
+    /// as they were. So this waits until the preferences and the live state agree for a moment, and writes and
+    /// activates again if they don't (three tries).
+    ///
+    /// Blocks for about half a second, and at most `timeout` seconds per `activateSettings` run: call it off the
+    /// main thread (`setEnabledInBackground` does).
     public static func setEnabled(_ enabled: Bool, ids: [Int] = allIDs, timeout: TimeInterval = 5) throws(SystemShortcutsError) {
         assert(!Thread.isMainThread, "SystemShortcuts.setEnabled waits for activateSettings; call it off the main thread")
-        CFPreferencesAppSynchronize(domain)
-        let raw = CFPreferencesCopyAppValue(hotKeysKey, domain)
-        // Something unexpected is stored: writing our four entries over it would lose the user's other shortcuts.
-        guard raw == nil || raw is [String: Any] else { throw .unreadable }
-        let updated = applying(enabled: enabled, ids: ids, to: raw as? [String: Any])
-        CFPreferencesSetAppValue(hotKeysKey, updated as CFDictionary, domain)
-        guard CFPreferencesAppSynchronize(domain) else { throw .writeFailed }
-        let saved = parse(CFPreferencesCopyAppValue(hotKeysKey, domain) as? [String: Any])
-        guard saved.filter({ ids.contains($0.id) }).allSatisfy({ $0.enabled == enabled }) else { throw .writeFailed }
-        try activate(timeout: timeout)
+        for _ in 1...3 {
+            try write(enabled, ids: ids)
+            try activate(timeout: timeout)
+            if waitUntilApplied(enabled, ids: ids) { return }
+        }
+        throw .didNotStick
     }
 
     /// `setEnabled` on a background thread, so the caller (usually the main actor) never waits on it.
@@ -96,6 +101,48 @@ extension SystemShortcuts {
             Result { () throws(SystemShortcutsError) in try setEnabled(enabled, ids: ids) }
         }.value
         try result.get()
+    }
+
+    /// Writes `enabled` for `ids` into the preferences, keeping everything else.
+    static func write(_ enabled: Bool, ids: [Int]) throws(SystemShortcutsError) {
+        CFPreferencesAppSynchronize(domain)
+        let raw = CFPreferencesCopyAppValue(hotKeysKey, domain)
+        // Something unexpected is stored: writing our four entries over it would lose the user's other shortcuts.
+        guard raw == nil || raw is [String: Any] else { throw .unreadable }
+        let updated = applying(enabled: enabled, ids: ids, to: raw as? [String: Any])
+        CFPreferencesSetAppValue(hotKeysKey, updated as CFDictionary, domain)
+        guard CFPreferencesAppSynchronize(domain) else { throw .writeFailed }
+    }
+
+    /// Whether every one of `ids` is `enabled`, both in the saved preferences and (when it can be read) in the
+    /// shortcuts macOS is using right now.
+    public static func isApplied(_ enabled: Bool, ids: [Int] = allIDs) -> Bool {
+        CFPreferencesAppSynchronize(domain)
+        let saved = CFPreferencesCopyAppValue(hotKeysKey, domain) as? [String: Any]
+        return ids.allSatisfy { id in
+            let entry = saved?[String(id)] as? [String: Any]
+            let isOn = entry.flatMap { boolValue($0["enabled"]) } ?? true
+            return isOn == enabled && (LiveSymbolicHotKeys.isEnabled(id) ?? enabled) == enabled
+        }
+    }
+
+    /// Polls `isApplied` for up to `limit` seconds and returns true once it has held for `steady` seconds.
+    static func waitUntilApplied(_ enabled: Bool, ids: [Int], limit: TimeInterval = 1.2,
+                                 steady: TimeInterval = 0.3) -> Bool {
+        let interval: TimeInterval = 0.05
+        let start = Date()
+        var heldSince: Date?
+        while Date().timeIntervalSince(start) < limit {
+            if isApplied(enabled, ids: ids) {
+                let since = heldSince ?? Date()
+                heldSince = since
+                if Date().timeIntervalSince(since) >= steady { return true }
+            } else {
+                heldSince = nil
+            }
+            Thread.sleep(forTimeInterval: interval)
+        }
+        return false
     }
 
     /// Runs `activateSettings -u` (or `executable` with `arguments`, for tests) and waits up to `timeout` seconds.
@@ -123,4 +170,18 @@ extension SystemShortcuts {
             throw .activationFailed(process.terminationStatus)
         }
     }
+}
+
+/// What the WindowServer is using right now, read through SkyLight's private `CGSIsSymbolicHotKeyEnabled`.
+/// Read-only, and only to check that a change took; nil when the symbol isn't there.
+enum LiveSymbolicHotKeys {
+    private typealias IsEnabled = @convention(c) (Int32) -> Bool
+
+    private static let isEnabledFunction: IsEnabled? = {
+        guard let handle = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_LAZY),
+              let symbol = dlsym(handle, "CGSIsSymbolicHotKeyEnabled") else { return nil }
+        return unsafeBitCast(symbol, to: IsEnabled.self)
+    }()
+
+    static func isEnabled(_ id: Int) -> Bool? { isEnabledFunction?(Int32(id)) }
 }
