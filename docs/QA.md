@@ -95,7 +95,7 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] Quitting right after a capture waits for the save: ⇧⌘3, then Quit at once (or `osascript -e 'quit app "Margin"'`)
   - [ ] the PNG is in the folder and the card is back after relaunch
   - [ ] the quit never takes more than about 3 s
-- [ ] An unwritable save folder saves to `~/Library/Application Support/Margin/Unsaved/` and shows the red toast "Can't write to “<folder>”. Saved to Unsaved: menu bar › Show Unsaved Shots", wrapped and up for about 4 s (also while tucked)
+- [ ] An unwritable save folder saves to `~/Library/Application Support/Margin/Unsaved/` and shows the red toast "Can't write to “<folder>”. Saved to Unsaved: menu bar › Show Unsaved Shots", wrapped and up for about 4 s (also while tucked: its left edge stays on screen)
   - [ ] the menu then has **Show Unsaved Shots**, which opens that folder; once the folder is empty, the item is gone from the next menu open on
   - [ ] the Desktop privacy prompt (`tccutil reset SystemPolicyDesktopFolder io.github.jenish-shobhit.margin` to see it again) gives Margin's reason
 

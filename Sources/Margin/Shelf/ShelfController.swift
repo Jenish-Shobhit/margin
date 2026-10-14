@@ -632,8 +632,10 @@ final class ShelfController: ShelfControlling {
         }
         var f = toast.frame
         let old = f.origin
-        // A long (wrapped) toast stays inside the stage, rather than lose its top lines off the panel.
-        f.origin = CGPoint(x: anchorRight - f.width, y: max(0, min(bottom, stageSize.height - f.height - 4)))
+        // A long (wrapped) toast stays inside the stage, rather than lose its top lines off the panel, or its left
+        // edge: beside the tab, or while peeking, there's less room left of the anchor than a toast's full width.
+        // Shifted right, it's still above the tab and the cards.
+        f.origin = CGPoint(x: max(4, anchorRight - f.width), y: max(0, min(bottom, stageSize.height - f.height - 4)))
         toast.frame = f
         if animated, let layer = toast.layer {
             ShelfMotion.slide(layer, from: CGPoint(x: old.x - f.minX, y: old.y - f.minY))
