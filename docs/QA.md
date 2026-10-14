@@ -167,10 +167,11 @@ Check `log stream --predicate 'subsystem == "io.github.jenish-shobhit.margin" AN
 - [ ] About shows the icon, version 0.0.1 (1) and "© 2026 Jenish Shobhit · MIT License"
 - [ ] Without Screen Recording permission: a warning dot on the icon, and the first item reads "Allow Screen Recording…" and opens First run step 1
 - [ ] A shortcut that fails to register shows a warning dot, and the menu's top item names it and opens Settings, e.g. "⇧⌘4 and ⌃⇧⌘4 are set for two actions — Change in Settings…" (other failures read "… is used by another app" or "… isn't available"). To force one, quit Margin, run `defaults write io.github.jenish-shobhit.margin shortcut.repeatArea -data 7b226b6579436f6465223a32312c226d6f64696669657273223a3736387d` (Repeat area = ⇧⌘4), relaunch, then fix it in Settings: the warning goes away at once. `dump-state` lists each OSStatus under `hotkeys`
+- [ ] With a macOS screenshot shortcut still on that Margin also uses (e.g. only "Save picture of selected area as a file"): the menu shows a quiet "macOS still uses ⇧⌘4 — Fix…" above Settings (no dot), which opens First run at step 2. With three or more it reads "macOS still uses N of Margin's shortcuts — Fix…". Turn the shortcut off in System Settings, reopen the menu: the item is gone (checked each time the menu opens)
 
 ## First run (§7)
 
-- [ ] Shows on first launch and whenever permission is missing
+- [ ] Shows on first launch and whenever permission is missing; a later launch with first run done and permission granted shows no window, even if macOS still owns a shortcut (the menu's "Fix…" item covers that)
 - [ ] Step 1 requests access, deep-links to Screen & System Audio Recording, polls, and offers "Relaunch Margin" when needed; relaunch works
 - [ ] Step 2's checklist of the four macOS shortcuts updates live (missing entry = enabled); the button opens Keyboard Shortcuts; the ⌘⇧5 note shows
 - [ ] Step 3 says "Press ⌘⇧4" and mentions launch at login

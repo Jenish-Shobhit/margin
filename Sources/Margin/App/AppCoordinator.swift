@@ -181,6 +181,12 @@ final class AppCoordinator {
         FirstRunWindowController.shared.show(step: .permission)
     }
 
+    /// Menu "macOS still uses ⇧⌘4 — Fix…": First run step 2, the live checklist of macOS's shortcuts.
+    func showShortcutsStep() {
+        NSApp.activate()
+        FirstRunWindowController.shared.show(step: .shortcuts)
+    }
+
     func quit() { NSApp.terminate(nil) }
 
     var isShelfTucked: Bool { shelf.isTucked }

@@ -123,7 +123,22 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         coordinator?.refreshPermission()
+        // Re-read the macOS screenshot shortcuts only here, when someone is about to look (no timer).
+        systemConflicts = SystemShortcuts.conflicts(
+            SystemShortcuts.current(), with: Preferences.shared.registeredCombos().map(\.combo))
         rebuild()
+    }
+
+    /// The enabled macOS screenshot shortcuts that take one of Margin's combos first, as of the last menu open.
+    private var systemConflicts: [SystemScreenshotShortcut] = []
+
+    /// "macOS still uses ⇧⌘4 — Fix…", or nil when macOS has handed over every combo Margin uses.
+    static func systemConflictTitle(_ conflicts: [SystemScreenshotShortcut]) -> String? {
+        switch conflicts.count {
+        case 0: return nil
+        case 1, 2: return "macOS still uses \(ListFormatter.localizedString(byJoining: conflicts.map(\.keys))) — Fix…"
+        default: return "macOS still uses \(conflicts.count) of Margin's shortcuts — Fix…"
+        }
     }
 
     // MARK: - Building
@@ -154,6 +169,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
                           combo: prefs.shortcut(for: .toggleShelf)))
         menu.addItem(item("Open Screenshots Folder", symbol: "folder", action: #selector(openFolder)))
         menu.addItem(.separator())
+        // Quiet: no warning symbol or dot. The welcome window closes after the first shot, so this is how
+        // someone who skipped step 2 finds it again.
+        if let title = Self.systemConflictTitle(systemConflicts) {
+            menu.addItem(item(title, symbol: "keyboard", action: #selector(fixShortcuts)))
+        }
         let settings = item("Settings…", symbol: "gearshape", action: #selector(openSettings))
         settings.keyEquivalent = ","
         settings.keyEquivalentModifierMask = .command
@@ -198,6 +218,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func toggleShelf() { coordinator?.toggleShelf() }
     @objc private func openFolder() { coordinator?.openScreenshotsFolder() }
     @objc private func openSettings() { coordinator?.showSettings() }
+    @objc private func fixShortcuts() { coordinator?.showShortcutsStep() }
     @objc private func about() { coordinator?.showAbout() }
     @objc private func quit() { coordinator?.quit() }
 }
