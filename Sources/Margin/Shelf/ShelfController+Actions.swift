@@ -122,7 +122,7 @@ extension ShelfController {
             showToast("File not found", isError: true)
             return
         }
-        let changeCount = ClipboardWriter.write(pngs: pngs)
+        let changeCount = ClipboardWriter.write(pngs: pngs, to: pasteboard)
         setClipboardMark(markID)
         showToast("Copied")
         onCopied?(markID, changeCount)
@@ -184,7 +184,7 @@ extension ShelfController {
     func copyPaths(_ ids: [UUID]) {
         let paths = ordered(ids).compactMap { resolvedURL($0)?.path }
         guard !paths.isEmpty else { return }
-        let pb = NSPasteboard.general
+        let pb = pasteboard
         pb.clearContents()
         pb.setString(paths.joined(separator: "\n"), forType: .string)
         showToast(paths.count > 1 ? "Paths copied" : "Path copied")

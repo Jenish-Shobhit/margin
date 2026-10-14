@@ -32,6 +32,8 @@ final class ShelfController: ShelfControlling {
     var hoveredID: UUID?
     var undoStack: [ShelfUndoStep] = []
     var dragSource: ShelfDragSource?
+    /// Where click/⌘C copies and Copy Path write. `.general` except in tests.
+    var pasteboard: NSPasteboard = .general
     /// Added but not yet on disk (contract v2): never pruned; drag, copy and Quick Look wait for `itemDidSave`.
     var pending: Set<UUID> = []
     /// A click-copy on a pending card, done when its file lands.

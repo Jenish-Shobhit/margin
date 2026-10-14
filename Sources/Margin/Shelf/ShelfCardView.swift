@@ -186,7 +186,7 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         pill.position = CGPoint(x: w - 6 - ps.width / 2, y: 6 + ps.height / 2)
         pill.shadowPath = CGPath(roundedRect: pill.bounds, cornerWidth: 6, cornerHeight: 6, transform: nil)
         pillText.frame = CGRect(x: 0, y: (ps.height - 12) / 2, width: ps.width, height: 12)
-        renameField?.frame = renameFrame
+        renameBox?.frame = renameFrame
     }
 
     override func setFrameSize(_ newSize: NSSize) {
@@ -437,7 +437,9 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         defer { downEvent = nil; press = .none }
         guard !didDrag else { return }
         let p = convert(event.locationInWindow, from: nil)
-        guard bounds.insetBy(dx: -4, dy: -4).contains(p) else { return }
+        guard bounds.insetBy(dx: -4, dy: -4).contains(p), press != .none else { return }
+        // Take key first, so the shelf keys (⌘Z after ✕, typing in Rename…) work right away.
+        controller?.focusShelf()
         switch press {
         case .none:
             return
@@ -456,7 +458,6 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
                 controller?.click(id)
             }
         }
-        controller?.focusShelf()
     }
 
     override func menu(for event: NSEvent) -> NSMenu? { controller?.menu(for: self) }
@@ -508,28 +509,37 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     // MARK: - Rename (inline)
 
     private var renameField: NSTextField?
+    private var renameBox: NSView?
     private var renameCommit: ((String?) -> Void)?
     private var renameFrame: CGRect { CGRect(x: 6, y: 6, width: bounds.width - 12, height: 22) }
 
     func beginRename(initial: String, commit: @escaping (String?) -> Void) {
         endRename(commit: false)
+        // A rounded dark box with the accent ring; the borderless field sits inside it with padding.
+        let box = NSView(frame: renameFrame)
+        box.wantsLayer = true
+        box.layer?.cornerRadius = 6
+        box.layer?.cornerCurve = .continuous
+        box.layer?.backgroundColor = ShelfStyle.chip.cgColor
+        box.layer?.borderColor = ShelfStyle.ring.cgColor
+        box.layer?.borderWidth = 1.5
         let f = NSTextField(string: initial)
-        f.frame = renameFrame
         f.font = .systemFont(ofSize: 11, weight: .medium)
         f.textColor = .white
-        f.drawsBackground = true
-        f.backgroundColor = ShelfStyle.chip
+        f.drawsBackground = false
         f.isBordered = false
         f.isBezeled = false
         f.focusRingType = .none
-        f.wantsLayer = true
-        f.layer?.cornerRadius = 6
-        f.layer?.borderColor = ShelfStyle.ring.cgColor
-        f.layer?.borderWidth = 1.5
         f.cell?.isScrollable = true
         f.cell?.wraps = false
+        f.sizeToFit()
+        let fh = f.frame.height
+        f.frame = CGRect(x: 6, y: (box.bounds.height - fh) / 2, width: box.bounds.width - 12, height: fh)
+        f.autoresizingMask = [.width]
+        box.addSubview(f)
         f.delegate = self
-        addSubview(f)
+        addSubview(box)
+        renameBox = box
         renameField = f
         renameCommit = commit
         window?.makeKey()
@@ -546,7 +556,8 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         renameField = nil
         renameCommit = nil
         f.delegate = nil
-        f.removeFromSuperview()
+        renameBox?.removeFromSuperview()
+        renameBox = nil
         window?.makeFirstResponder(window?.contentView)
         done?(commit ? text : nil)
     }
