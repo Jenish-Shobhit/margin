@@ -31,6 +31,12 @@ final class FirstRunModel {
     var finished = false
     /// The step the window was opened at (`show(step:)`), while it's still incomplete.
     var focus: Step?
+    /// "Turn off for me" is running (it takes about half a second).
+    private(set) var turningOff = false
+    /// Why "Turn off for me" didn't work, shown in step 2 until the next try.
+    private(set) var turnOffError: String?
+    /// Keeps step 2 open for a moment after "Turn off for me", so the four boxes can be seen ticking.
+    private var holdingShortcuts = false
 
     // Sources, swappable for visual checks.
     @ObservationIgnored var preflight: () -> Bool = { CGPreflightScreenCaptureAccess() }
@@ -38,6 +44,7 @@ final class FirstRunModel {
     @ObservationIgnored var request: () -> Void = { _ = CGRequestScreenCaptureAccess() }
     @ObservationIgnored var readShortcuts: () -> [SystemScreenshotShortcut] = { SystemShortcuts.current() }
     @ObservationIgnored var readLoginItem: () -> LoginItem.State = { LoginItem.state }
+    @ObservationIgnored var setSystemShortcuts: (Bool) async throws -> Void = { try await SystemShortcuts.setEnabledInBackground($0) }
     @ObservationIgnored var prefs: Preferences = .shared
 
     var permissionDone: Bool { !permissionRevoked && (hasPermission || capturedOnce) }
@@ -60,7 +67,7 @@ final class FirstRunModel {
     func isDone(_ step: Step) -> Bool {
         switch step {
         case .permission: permissionDone
-        case .shortcuts: shortcutsDone
+        case .shortcuts: shortcutsDone && !holdingShortcuts
         case .firstShot: capturedOnce
         }
     }
@@ -91,6 +98,39 @@ final class FirstRunModel {
         request()
         requestedPermission = true
         refresh()
+    }
+
+    /// "Turn off for me": switches off the four macOS screenshot shortcuts (spec, 0.0.6). Only ever on this click.
+    func turnOffSystemShortcuts() {
+        guard !turningOff else { return }
+        turningOff = true
+        turnOffError = nil
+        holdingShortcuts = true
+        Task {
+            do {
+                try await setSystemShortcuts(false)
+            } catch {
+                turnOffError = Self.turnOffMessage(for: error)
+            }
+            refresh()
+            turningOff = false
+            // Let the ticks land before the step folds away.
+            if turnOffError == nil { try? await Task.sleep(for: .seconds(0.9)) }
+            holdingShortcuts = false
+        }
+    }
+
+    /// The window closed: the next time it opens, step 2 starts fresh.
+    func clearTurnOffError() { turnOffError = nil }
+
+    static func turnOffMessage(for error: any Error) -> String {
+        guard let error = error as? SystemShortcutsError else {
+            return "Couldn’t turn them off. Untick them in Keyboard Shortcuts instead."
+        }
+        if error.isSaved {
+            return "Saved, but macOS hasn’t applied it yet. It will after you log out and back in."
+        }
+        return "Couldn’t turn them off. \(error.localizedDescription)"
     }
 
     func openScreenRecordingSettings() { NSWorkspace.shared.open(Self.screenRecordingSettings) }

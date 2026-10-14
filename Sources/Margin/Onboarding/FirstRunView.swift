@@ -62,21 +62,36 @@ struct FirstRunView: View {
     @ViewBuilder private var shortcuts: some View {
         switch model.state(of: .shortcuts) {
         case .done:
-            Detail("macOS no longer takes Margin’s keys.")
+            // Saved but not applied yet: say so rather than claim the keys are free.
+            if let error = model.turnOffError { Warning(error) } else { Detail("macOS no longer takes Margin’s keys.") }
         case .pending:
             Detail("Turn off the macOS screenshot shortcuts.")
         case .now:
-            // The deep link opens Keyboard settings; the Screenshots list is behind "Keyboard Shortcuts…".
-            Detail("In Keyboard Shortcuts… › Screenshots, untick:")
+            Detail("Margin turns off the four macOS screenshot shortcuts so it can use them. You can restore them in Settings.")
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(model.shortcuts) { shortcut in
                     Tick(title: shortcut.title, keys: shortcut.keys, ok: !model.conflictIDs.contains(shortcut.id))
                 }
             }
             .padding(.top, 6)
-            Button("Open Keyboard Shortcuts") { model.openKeyboardSettings() }
-                .buttonStyle(.borderedProminent)
-                .padding(.top, 8)
+            HStack(spacing: 12) {
+                Button("Turn off for me") { model.turnOffSystemShortcuts() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(model.turningOff)
+                // The deep link opens Keyboard settings; the Screenshots list is behind "Keyboard Shortcuts…".
+                Button("Open Keyboard Shortcuts") { model.openKeyboardSettings() }
+                    .buttonStyle(.link)
+                    .help("Untick them yourself in Keyboard Shortcuts… › Screenshots.")
+                if model.turningOff {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel("Turning off")
+                }
+            }
+            .padding(.top, 8)
+            if let error = model.turnOffError {
+                Warning(error).padding(.top, 6)
+            }
             HStack(spacing: 4) {
                 Kbd("⇧⌘5")
                 Text("stays with macOS for screen recording.")
@@ -184,6 +199,22 @@ private struct Detail: View {
             .font(.system(size: 13))
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Why something in a step didn't work.
+private struct Warning: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Label {
+            Text(text).fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color(nsColor: .systemOrange))
+        }
+        .font(.system(size: 12))
+        .foregroundStyle(.secondary)
     }
 }
 
