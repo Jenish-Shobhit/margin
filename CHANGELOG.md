@@ -2,6 +2,12 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.6 — 2026-10-14
+
+### Changed
+
+- Card buttons are easier to find: a red ✕ at the top-right dismisses a shot, and the Options (•••) menu sits at the top-left with a tooltip.
+
 ## 0.0.5 — 2026-10-14
 
 ### Changed
