@@ -154,6 +154,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         }
         if showsWarning {
             menu.addItem(item("Allow Screen Recording…", symbol: "exclamationmark.triangle", action: #selector(allowScreenRecording)))
+            // Revoked while running: macOS usually only hands the permission back to a fresh process.
+            if RuntimeStatus.shared.screenRecordingRevoked {
+                menu.addItem(item("Relaunch Margin", symbol: "arrow.triangle.2.circlepath", action: #selector(relaunch)))
+            }
         } else {
             menu.addItem(item("Capture Area", symbol: "rectangle.dashed", action: #selector(captureArea),
                               combo: prefs.shortcut(for: .captureArea)))
@@ -212,6 +216,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     }
 
     @objc private func allowScreenRecording() { coordinator?.showPermissionStep() }
+    @objc private func relaunch() { coordinator?.relaunch() }
     @objc private func captureArea() { afterMenuCloses { [weak self] in self?.coordinator?.captureArea() } }
     @objc private func captureWindow() { afterMenuCloses { [weak self] in self?.coordinator?.captureWindow() } }
     @objc private func captureScreen() { afterMenuCloses { [weak self] in self?.coordinator?.captureScreen() } }

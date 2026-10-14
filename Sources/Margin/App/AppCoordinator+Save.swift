@@ -43,6 +43,8 @@ extension AppCoordinator {
 extension AppCoordinator {
     func handleCapture(_ result: CaptureResult) {
         let signpost = Self.signposter.beginInterval("thumbnail")
+        // A capture worked, so Screen Recording does: clears a revoked-permission warning.
+        screenRecordingWorked()
 
         // 1. Sound, immediately.
         if prefs.shutterSound { ShutterSound.play() }

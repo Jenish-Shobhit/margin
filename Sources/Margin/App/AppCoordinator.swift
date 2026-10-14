@@ -26,6 +26,10 @@ final class AppCoordinator {
     var mark = ClipboardMark()
     /// Last known Screen Recording state (`CGPreflightScreenCaptureAccess`). Never requests access.
     private(set) var permissionGranted = false
+    /// The permission warning (dot, "Allow Screen Recording…") shows while preflight says no, and after a
+    /// capture failed for lack of permission (`RuntimeStatus.screenRecordingRevoked`) until a capture
+    /// succeeds or Margin relaunches: preflight is cached per process and often still says yes.
+    var needsPermission: Bool { !permissionGranted || RuntimeStatus.shared.screenRecordingRevoked }
 
     // Save pipeline state (see AppCoordinator+Save.swift).
     /// Every path handed to the shelf this session, so two captures in the same second never get
@@ -57,7 +61,7 @@ final class AppCoordinator {
         shelf.restore()
 
         capture.onCapture = { [weak self] result in self?.handleCapture(result) }
-        capture.onPermissionMissing = { [weak self] in self?.permissionMissing() }
+        capture.onPermissionMissing = { [weak self] in self?.captureLostPermission() }
         shelf.onCopied = { [weak self] id, changeCount in self?.shelfDidCopy(id, changeCount: changeCount) }
         shelf.onRemoved = { [weak self] ids in self?.shelfDidRemove(ids) }
         FirstRunWindowController.shared.onRelaunch = { [weak self] in self?.relaunch() }
@@ -74,7 +78,9 @@ final class AppCoordinator {
         hotkeys.start()
 
         permissionGranted = CGPreflightScreenCaptureAccess()
-        menuBar.setWarning(!permissionGranted)
+        menuBar.setWarning(needsPermission)
+        // The welcome window only when there's something to do: first run unfinished or no permission.
+        // (macOS shortcuts still enabled after that are offered from the menu: "macOS still uses ⇧⌘4 — Fix…".)
         if !prefs.firstRunDone || !permissionGranted {
             FirstRunWindowController.shared.show()
         }
@@ -105,7 +111,7 @@ final class AppCoordinator {
     /// Margin was opened again while running: show whatever needs attention, otherwise Settings.
     func handleReopen() {
         refreshPermission()
-        if !permissionGranted {
+        if needsPermission {
             showPermissionStep()
         } else {
             showSettings()
@@ -204,6 +210,8 @@ final class AppCoordinator {
     // MARK: - Permission
 
     /// Never prompts: without permission, show First run step 1 instead of touching ScreenCaptureKit.
+    /// After a capture failed for lack of permission, captures are still attempted while preflight says
+    /// yes: the user may have granted it again, and only a capture that works can clear the warning.
     private func canStartCapture() -> Bool {
         if capture.isCapturing { return false }
         if !permissionGranted { refreshPermission() }
@@ -214,23 +222,43 @@ final class AppCoordinator {
         return true
     }
 
-    /// Re-reads the permission. Called once a second while it's missing, and when the menu opens.
+    /// Re-reads the permission. Called once a second while the warning shows, and when the menu opens.
+    /// A yes from preflight doesn't clear a revoked permission (see `needsPermission`).
     func refreshPermission() {
         let granted = CGPreflightScreenCaptureAccess()
-        guard granted != permissionGranted else { return }
-        permissionGranted = granted
-        menuBar?.setWarning(!granted)
-        if granted {
-            Self.log.notice("Screen Recording permission granted")
-            Task { await capture.prewarm() }
+        if granted != permissionGranted {
+            permissionGranted = granted
+            if granted {
+                Self.log.notice("Screen Recording permission granted")
+                Task { await capture.prewarm() }
+            }
         }
+        // Only on a change: this runs every second, and rebuilding an open menu would reset it.
+        if let menuBar, menuBar.showsWarning != needsPermission { menuBar.setWarning(needsPermission) }
     }
 
+    /// Preflight says no: show First run step 1.
     private func permissionMissing() {
         Self.log.notice("Screen Recording permission missing")
-        permissionGranted = false
         menuBar?.setWarning(true)
         showPermissionStep()
+    }
+
+    /// A capture failed because Screen Recording permission is missing (revoked while running, usually).
+    /// `permissionGranted` keeps following preflight; the revoked flag holds the warning until a capture
+    /// succeeds or Margin relaunches.
+    private func captureLostPermission() {
+        RuntimeStatus.shared.screenRecordingRevoked = true
+        permissionMissing()
+    }
+
+    /// Called for every successful capture: Screen Recording evidently works.
+    func screenRecordingWorked() {
+        guard needsPermission else { return }
+        Self.log.notice("Capture succeeded: Screen Recording permission works")
+        permissionGranted = true
+        RuntimeStatus.shared.screenRecordingRevoked = false
+        menuBar?.setWarning(false)
     }
 
     // MARK: - ⌘V mark
@@ -239,7 +267,7 @@ final class AppCoordinator {
         if mark.observe(changeCount: NSPasteboard.general.changeCount) {
             shelf.setClipboardMark(nil)
         }
-        if !permissionGranted { refreshPermission() }
+        if needsPermission { refreshPermission() }
     }
 
     private func shelfDidCopy(_ id: UUID, changeCount: Int) {
@@ -255,8 +283,9 @@ final class AppCoordinator {
 
     // MARK: - Relaunch, login item
 
-    /// First run's "Relaunch Margin": start a fresh copy once this one has quit, then quit.
-    private func relaunch() {
+    /// "Relaunch Margin" (First run, and the menu while permission is revoked): start a fresh copy once
+    /// this one has quit, then quit.
+    func relaunch() {
         let bundlePath = Bundle.main.bundlePath
         guard bundlePath.hasSuffix(".app") else {
             Self.log.error("Relaunch needs an app bundle; quitting instead")

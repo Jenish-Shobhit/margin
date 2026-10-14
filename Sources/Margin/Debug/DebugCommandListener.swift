@@ -79,7 +79,12 @@ final class DebugCommandListener: NSObject {
             "permission": [
                 "preflight": CGPreflightScreenCaptureAccess(),
                 "granted": c.permissionGranted,
+                "revoked": RuntimeStatus.shared.screenRecordingRevoked,
+                "warning": c.needsPermission,
             ],
+            "hotkeyFailures": Dictionary(uniqueKeysWithValues: RuntimeStatus.shared.hotkeyFailures.map {
+                ($0.key.rawValue, Int($0.value))
+            }),
             "hotkeys": c.hotkeyRegistrations.map { entry in
                 [
                     "action": entry.binding.action.rawValue,

@@ -149,6 +149,7 @@ Check `log stream --predicate 'subsystem == "io.github.jenish-shobhit.margin" AN
 - [ ] Switching Spaces: the shelf stays on every Space
 - [ ] Sleep/wake: hotkeys, shelf and capture still work afterwards
 - [ ] Revoking Screen Recording while running: the next capture shows First run step 1 and the menu bar warning dot, and nothing crashes
+- [ ] After that, the warning stays (it doesn't clear itself a second later, even though preflight is cached as granted): the menu shows "Allow Screen Recording…" and "Relaunch Margin" until a capture succeeds or Margin relaunches. `dump-state` shows `permission.revoked: true`. Relaunch Margin quits and reopens it
 - [ ] A 50-item shelf stays responsive
 
 ## Appearance and accessibility
