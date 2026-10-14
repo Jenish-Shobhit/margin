@@ -248,6 +248,7 @@ final class CaptureController: CaptureControlling {
         guard hasPermission() else { onPermissionMissing?(); return }
         guard let display = Displays.display(containing: NSEvent.mouseLocation) else { return }
         let clock = Stopwatch()
+        pool.sync()  // Margin must own windows to be listed (and so excluded), even without a prewarm.
         Task {
             do {
                 let target = try await cache.target(for: display.id)
@@ -289,6 +290,7 @@ final class CaptureController: CaptureControlling {
         guard session == nil else { return }
         guard hasPermission() else { onPermissionMissing?(); return }
         let clock = Stopwatch()
+        pool.sync()
         Task {
             do {
                 let target = try await cache.target(for: display.id)

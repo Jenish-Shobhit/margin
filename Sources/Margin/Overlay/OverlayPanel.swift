@@ -22,6 +22,8 @@ final class OverlayPanel: NSPanel {
         isMovable = false
         animationBehavior = .none
         becomesKeyOnlyIfNeeded = false
+        // The session sets the cursor itself (crosshair, resize, hand); keep AppKit's cursor rects out of it.
+        disableCursorRects()
         contentView = overlayView
         setFrame(display.frame, display: false)
     }
