@@ -1,6 +1,7 @@
 import AppKit
 
-// STUB — replaced by the Shell agent (AppDelegate, coordinator, menu bar, hotkeys).
-let app = NSApplication.shared
-app.setActivationPolicy(.accessory)
-app.run()
+// Menu bar app: no Dock icon (LSUIElement in Info.plist; set here too for bare `swift run` builds).
+let appDelegate = AppDelegate()
+NSApplication.shared.delegate = appDelegate
+NSApplication.shared.setActivationPolicy(.accessory)
+NSApplication.shared.run()
