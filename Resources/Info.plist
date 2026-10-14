@@ -40,13 +40,13 @@
 	<string>Margin saves your screenshots in the folder you chose in Settings, and shows them on its shelf.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
-	<key>NSNetworkVolumesUsageDescription</key>
-	<string>Margin saves your screenshots in the folder you chose in Settings, and shows them on its shelf.</string>
-	<key>NSRemovableVolumesUsageDescription</key>
-	<string>Margin saves your screenshots in the folder you chose in Settings, and shows them on its shelf.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Jenish Shobhit · MIT License</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>Margin saves your screenshots in the folder you chose in Settings, and shows them on its shelf.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Margin saves your screenshots in the folder you chose in Settings, and shows them on its shelf.</string>
 </dict>
 </plist>
