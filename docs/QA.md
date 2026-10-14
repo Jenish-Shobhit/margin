@@ -56,6 +56,7 @@ Before starting: turn off the four macOS screenshot shortcuts (System Settings �
 - [ ] Two captures in the same second get ` (2)`, ` (3)` names
 - [ ] The PNG keeps the display's colour profile and has DPI 144 on Retina (`sips -g dpiWidth`)
 - [ ] No app ever sees a half-written file (no `.margin-*.tmp` left behind)
+- [ ] Quitting right after a capture (⌘⇧3, then Quit at once, or `osascript -e 'quit app "Margin"'`) waits for the save: the PNG is in the folder, the card is back after relaunch, and the quit never takes more than about 3 s
 - [ ] An unwritable save folder saves to `~/Library/Application Support/Margin/Unsaved/` and shows the toast "Saved to Unsaved — folder not writable"
 - [ ] The clipboard holds the image (same bytes as the file) with the same image types as `screencapture -c`, and no file URL
 - [ ] "Copy each capture" off: the clipboard is untouched
@@ -149,7 +150,7 @@ Check `log stream --predicate 'subsystem == "io.github.jenish-shobhit.margin" AN
 - [ ] Switching Spaces: the shelf stays on every Space
 - [ ] Sleep/wake: hotkeys, shelf and capture still work afterwards
 - [ ] Revoking Screen Recording while running: the next capture shows First run step 1 and the menu bar warning dot, and nothing crashes
-- [ ] After that, the warning stays (it doesn't clear itself a second later, even though preflight is cached as granted): the menu shows "Allow Screen Recording…" and "Relaunch Margin" until a capture succeeds or Margin relaunches. `dump-state` shows `permission.revoked: true`. Relaunch Margin quits and reopens it
+- [ ] After that, the warning stays (it doesn't clear itself a second later, even though preflight is cached as granted): the menu shows "Allow Screen Recording…" and "Relaunch Margin" until a capture succeeds or Margin relaunches. `dump-state` shows `permission.revoked: true`. Relaunch Margin quits and reopens it, with only one copy running afterwards
 - [ ] A 50-item shelf stays responsive
 
 ## Appearance and accessibility

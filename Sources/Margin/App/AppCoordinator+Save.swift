@@ -76,6 +76,7 @@ extension AppCoordinator {
         captureSequence += 1
         let sequence = captureSequence
         let fallbackFolder = Preferences.fallbackSaveFolder
+        savesInFlight += 1 // `finishSave` always runs, on success and failure alike
 
         // 5. Encode + write off the main actor; the clipboard gets the same bytes as soon as they exist.
         Task.detached(priority: .userInitiated) { [weak self] in
@@ -117,6 +118,8 @@ extension AppCoordinator {
     }
 
     private func finishSave(itemID: UUID, releaseDate: Date, timings: Timings, outcome: SaveOutcome) {
+        // Last, so a quit waiting on this save goes ahead only after shelf.json has the final path.
+        defer { saveFinished() }
         var timings = timings
         timings.encodeMs = outcome.encodeMs
         timings.writeMs = outcome.writeMs

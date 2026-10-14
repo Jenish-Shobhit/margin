@@ -17,6 +17,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    /// Waits (briefly) for captures that are still being saved.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        coordinator?.shouldTerminate() ?? .terminateNow
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         coordinator?.stop()
     }

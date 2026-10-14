@@ -41,6 +41,13 @@ final class AppCoordinator {
     /// Timings of the most recent capture, for the log and the DEBUG state dump.
     var lastTimings: Timings?
     var lastSavedPath: String?
+    /// Captures whose PNG (and clipboard copy) hasn't finished yet. Quitting waits for them.
+    var savesInFlight = 0
+    /// Quit was asked for while saves were in flight; `applicationShouldTerminate` answered `.terminateLater`.
+    private(set) var isTerminating = false
+    private var terminationReplied = false
+    /// The longest a quit waits for in-flight saves.
+    static let terminationTimeout: TimeInterval = 3
     /// The last action a global hotkey fired (for the DEBUG state dump).
     private(set) var lastHotkeyAction: ShortcutAction?
     var hotkeyRegistrations: [(binding: HotkeyCenter.Binding, status: OSStatus)] {
@@ -106,6 +113,40 @@ final class AppCoordinator {
         hotkeys?.stop()
         pasteboardTimer?.invalidate()
         pasteboardTimer = nil
+    }
+
+    /// `applicationShouldTerminate`: a capture whose PNG is still being written would be lost (or left as a
+    /// hidden temp file), so wait for in-flight saves, at most `terminationTimeout`, then let the quit go on.
+    func shouldTerminate() -> NSApplication.TerminateReply {
+        guard savesInFlight > 0 else { return .terminateNow }
+        guard !isTerminating else { return .terminateLater } // asked again while already waiting
+        isTerminating = true
+        Self.log.notice("Quit: waiting for \(self.savesInFlight) capture(s) to finish saving")
+        // Until the reply, AppKit runs the main run loop in NSModalPanelRunLoopMode. Save completions hop to
+        // the main actor through the main queue, which that mode services: unless `terminate` was called
+        // from inside a main-queue block, which then can't be re-entered. So the timeout is a run-loop timer
+        // in the common modes, not `asyncAfter`: it fires either way, and a quit never hangs.
+        let timeout = Timer(timeInterval: Self.terminationTimeout, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, !self.terminationReplied else { return }
+                Self.log.error("Quit: \(self.savesInFlight) capture(s) still saving after the timeout; quitting anyway")
+                self.replyToTermination()
+            }
+        }
+        RunLoop.main.add(timeout, forMode: .common)
+        return .terminateLater
+    }
+
+    /// Called by the save pipeline when a capture's save finished (or failed).
+    func saveFinished() {
+        savesInFlight = max(0, savesInFlight - 1)
+        if isTerminating, savesInFlight == 0 { replyToTermination() }
+    }
+
+    private func replyToTermination() {
+        guard isTerminating, !terminationReplied else { return }
+        terminationReplied = true
+        NSApp.reply(toApplicationShouldTerminate: true)
     }
 
     /// Margin was opened again while running: show whatever needs attention, otherwise Settings.
@@ -213,7 +254,7 @@ final class AppCoordinator {
     /// After a capture failed for lack of permission, captures are still attempted while preflight says
     /// yes: the user may have granted it again, and only a capture that works can clear the warning.
     private func canStartCapture() -> Bool {
-        if capture.isCapturing { return false }
+        if capture.isCapturing || isTerminating { return false }
         if !permissionGranted { refreshPermission() }
         guard permissionGranted else {
             permissionMissing()
@@ -292,9 +333,15 @@ final class AppCoordinator {
             NSApp.terminate(nil)
             return
         }
+        // Wait for this process to exit (quitting can wait up to `terminationTimeout` for saves), at most
+        // 10 s, then open the app. Not `open -n`: that would start a second copy if this one were stuck.
+        let script = """
+            i=0; while /bin/kill -0 "$2" 2>/dev/null && [ "$i" -lt 100 ]; do /bin/sleep 0.1; i=$((i+1)); done
+            /usr/bin/open "$1"
+            """
         let shell = Process()
         shell.executableURL = URL(fileURLWithPath: "/bin/sh")
-        shell.arguments = ["-c", "sleep 0.7; /usr/bin/open -n \"$1\"", "margin-relaunch", bundlePath]
+        shell.arguments = ["-c", script, "margin-relaunch", bundlePath, String(ProcessInfo.processInfo.processIdentifier)]
         do {
             try shell.run()
         } catch {
