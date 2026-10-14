@@ -150,6 +150,27 @@ final class NotificationCounter: @unchecked Sendable {
         defaults.set(Data("nope".utf8), forKey: "lastArea")
         #expect(prefs.lastArea == nil)
     }
+
+    @Test func legacyLastAreaMigratesOnlyWithOneMatchingDisplay() throws {
+        let main = (id: UInt32(1), frame: CGRect(x: 0, y: 0, width: 1470, height: 956))
+        let legacy = LegacyLastArea(rect: CGRect(x: 326, y: 413, width: 326, height: 326), displayID: 1)
+        let stored = try JSONEncoder().encode(legacy)
+
+        // Two displays: the old global rect could belong anywhere now.
+        defaults.set(stored, forKey: "lastArea")
+        #expect(prefs.migrateLegacyLastArea(displays: [main, (2, CGRect(x: 1470, y: 0, width: 1920, height: 1080))]) == nil)
+        // Another display, or a rect that no longer fits.
+        #expect(prefs.migrateLegacyLastArea(displays: [(2, main.frame)]) == nil)
+        #expect(prefs.migrateLegacyLastArea(displays: [(1, CGRect(x: 0, y: 0, width: 600, height: 500))]) == nil)
+        #expect(prefs.lastArea == nil)
+
+        // One display, the same one, the area inside it: converted and stored in the new format.
+        let area = try #require(prefs.migrateLegacyLastArea(displays: [main]))
+        #expect(area.rect(onDisplayFrame: main.frame) == legacy.rect)
+        #expect(prefs.lastArea == area)
+        // A value already in the new format is left alone.
+        #expect(prefs.migrateLegacyLastArea(displays: [main]) == nil)
+    }
 }
 
 @Suite struct ShortcutActionTests {

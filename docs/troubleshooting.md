@@ -147,7 +147,7 @@ To find one from the shelf, choose **Reveal in Finder** from its card's menu.
 
 ## The frozen screen won't go away
 
-Press **Esc** or right-click. If the frozen picture never appeared, the overlay cancels itself after 3 seconds. Switching apps with ⌘Tab also cancels it.
+Press **Esc** or right-click. If the frozen picture never appeared, the overlay cancels itself after 3 seconds and the shelf shows "Couldn't capture the screen". Switching apps with ⌘Tab also cancels it.
 
 ## A display says "Can't capture this display"
 

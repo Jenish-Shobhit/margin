@@ -360,8 +360,10 @@ final class CaptureController: CaptureControlling {
         guard session == nil else { return }
         // The area is kept relative to its display, so it follows the display wherever the arrangement puts it
         // now. No area, its display gone, or the display at another resolution: choose again.
-        guard let last = Preferences.shared.lastArea,
-              let display = Displays.all.first(where: { $0.id == last.displayID }),
+        let displays = Displays.all
+        guard let last = Preferences.shared.lastArea
+                ?? Preferences.shared.migrateLegacyLastArea(displays: displays.map { ($0.id, $0.frame) }),
+              let display = displays.first(where: { $0.id == last.displayID }),
               let rect = last.rect(onDisplayFrame: display.frame) else {
             beginInteractiveCapture()
             return

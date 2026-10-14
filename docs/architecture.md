@@ -137,7 +137,7 @@ After that, the cache refreshes on display, app and Space changes (debounced 150
 1. The `AppCoordinator` checks permission without prompting and calls `beginInteractiveCapture()`.
 2. If the cache is warm (and every display has the size it had at the last fetch), `SCScreenshotManager.captureImage` starts for every display at once (a task group, off the main thread). At the same time the transparent overlays go up, with a crosshair.
 3. Each display's frame is drawn as it arrives. With the first one, Margin activates and makes the overlay key, so Esc, Space and the arrows work.
-4. A display that fails is dimmed ("Can't capture this display"). If no frame arrives within 3 s the overlay cancels itself, so it can never be left eating clicks.
+4. A display that fails is dimmed ("Can't capture this display"). If no frame arrives within 3 s the overlay cancels itself with a "Couldn't capture the screen" toast, so it can never be left eating clicks.
 5. Once every display is frozen, the window list is refreshed, for snapping and window mode.
 
 The target is **≤ 80 ms from the hotkey to the first frozen frame**.

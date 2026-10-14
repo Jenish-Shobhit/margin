@@ -51,8 +51,9 @@ public enum ShortcutAction: String, Codable, CaseIterable, Sendable {
 /// The area ⌘⇧2 repeats. It's kept relative to its display, not in global points: those depend on the
 /// arrangement and on which display is primary, so a display added, removed or moved would shift it.
 ///
-/// Values stored by 0.0.8 and earlier (`rect` in global points) don't decode: ⌘⇧2 then falls back to ⌘⇧4 once,
-/// which beats guessing where an old global rect belongs now.
+/// Values stored by 0.0.8 and earlier (`rect` in global points) don't decode. `Preferences.migrateLegacyLastArea`
+/// converts one when that's safe (a single display); otherwise ⌘⇧2 falls back to ⌘⇧4 once, which beats guessing
+/// where an old global rect belongs now.
 public struct LastArea: Codable, Equatable, Sendable {
     /// Points from the display's bottom-left corner (AppKit orientation, y up).
     public var rectInDisplay: CGRect
@@ -145,6 +146,23 @@ public final class Preferences {
     public var lastArea: LastArea? {
         get { defaults.data(forKey: "lastArea").flatMap { try? JSONDecoder().decode(LastArea.self, from: $0) } }
         set { set(newValue.flatMap { try? JSONEncoder().encode($0) }, "lastArea") }
+    }
+
+    /// Converts a `lastArea` stored by 0.0.8 or earlier (global points) when that can't go wrong: one display,
+    /// the one it was chosen on, and the area inside it. With one display the global points are that display's
+    /// own, whatever the arrangement was. Otherwise the old value stays unreadable and ⌘⇧2 asks for an area.
+    /// `displays`: every display's ID and frame (AppKit global points). Returns the converted area, if any.
+    @discardableResult
+    public func migrateLegacyLastArea(displays: [(id: UInt32, frame: CGRect)]) -> LastArea? {
+        struct Legacy: Decodable { var rect: CGRect; var displayID: UInt32 }
+        guard lastArea == nil, displays.count == 1, let display = displays.first,
+              let data = defaults.data(forKey: "lastArea"),
+              let legacy = try? JSONDecoder().decode(Legacy.self, from: data),
+              legacy.displayID == display.id, legacy.rect.width > 0, legacy.rect.height > 0,
+              display.frame.contains(legacy.rect) else { return nil }
+        let area = LastArea(rect: legacy.rect, displayID: display.id, displayFrame: display.frame)
+        lastArea = area
+        return area
     }
 
     public func shortcut(for action: ShortcutAction) -> KeyCombo {
