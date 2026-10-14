@@ -28,7 +28,7 @@ Margin has no Dock icon. Everything is in its menu bar icon, a small rectangle w
 | Capture Window | Start a capture in window mode |
 | Capture Screen ⇧⌘3 | Capture the display under the pointer |
 | Repeat Last Area ⇧⌘2 | Capture the last area again |
-| Tuck Shelf / Show Shelf ⇧⌘1 | Tuck the shelf away, or bring it back |
+| Tuck Shelf / Show Shelf ⇧⌘1 | Tuck the shelf away, or bring it back (dimmed while the shelf is empty) |
 | Restore Last Removed | Bring back the card(s) that last left the shelf |
 | Open Screenshots Folder | Open the save folder in Finder (creating it if needed) |
 | Settings… | Open Settings |

@@ -450,6 +450,9 @@ final class ShelfController: ShelfControlling {
 
     // MARK: - Tuck, tab, peek
 
+    /// Whether ⌘⇧1 would do anything: there's nothing to tuck on an empty shelf (for the menu bar item).
+    var canToggleTucked: Bool { isTucked || !store.items.isEmpty }
+
     /// ⌘⇧1. Tucking an empty shelf does nothing (later shots would otherwise fly into a bare tab).
     /// Without `animated`, the shelf snaps back into place (the tab still fades).
     func setTucked(_ on: Bool, animated: Bool = true) {

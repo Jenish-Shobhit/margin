@@ -192,7 +192,7 @@ The shelf never steals focus. A click (copy) or double-click (open) leaves the k
   - Capture Screen ⌘⇧3
   - Repeat Last Area ⌘⇧2
   - —
-  - Tuck Shelf / Show Shelf ⌘⇧1
+  - Tuck Shelf / Show Shelf ⌘⇧1 (disabled while the shelf is empty)
   - Restore Last Removed (disabled when there's nothing to restore)
   - Open Screenshots Folder
   - —

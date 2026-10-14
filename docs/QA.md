@@ -147,7 +147,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **Tucking and toasts**
 
 - [ ] Tucking shows the tab with the count and the toast "Shelf tucked · ⇧⌘1"
-- [ ] An empty shelf doesn't tuck
+- [ ] An empty shelf doesn't tuck: ⇧⌘1 does nothing and the menu's Tuck Shelf is dimmed
 - [ ] Tucked: the shot flies into the tab, the count goes up, the shelf stays tucked
 - [ ] The tuck tab peeks on hover and shows the shelf on click
 - [ ] Toasts appear above the top card for 1.2 s, never as notifications
