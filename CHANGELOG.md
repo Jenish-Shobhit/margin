@@ -2,6 +2,18 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.9 — 2026-10-15
+
+### Fixed
+
+- ⇧⌘2 repeated the wrong part of the screen after your displays changed (closing the lid, plugging in a monitor, changing a display's arrangement or "More Space" scaling), and then kept repeating the wrong strip. The area is now remembered relative to its display. If that display now has a different resolution, ⇧⌘2 asks for a new area instead of guessing. An area saved by an older version carries over when you have one display.
+- A capture that failed (a window closed just before the click, a display macOS won't capture, an empty area) did nothing at all. The shelf now says "Couldn't capture that window", "Couldn't capture this display", "Couldn't capture that area" or "Couldn't capture the screen".
+- Starting a selection next to a window that hangs off the screen edge could start it off-screen, so a ⇧ square came out not quite square.
+- Snap guides and "Snapped to window" no longer show for a window edge that's past the edge of the display.
+- Letting go of Space after moving a selection now applies ⇧ (square) or ⌥ (from center) straight away, not on the next mouse move.
+- After a display changed resolution, a capture could use the old size if Margin missed the change. It now notices and retries.
+- ⌥ (keep shadow) shots of a window partly off-screen are never clipped.
+
 ## 0.0.8 — 2026-10-15
 
 ### Fixed
