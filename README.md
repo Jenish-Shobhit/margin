@@ -1,60 +1,209 @@
-<img src="docs/icon.png" width="128" height="128" alt="Margin icon">
+<p align="center">
+  <img src="docs/icon.png" width="128" height="128" alt="Margin app icon">
+</p>
 
-# Margin
+<h1 align="center">Margin</h1>
 
-Screenshots that wait in the margin of your screen until you drag them where they belong. Native macOS.
+<p align="center">
+  Screenshots that wait in the margin of your screen until you drag them where they belong.<br>
+  A native macOS menu bar app.
+</p>
 
+<p align="center">
+  <a href="https://github.com/Jenish-Shobhit/margin/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Jenish-Shobhit/margin?label=release"></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue"></a>
+  <img alt="macOS 26 or later" src="https://img.shields.io/badge/macOS-26%2B-000000?logo=apple&logoColor=white">
+  <img alt="Apple silicon" src="https://img.shields.io/badge/Apple%20silicon-arm64-000000">
+  <img alt="Swift 6" src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white">
+</p>
 
-Every capture is saved to disk, copied to the clipboard, and put on a shelf of thumbnails at the right edge of the screen. A thumbnail stays there until you drag it into another app or dismiss it.
+![A Mac desktop with Margin's shelf of screenshot cards on the right edge](docs/images/hero.png)
+
+![Capturing an area: the shot flies onto the shelf, then gets dragged into another app](docs/images/demo.gif)
+
+Every capture is saved to disk, copied to the clipboard and put on a shelf of thumbnails at the right edge of the screen. A thumbnail stays there until you drag it into another app or dismiss it.
+
+## Why Margin
+
+- **Saved and copied, every time.** Each shot is a PNG in `~/Desktop/Screenshots` and on the clipboard. There's no preview to dismiss and no "save?" step.
+- **A shelf that waits.** The thumbnail stays at the edge of the screen until you drag it somewhere. It's still there after you quit or restart.
+- **Never in its own shots.** The shelf, the selection overlay, toasts and the fly-in animation are left out of every capture.
+- **Instant.** ⇧⌘4 freezes the screen at once, and letting go of the mouse captures. There's no confirm step.
+- **⌘V works in terminals.** The clipboard carries the image *and* the saved file, so ⌘V in Ghostty pastes the file's path and Claude Code attaches the screenshot.
 
 ## Features
 
-- **Instant capture.** Area, window and full-screen shots on a frozen screen. Releasing the mouse captures; there is no extra confirm step.
-- **Saved and copied every time.** Each shot lands in `~/Desktop/Screenshots` as a PNG (24-hour names, never a half-written file) and on the clipboard, ready for ⌘V.
-- **The shelf.** Thumbnails stack on the right edge, newest at the bottom. Drag one into Slack, Chrome, Finder or Terminal; it leaves the shelf when the drop lands. Older shots fold into a `+N older` pile.
-- **Precise selection.** A pixel magnifier on demand (Z) with the colour under the cursor, snapping to window edges, resize handles, arrow-key nudging, ⇧ for a square, ⌥ from the centre.
-- **Window mode.** Press Space while selecting to capture a single window with transparent corners and no shadow (hold ⌥ to keep it).
-- **Repeat last area.** ⌘⇧2 captures the same rectangle again with no overlay.
-- **Stays out of the way.** No Dock icon, the shelf never takes focus, tucks away with ⌘⇧1, and never appears in its own screenshots.
-- **Undo.** ⌘Z (or Restore Last Removed in the menu bar) brings back anything that left the shelf, including files you moved to the Trash from it.
+**Capture**
 
-## Shortcuts
+- Area capture on a frozen screen: drag and release. ⇧ makes a square, ⌥ draws from the centre and holding Space moves the selection.
+- Fine-tune before capturing with resize handles and arrow-key nudging (1 px, or 10 px with ⇧). Edges snap to window edges.
+- A magnifier on demand (Z): an 11 × 11 pixel grid with the position and colour under the pointer.
+- Window mode (Space): just one window, with transparent rounded corners and no shadow. Hold ⌥ to keep the shadow.
+- Full screen of the display under the pointer (⇧⌘3), and the last area again with no overlay (⇧⌘2).
+- Works across several displays, including ones with different scales.
 
-| Keys | Action |
-|---|---|
-| ⌘⇧4 | Capture an area. Press Space for window mode |
-| ⌘⇧3 | Capture the screen under the pointer |
-| ⌘⇧2 | Repeat the last area (no overlay) |
-| ⌘⇧1 | Tuck or show the shelf |
-| ⌃⌘⇧4 · ⌃⌘⇧3 · ⌃⌘⇧2 | Same as without ⌃ (every shot is already copied) |
+**Save and copy**
 
-While selecting: drag, then release to capture · ⇧ square · ⌥ from centre · hold Space to move · Z magnifier · ←↑→↓ nudge (hold to speed up, ⇧ for 10 px) · ↩ capture · Esc cancel.
+- PNGs named `Screenshot 2026-10-14 at 17.42.17.png` (24-hour time), written atomically so no app ever sees half a file.
+- Keeps the display's colour profile and the Retina DPI (144), as macOS does.
+- The clipboard gets the PNG and the saved file. The shutter sound follows your alert volume.
 
-On the shelf (click it first): click to copy · drag to send · ⌘-click to select several · Space for Quick Look · ⌫ to dismiss · double-click to open · ⌘Z to undo.
+**The shelf**
 
-All four shortcuts can be changed in Settings. ⌘⇧5 stays with macOS for screen recording.
+- Up to four cards on the right edge of the display you last captured on, newest at the bottom. Older shots fold into a `+N older` pile.
+- Drag a card into Finder, Slack, Chrome, WhatsApp, Terminal or any other app. It leaves the shelf when the drop lands; the file is never moved or deleted.
+- Click to copy again, Space for Quick Look, double-click to open. Rename, Reveal in Finder, Copy Path and Move to Trash are in each card's menu.
+- ⌘Z (or **Restore Last Removed** in the menu bar) brings back the last 20 removals, including files you moved to the Trash.
+- ⇧⌘1 tucks the shelf into a small tab. It never takes focus from the app you're in, and it's there on every Space and over full-screen apps.
+- Follows files you rename or move in Finder.
+
+**The app**
+
+- Menu bar only, with no Dock icon. A three-step first-run guide, five settings and launch at login.
+- Supports light and dark mode, Reduce Motion and Reduce Transparency.
 
 ## Install
 
-Margin needs macOS 26 (Tahoe) or later on Apple silicon.
+1. Download `Margin-<version>.zip` from the [latest release](https://github.com/Jenish-Shobhit/margin/releases/latest).
+2. Unzip it and move **Margin.app** to `/Applications`. Keep it there: the Screen Recording permission belongs to that copy, and launch at login only registers from `/Applications`.
+3. Open Margin. It isn't notarized yet, so macOS blocks the first launch:
+   1. In the "Margin" Not Opened dialog, click **Done** (not Move to Trash).
+   2. Open **System Settings › Privacy & Security** and scroll down to **Security**.
+   3. Next to "Margin" was blocked…, click **Open Anyway**, then confirm with your password or Touch ID.
 
-1. Download the latest `Margin-<version>.zip` from [Releases](https://github.com/Jenish-Shobhit/margin/releases).
-2. Unzip it and move **Margin.app** to `/Applications`.
-3. Open it. Margin isn't notarized yet, so macOS blocks the first launch. Go to **System Settings › Privacy & Security**, scroll down, and click **Open Anyway**.
+You only do this once per download. If it still won't open, see [Troubleshooting](docs/troubleshooting.md#margin-cant-be-opened).
+
+**Requirements:** macOS 26 (Tahoe) or later on Apple silicon. Intel Macs aren't supported.
 
 ## First run
 
 A small window walks you through three steps:
 
-1. **Allow Screen Recording.** Margin needs it to see the screen. Grant it in System Settings › Privacy & Security › Screen & System Audio Recording, then relaunch Margin if asked.
-2. **Hand over the shortcuts.** Click **Turn off for me** and Margin turns off the four macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4, ⌃⇧⌘4) so it receives them. It applies at once; **Restore macOS screenshot shortcuts** in Settings undoes it.
-3. **Take your first shot.** Press ⌘⇧4. Launch at login is on; you can change it in Settings.
+1. **Allow Screen Recording.** Click **Allow…**, then turn Margin on in System Settings › Privacy & Security › Screen & System Audio Recording. If macOS doesn't pick it up, click **Relaunch Margin**.
+2. **Hand over the shortcuts.** Click **Turn off for me**. Margin turns off the four macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4 and ⌃⇧⌘4) so it receives those keys. It takes effect at once, with no logout. ⇧⌘5 stays with macOS for screen recording.
+3. **Take your first shot.** Press ⇧⌘4. The window closes after your first capture.
 
-Until step 2 is done, everything also works from the menu bar icon, and its menu shows "macOS still uses ⇧⌘4 — Fix…" to take you back to the checklist.
+Launch at login is on by default. If you skip step 2, the menu bar menu offers "macOS still uses ⇧⌘4 — Fix…" to bring it back. Everything also works from the menu bar icon.
 
-## Build from source
+## Everyday use
 
-You need the Xcode Command Line Tools (Swift 6). Xcode itself isn't required.
+1. Press ⇧⌘4 and drag over what you want. Let go: the shot is saved, copied and flies onto the shelf.
+2. Paste it with ⌘V, or drag its card into any app.
+3. Click a card to copy it again. A small **⌘V** pill marks the card that's on the clipboard.
+4. Press ⇧⌘1 to tuck the shelf away, and again to bring it back.
+
+The [user guide](docs/user-guide.md) covers everything else.
+
+## Shortcuts
+
+All four global shortcuts can be changed in Settings. The full list is in [docs/shortcuts.md](docs/shortcuts.md).
+
+**Global**
+
+| Keys | Action |
+|---|---|
+| ⇧⌘4 | Capture an area (press Space for window mode) |
+| ⇧⌘3 | Capture the screen under the pointer |
+| ⇧⌘2 | Capture the last area again, with no overlay |
+| ⇧⌘1 | Tuck or show the shelf |
+| ⌃⇧⌘4 · ⌃⇧⌘3 · ⌃⇧⌘2 | Same as without ⌃ (every shot is already copied) |
+
+**While selecting**
+
+| Keys | Action |
+|---|---|
+| Drag, then release | Capture the area |
+| ⇧ / ⌥ while dragging | Square / draw from the centre |
+| Hold Space while dragging | Move the selection |
+| Space | Switch between area and window mode |
+| ←↑→↓ | Nudge 1 px (⇧ for 10 px; holding speeds up) |
+| Z | Show or hide the magnifier |
+| ⌥-click (window mode) | Capture the window with its shadow |
+| ↩ | Capture the adjusted selection |
+| Esc or right-click | Cancel |
+
+**On the shelf** (click it first)
+
+| Keys | Action |
+|---|---|
+| Click | Copy the shot |
+| Drag | Send it to another app (hold ⌥ at the drop to keep the card) |
+| ⌘-click · ⌘A | Select several · select all |
+| ⌘C | Copy the selected shots |
+| Space | Quick Look |
+| ⌫ | Dismiss (the file stays on disk) |
+| Double-click | Open in the default app |
+| ⌘Z | Bring back what was last removed |
+
+## Clipboard
+
+Each capture (with **Copy each capture** on) and each copy from the shelf puts one clipboard item per shot. It holds the PNG, with the same bytes as the file, and the saved file itself. Each app picks the form it understands:
+
+| Where you paste | What you get |
+|---|---|
+| Notes, Pages, Mail, image editors | The image |
+| Chrome and Chromium-based apps (claude.ai in Chrome, Slack) | The PNG file, uploaded under its real name |
+| Ghostty (⌘V) | The file's path, shell-escaped. In Claude Code, that attaches the screenshot |
+| Claude Code in any terminal (Ctrl+V) | The image, read straight from the clipboard |
+| Other terminals (⌘V) | Depends on the terminal. Use Ctrl+V in Claude Code, or drag the card in to type its path |
+
+- The clipboard is written once the PNG is on disk, a fraction of a second after the capture.
+- Only the newest capture writes the clipboard, and a copy you make from the shelf meanwhile wins.
+- If a shot couldn't be saved, the clipboard gets the image only.
+- **Copy Path** in a card's menu puts the path as plain text.
+- The ⌘V pill clears within about a second once something else is copied.
+
+## Settings
+
+Open **Settings…** from the menu bar icon.
+
+![Margin Settings](docs/images/settings.png)
+
+| Setting | Default | |
+|---|---|---|
+| Save to | `~/Desktop/Screenshots` | Created when missing |
+| Copy each capture | On | Off leaves the clipboard alone; click a card to copy it |
+| Shutter sound | On | Silent when "Play user interface sound effects" is off in System Settings › Sound |
+| Launch at login | On | Shows what macOS really has, including "waiting for approval" |
+| Shortcuts | ⇧⌘4 · ⇧⌘3 · ⇧⌘2 · ⇧⌘1 | Capture area, Capture screen, Repeat last area, Show or tuck shelf |
+
+Under the shortcuts, **macOS screenshot shortcuts** shows whether macOS still owns ⇧⌘3 and ⇧⌘4. It has a button to turn them off, or to restore them once they're all off.
+
+## Privacy
+
+Margin works entirely on your Mac. It has no networking code, no analytics, no telemetry, no accounts and no update checks.
+
+| What | Where |
+|---|---|
+| Screenshots | Your save folder (default `~/Desktop/Screenshots`). If that can't be written: `~/Library/Application Support/Margin/Unsaved/` |
+| The shelf's list (paths, Finder bookmarks, dates, pixel sizes) | `~/Library/Application Support/Margin/shelf.json` |
+| Settings, shortcuts, the last area for ⇧⌘2, a few counters | The preferences domain `io.github.jenish-shobhit.margin` |
+| Diagnostics (timings, saved file names, errors) | The macOS unified log, subsystem `io.github.jenish-shobhit.margin`, like any app's logs |
+
+- Margin asks for Screen Recording. macOS also asks before it first writes to your Desktop folder.
+- It changes the macOS screenshot shortcuts (`com.apple.symbolichotkeys`) only when you click **Turn off for me**, **Turn off macOS screenshot shortcuts** or **Restore macOS screenshot shortcuts**.
+- [SECURITY.md](SECURITY.md) lists everything the app touches.
+
+## Uninstall
+
+1. **Restore the macOS screenshot shortcuts first.** Open Margin's Settings and click **Restore macOS screenshot shortcuts**. If the button reads "Turn off…" instead, some are already on; turn the others back on in System Settings › Keyboard › Keyboard Shortcuts… › Screenshots.
+2. In the same window, turn off **Launch at login**. That removes the login item.
+3. Quit Margin from its menu bar icon (**Quit Margin**).
+4. Delete `/Applications/Margin.app`.
+5. Remove its data and preferences. Look in `Unsaved` for any screenshots you want to keep first.
+
+   ```sh
+   rm -rf ~/Library/Application\ Support/Margin
+   defaults delete io.github.jenish-shobhit.margin
+   ```
+
+6. Optional: clear its privacy permissions with `tccutil reset All io.github.jenish-shobhit.margin`. If Margin still shows in System Settings › General › Login Items, remove it there.
+
+Your screenshots stay in your save folder.
+
+## Building from source
+
+You need the Xcode Command Line Tools (Swift 6.2 or later); Xcode isn't required.
 
 ```sh
 git clone https://github.com/Jenish-Shobhit/margin.git
@@ -62,18 +211,25 @@ cd margin
 scripts/build.sh --install --run
 ```
 
-`scripts/build.sh` builds a release `Margin.app` (arm64), signs it, and with `--install` replaces `/Applications/Margin.app`. Other options: `--debug`, `--run`, `--zip` (writes `dist/Margin-<version>.zip`; release builds only). A debug build carries a control hook for `scripts/debug.sh`, so the script refuses to zip one and warns loudly when you install one.
+Create a self-signed **Margin Dev** code-signing certificate first, or macOS asks for Screen Recording again after every build. [docs/building.md](docs/building.md) covers the certificate, tests, the debug hook and releases.
 
-**Optional, recommended:** create a self-signed code-signing certificate named **Margin Dev** (Keychain Access › Certificate Assistant › Create a Certificate…, type *Code Signing*). The build script uses it when present, so the Screen Recording permission survives rebuilds. Without it the app is signed ad-hoc and macOS asks for permission again after every build.
+## Documentation
 
-Run the tests with `scripts/test.sh`. Debug builds also listen for `scripts/debug.sh` commands (`capture-area x y w h`, `capture-screen`, `toggle-shelf`, `clear`, `dump-state`).
+- [User guide](docs/user-guide.md): everything Margin does, step by step.
+- [Shortcuts](docs/shortcuts.md): the complete reference.
+- [Troubleshooting](docs/troubleshooting.md): Gatekeeper, permissions, shortcuts, pasting and the shelf.
+- [Building](docs/building.md): the toolchain, signing, tests, the debug hook and releases.
+- [Architecture](docs/architecture.md): how the code fits together.
+- [QA checklist](docs/QA.md): the manual checks run before each release.
 
-The icon is drawn by `swift scripts/make-icon.swift`, which writes `Resources/AppIcon.icns`.
+## Contributing
 
-## Privacy
-
-Margin never connects to the network and has no analytics, accounts or telemetry. Screenshots are written only to the folder you choose (and, if that folder can't be written, to `~/Library/Application Support/Margin/Unsaved/`). The shelf's list of shots is stored locally in `~/Library/Application Support/Margin/shelf.json`.
+Bug reports and focused pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: Margin is deliberately a screenshot tool, nothing more. Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
 [MIT](LICENSE) © 2026 Jenish Shobhit
+
+## Acknowledgements
+
+Margin is shaped by tools that got screenshots right before it: [CleanShot X](https://cleanshot.com), [Shottr](https://shottr.cc), [Dropover](https://dropoverapp.com), [Yoink](https://eternalstorms.at/yoink/) and macOS's own screenshot tool. They're inspiration only: Margin shares no code with them and has no third-party dependencies.
