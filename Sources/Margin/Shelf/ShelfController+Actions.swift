@@ -106,7 +106,8 @@ extension ShelfController {
         copy(ids)
     }
 
-    /// Reads the files off the main thread, then puts the same bytes on the clipboard.
+    /// Reads the files off the main thread, then puts the same bytes on the clipboard, each with its file's
+    /// URL (as a capture does, so ⌘V in a terminal pastes the paths).
     func copy(_ ids: [UUID]) {
         let ids = ordered(ids)
         let ready = ids.filter { !pending.contains($0) }
@@ -119,10 +120,10 @@ extension ShelfController {
         copyGeneration += 1
         let generation = copyGeneration
         Task { [weak self] in
-            let results = await ShelfFiles.check(items) { ShelfFiles.pngData(at: $0) }
+            let results = await ShelfFiles.check(items) { url in ShelfFiles.pngData(at: url).map { (png: $0, url: url) } }
             guard let self, generation == self.copyGeneration else { return }
             let live = self.apply(results)
-            let copied = live.compactMap { r in r.value.map { (id: r.item.id, png: $0) } }
+            let copied = live.compactMap { r in r.value.map { (id: r.item.id, png: $0.png, url: $0.url) } }
             guard let markID = copied.last?.id else {
                 if results.contains(where: { $0.status.isGone }) {
                     self.showToast("File not found", isError: true)
@@ -131,7 +132,8 @@ extension ShelfController {
                 }
                 return
             }
-            let changeCount = ClipboardWriter.write(pngs: copied.map(\.png), to: self.pasteboard)
+            let changeCount = ClipboardWriter.write(
+                pngs: copied.map(\.png), fileURLs: copied.map(\.url), to: self.pasteboard)
             self.setClipboardMark(markID)
             self.showToast("Copied")
             self.onCopied?(markID, changeCount)
