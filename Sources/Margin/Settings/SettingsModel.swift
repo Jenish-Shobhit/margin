@@ -15,8 +15,12 @@ final class SettingsModel {
     private(set) var saveFolderExists: Bool?
     private(set) var copyEachCapture: Bool
     private(set) var shutterSound: Bool
-    private(set) var launchAtLogin: Bool
+    /// The login item's real state (`LoginItem.state`), not the preference: on once registered.
+    private(set) var launchAtLogin = false
+    /// Registered, but the user still has to allow it in System Settings › General › Login Items.
     private(set) var loginNeedsApproval = false
+    /// Shown under the toggle when turning launch at login on didn't work.
+    private(set) var loginItemError: String?
     private(set) var shortcuts: [ShortcutAction: KeyCombo] = [:]
 
     /// The recorder that's listening for keys, if any.
@@ -33,6 +37,9 @@ final class SettingsModel {
     @ObservationIgnored private var monitor: Any?
     @ObservationIgnored private var checkedFolder: URL?
     @ObservationIgnored private var folderCheck: Task<Void, Never>?
+    // Login item sources, swappable for visual checks.
+    @ObservationIgnored var readLoginItem: () -> LoginItem.State = { LoginItem.state }
+    @ObservationIgnored var setLoginItem: (Bool) -> Void = { LoginItem.setEnabled($0) }
 
     static let genericFolderIcon = NSWorkspace.shared.icon(for: .folder)
 
@@ -42,8 +49,8 @@ final class SettingsModel {
         saveFolder = prefs.saveFolder
         copyEachCapture = prefs.copyEachCapture
         shutterSound = prefs.shutterSound
-        launchAtLogin = prefs.launchAtLogin
         reload()
+        refreshLoginItem()
         hotkeyFailures = status.hotkeyFailures
         let center = NotificationCenter.default
         observers.append(center.addObserver(forName: Preferences.didChange, object: prefs, queue: .main) { [weak self] _ in
@@ -71,8 +78,6 @@ final class SettingsModel {
         saveFolder = prefs.saveFolder
         copyEachCapture = prefs.copyEachCapture
         shutterSound = prefs.shutterSound
-        launchAtLogin = prefs.launchAtLogin
-        loginNeedsApproval = LoginItem.requiresApproval
         shortcuts = Dictionary(uniqueKeysWithValues: ShortcutAction.allCases.map { ($0, prefs.shortcut(for: $0)) })
         refreshFolderInfo()
     }
@@ -111,10 +116,26 @@ final class SettingsModel {
     func setCopyEachCapture(_ on: Bool) { prefs.copyEachCapture = on }
     func setShutterSound(_ on: Bool) { prefs.shutterSound = on }
 
-    func setLaunchAtLogin(_ on: Bool) {
-        LoginItem.setEnabled(on)
-        prefs.launchAtLogin = on
+    // MARK: Launch at login
+
+    /// Re-reads the login item (an `SMAppService` query, so not on every preference change): when the window
+    /// opens or becomes key again (e.g. back from System Settings), and after toggling.
+    func refreshLoginItem() {
+        let state = readLoginItem()
+        launchAtLogin = state.isOn
+        loginNeedsApproval = state == .needsApproval
+        if state.isOn { loginItemError = nil }
     }
+
+    func setLaunchAtLogin(_ on: Bool) {
+        setLoginItem(on)
+        prefs.launchAtLogin = on
+        refreshLoginItem()
+        loginItemError = on && !launchAtLogin
+            ? "Couldn’t turn on launch at login. Make sure Margin is in the Applications folder." : nil
+    }
+
+    func openLoginItemsSettings() { LoginItem.openSystemSettings() }
 
     var saveFolderDisplay: String { (saveFolder.path as NSString).abbreviatingWithTildeInPath }
 

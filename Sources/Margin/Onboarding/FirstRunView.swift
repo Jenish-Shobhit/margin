@@ -93,13 +93,28 @@ struct FirstRunView: View {
         if model.state(of: .firstShot) == .done {
             Detail("You’re set.")
         } else {
+            // Says "on" only when the login item really is registered and allowed.
             HStack(spacing: 0) {
                 Text("Press ")
                 Kbd(model.areaShortcut)
-                Text(model.launchAtLogin ? ". Launch at login is on." : ". Launch at login is off.")
+                switch model.loginItem {
+                case .on: Text(". Launch at login is on.")
+                case .needsApproval: Text(".")
+                case .off: Text(". Launch at login is off.")
+                }
             }
             .font(.system(size: 13))
             .foregroundStyle(.secondary)
+            if model.loginItem == .needsApproval {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("Launch at login is waiting for your approval.")
+                        .foregroundStyle(.secondary)
+                    Button("Open Login Items") { model.openLoginItemsSettings() }
+                        .buttonStyle(.link)
+                }
+                .font(.system(size: 12))
+                .padding(.top, 4)
+            }
         }
     }
 }

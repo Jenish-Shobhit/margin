@@ -28,10 +28,19 @@ struct SettingsView: View {
                 Toggle("Shutter sound", isOn: Binding(get: { model.shutterSound }, set: model.setShutterSound))
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: model.setLaunchAtLogin))
-                    if model.launchAtLogin && model.loginNeedsApproval {
-                        Text("Allow Margin in System Settings › General › Login Items.")
+                    if model.loginNeedsApproval {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("Approve in System Settings › General › Login Items.")
+                                .foregroundStyle(.secondary)
+                            Button("Open Login Items") { model.openLoginItemsSettings() }
+                                .buttonStyle(.link)
+                        }
+                        .font(.caption)
+                    } else if let error = model.loginItemError {
+                        Text(error)
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }

@@ -92,10 +92,11 @@ final class FirstRunWindowController: NSObject, NSWindowDelegate {
     private func startPolling() {
         guard poll == nil else { return }
         poll = Task { [weak self] in
-            while !Task.isCancelled {
+            // The first pass runs as soon as the caller returns, e.g. once the coordinator has registered the
+            // login item at first launch, so step 3 doesn't say "off" for a second.
+            while !Task.isCancelled, let model = self?.model {
+                model.refresh()
                 try? await Task.sleep(for: .seconds(1))
-                guard let self, !Task.isCancelled else { return }
-                self.model.refresh()
             }
         }
     }

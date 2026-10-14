@@ -24,7 +24,8 @@ final class FirstRunModel {
     /// IDs of enabled macOS shortcuts that take one of Margin's keys.
     private(set) var conflictIDs: Set<Int> = []
     private(set) var areaShortcut = ShortcutAction.captureArea.defaultCombo.displayString
-    private(set) var launchAtLogin = true
+    /// The login item's real state (`LoginItem.state`), so step 3 only says "on" when it is.
+    private(set) var loginItem: LoginItem.State = .off
     var capturedOnce = false
     /// Brief "You're set" state before the window closes.
     var finished = false
@@ -36,6 +37,7 @@ final class FirstRunModel {
     @ObservationIgnored var revoked: () -> Bool = { RuntimeStatus.shared.screenRecordingRevoked }
     @ObservationIgnored var request: () -> Void = { _ = CGRequestScreenCaptureAccess() }
     @ObservationIgnored var readShortcuts: () -> [SystemScreenshotShortcut] = { SystemShortcuts.current() }
+    @ObservationIgnored var readLoginItem: () -> LoginItem.State = { LoginItem.state }
     @ObservationIgnored var prefs: Preferences = .shared
 
     var permissionDone: Bool { !permissionRevoked && (hasPermission || capturedOnce) }
@@ -80,7 +82,7 @@ final class FirstRunModel {
         shortcuts = readShortcuts()
         conflictIDs = Set(SystemShortcuts.conflicts(shortcuts, with: prefs.registeredCombos().map(\.combo)).map(\.id))
         areaShortcut = prefs.shortcut(for: .captureArea).displayString
-        launchAtLogin = prefs.launchAtLogin
+        loginItem = readLoginItem()
     }
 
     // MARK: Actions
@@ -93,6 +95,7 @@ final class FirstRunModel {
 
     func openScreenRecordingSettings() { NSWorkspace.shared.open(Self.screenRecordingSettings) }
     func openKeyboardSettings() { NSWorkspace.shared.open(Self.keyboardSettings) }
+    func openLoginItemsSettings() { LoginItem.openSystemSettings() }
 }
 
 extension FirstRunWindowController.Step: CaseIterable {
