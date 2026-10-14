@@ -22,7 +22,8 @@ private func srgb(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat) -> CGC
     CGColor(colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, components: [r, g, b, a])!
 }
 
-/// A small rounded label: the size pill, "Snapped to window", the window pill, the loupe label and notes.
+/// A small rounded label: the size pill, "Snapped to window", the active mode, the window pill, the loupe label
+/// and notes.
 final class PillView: NSView {
     /// `dark`: figures in a monospaced font; `note`: the same look for a sentence; `accent`: highlighted.
     enum Style { case dark, note, accent }
@@ -68,27 +69,57 @@ final class PillView: NSView {
     }
 }
 
-/// The hint bar at the top center.
+/// The hint bar at the top center. An item whose key is held right now (⇧, ⌥, Space) is highlighted, so it's
+/// clear what the key just did.
 final class HUDView: NSView {
     struct Item: Equatable {
         let key: String?
         let label: String
+        var highlighted = false
+        /// Also make room for this label, so swapping between the two doesn't shift the bar.
+        var reserve: String?
     }
 
-    static let areaItems = [
-        Item(key: "Space", label: "Window"), Item(key: "⇧", label: "Square"), Item(key: "⌥", label: "From center"),
-        Item(key: "←↑→↓", label: "Nudge"), Item(key: "↩", label: "Capture"), Item(key: "Esc", label: "Cancel"),
-    ]
-    static let windowItems = [
-        Item(key: nil, label: "Click to capture"), Item(key: "⌥", label: "Keep shadow"),
-        Item(key: "Space", label: "Area"), Item(key: "Esc", label: "Cancel"),
-    ]
+    /// Keys held during a capture that change what happens.
+    struct Held: OptionSet, Equatable {
+        let rawValue: Int
+        /// ⇧ while drawing: a square.
+        static let square = Held(rawValue: 1 << 0)
+        /// ⌥ while drawing: grows around the starting point.
+        static let fromCenter = Held(rawValue: 1 << 1)
+        /// Space while drawing: moves the selection.
+        static let move = Held(rawValue: 1 << 2)
+        /// ⌥ in window mode: the shot keeps the window's shadow.
+        static let keepShadow = Held(rawValue: 1 << 3)
+    }
+
+    /// While drawing a selection, Space moves it; otherwise it switches to window mode.
+    static func areaItems(drawing: Bool, held: Held) -> [Item] {
+        [
+            Item(key: "Space", label: drawing ? "Move" : "Window", highlighted: held.contains(.move), reserve: drawing ? "Window" : "Move"),
+            Item(key: "⇧", label: "Square", highlighted: held.contains(.square)),
+            Item(key: "⌥", label: "From center", highlighted: held.contains(.fromCenter)),
+            Item(key: "←↑→↓", label: "Nudge"), Item(key: "↩", label: "Capture"), Item(key: "Esc", label: "Cancel"),
+        ]
+    }
+
+    static func windowItems(held: Held) -> [Item] {
+        [
+            Item(key: nil, label: "Click to capture"), Item(key: "⌥", label: "Keep shadow", highlighted: held.contains(.keepShadow)),
+            Item(key: "Space", label: "Area"), Item(key: "Esc", label: "Cancel"),
+        ]
+    }
 
     private static let keyFont = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
     private static let labelFont = NSFont.systemFont(ofSize: 12)
+    private static let highlightLabelFont = NSFont.systemFont(ofSize: 12, weight: .semibold)
     private static let padX: CGFloat = 14, gap: CGFloat = 14, keyGap: CGFloat = 4, keyPadX: CGFloat = 6, height: CGFloat = 38
+    /// The highlight reaches this far past an item's key and label (less than half the gap, so neighbours never touch).
+    private static let highlightPadX: CGFloat = 5, highlightHeight: CGFloat = 28
 
     private(set) var items: [Item] = []
+    /// Each item's slot: x and width (at least its content; more with `reserve`).
+    private var slots: [(x: CGFloat, width: CGFloat)] = []
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -102,26 +133,43 @@ final class HUDView: NSView {
 
     @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
 
+    /// Redraws only when something changed (an item, its label or its highlight).
     func setItems(_ newItems: [Item]) {
         guard newItems != items else { return }
+        let resized = newItems.map { [$0.key, $0.label, $0.reserve] } != items.map { [$0.key, $0.label, $0.reserve] }
         items = newItems
-        var w = Self.padX * 2
-        for (i, item) in items.enumerated() {
-            if i > 0 { w += Self.gap }
-            if let key = item.key { w += keySize(key).width + Self.keyGap }
-            w += ceil(label(item.label).size().width)
+        guard resized || slots.count != items.count else {
+            needsDisplay = true
+            return
         }
-        setFrameSize(CGSize(width: ceil(w), height: Self.height))
+        slots = []
+        var x = Self.padX
+        for (i, item) in items.enumerated() {
+            if i > 0 { x += Self.gap }
+            let w = max(contentWidth(item, item.label), item.reserve.map { contentWidth(item, $0) } ?? 0)
+            slots.append((x, w))
+            x += w
+        }
+        setFrameSize(CGSize(width: ceil(x + Self.padX), height: Self.height))
         layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: 12, cornerHeight: 12, transform: nil)
         needsDisplay = true
+    }
+
+    private func contentWidth(_ item: Item, _ text: String) -> CGFloat {
+        // Measured in the highlight's (heavier) font, so highlighting never overflows the slot.
+        (item.key.map { keySize($0).width + Self.keyGap } ?? 0)
+            + ceil(label(text, highlighted: true).size().width)
     }
 
     private func key(_ s: String) -> NSAttributedString {
         NSAttributedString(string: s, attributes: [.font: Self.keyFont, .foregroundColor: NSColor.white])
     }
 
-    private func label(_ s: String) -> NSAttributedString {
-        NSAttributedString(string: s, attributes: [.font: Self.labelFont, .foregroundColor: NSColor(white: 1, alpha: 0.92)])
+    private func label(_ s: String, highlighted: Bool = false) -> NSAttributedString {
+        NSAttributedString(string: s, attributes: [
+            .font: highlighted ? Self.highlightLabelFont : Self.labelFont,
+            .foregroundColor: NSColor(white: 1, alpha: highlighted ? 1 : 0.92),
+        ])
     }
 
     private func keySize(_ s: String) -> CGSize {
@@ -137,17 +185,23 @@ final class HUDView: NSView {
         bg.lineWidth = 1
         bg.stroke()
 
-        var x = Self.padX
         let midY = bounds.midY
-        for (i, item) in items.enumerated() {
-            if i > 0 { x += Self.gap }
+        for (item, slot) in zip(items, slots) {
+            let content = contentWidth(item, item.label)
+            if item.highlighted {
+                let h = CGRect(x: slot.x - Self.highlightPadX, y: (midY - Self.highlightHeight / 2).rounded(),
+                               width: slot.width + 2 * Self.highlightPadX, height: Self.highlightHeight)
+                OverlayStyle.accent.setFill()
+                NSBezierPath(roundedRect: h, xRadius: 8, yRadius: 8).fill()
+            }
+            var x = (slot.x + (slot.width - content) / 2).rounded()
             if let k = item.key {
                 let size = keySize(k)
                 let r = CGRect(x: x, y: (midY - size.height / 2).rounded(), width: size.width, height: size.height)
                 let cap = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
-                NSColor(white: 1, alpha: 0.12).setFill()
+                NSColor(white: 1, alpha: item.highlighted ? 0.22 : 0.12).setFill()
                 cap.fill()
-                NSColor(white: 1, alpha: 0.2).setStroke()
+                NSColor(white: 1, alpha: item.highlighted ? 0.4 : 0.2).setStroke()
                 cap.lineWidth = 1
                 cap.stroke()
                 // The heavier bottom edge of a key cap.
@@ -161,10 +215,9 @@ final class HUDView: NSView {
                 t.draw(at: CGPoint(x: r.midX - ts.width / 2, y: r.midY - ts.height / 2 + 0.5))
                 x = r.maxX + Self.keyGap
             }
-            let l = label(item.label)
+            let l = label(item.label, highlighted: item.highlighted)
             let ls = l.size()
             l.draw(at: CGPoint(x: x, y: midY - ls.height / 2))
-            x += ceil(ls.width)
         }
     }
 }
