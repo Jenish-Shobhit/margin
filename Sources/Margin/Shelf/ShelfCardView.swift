@@ -315,6 +315,7 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
 
     /// Hidden while the fly-in is in the air; revealed at hand-off.
     func setAwaitingFlyIn(_ waiting: Bool) {
+        guard !isLeaving else { return }
         body.removeAnimation(forKey: "opacity")
         body.opacity = waiting ? 0 : targetOpacity
     }

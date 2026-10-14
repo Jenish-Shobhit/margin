@@ -16,6 +16,8 @@ struct ShelfUndoStep {
     var thumbnails: [UUID: CGImage] = [:]
 
     static let limit = 20
+    /// Only the newest few steps keep their thumbnails in memory; older ones reload from disk.
+    static let thumbnailSteps = 5
 }
 
 /// Spec §5: every shelf interaction.
@@ -277,6 +279,9 @@ extension ShelfController {
         undoStack.append(ShelfUndoStep(kind: kind, removals: removals, trashed: trashed, thumbnails: thumbs))
         if store.items.isEmpty, panel.isKeyWindow { lingerUntil = Date().addingTimeInterval(3) }
         if undoStack.count > ShelfUndoStep.limit { undoStack.removeFirst(undoStack.count - ShelfUndoStep.limit) }
+        if undoStack.count > ShelfUndoStep.thumbnailSteps {
+            undoStack[undoStack.count - ShelfUndoStep.thumbnailSteps - 1].thumbnails = [:]
+        }
         detach(removals.map(\.item.id), exit: exit)
     }
 
@@ -384,13 +389,13 @@ extension ShelfController {
         let id = card.id
         let wanted = (selection.contains(id) ? ordered(selection) : [id]).filter { !pending.contains($0) }
         pruneMissing()
-        let ids = wanted.filter { cards[$0] != nil }
-        guard cards[id] != nil, !ids.isEmpty else {
+        // Only files that resolve right now (a file moved in Finder is followed via its bookmark).
+        let items = wanted.filter { cards[$0] != nil }.compactMap { id in resolvedURL(id).flatMap { _ in item(for: id) } }
+        let ids = items.map(\.id)
+        guard ids.contains(id) else {
             showToast("File not found", isError: true)
             return
         }
-        let items = ids.compactMap { id in resolvedURL(id).flatMap { _ in item(for: id) } }
-        guard !items.isEmpty else { return }
         let scale = panel.backingScaleFactor
         var dragItems: [NSDraggingItem] = []
         if items.count == 1, let only = items.first {
