@@ -45,7 +45,7 @@ Every capture is saved to disk, copied to the clipboard and put on a shelf of th
 **Save and copy**
 
 - PNGs named `Screenshot 2026-10-14 at 17.42.17.png` (24-hour time), written atomically so no app ever sees half a file.
-- Keeps the display's colour profile and the Retina DPI (144), as macOS does.
+- Keeps the display's colour profile and the Retina DPI (144), and tags the file as a screenshot (Finder and Spotlight's screenshot searches find it), as macOS does.
 - The clipboard gets the PNG and the saved file. The shutter sound follows your alert volume.
 
 **The shelf**

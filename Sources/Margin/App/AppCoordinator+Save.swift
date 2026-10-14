@@ -76,6 +76,7 @@ extension AppCoordinator {
         captureSequence += 1
         let sequence = captureSequence
         let fallbackFolder = Preferences.fallbackSaveFolder
+        let metadata = Self.metadata(for: result)
         savesInFlight += 1 // `finishSave` always runs, on success and failure alike
 
         // 5. Encode + write off the main actor; the clipboard gets the same bytes once the file is in place.
@@ -92,7 +93,7 @@ extension AppCoordinator {
 
             if let data = outcome.data {
                 let writeStart = ContinuousClock.now
-                Self.write(data, item: item, date: result.date, fallbackFolder: fallbackFolder, into: &outcome)
+                Self.write(data, item: item, date: result.date, fallbackFolder: fallbackFolder, metadata: metadata, into: &outcome)
                 outcome.writeMs = Self.milliseconds(since: writeStart)
                 outcome.finishedAt = Date()
             }
@@ -197,16 +198,17 @@ extension AppCoordinator {
     /// to the next free name if it's taken on disk, and falls back to the Unsaved folder when the save
     /// folder can't be written. On success `outcome.saved` has the final path and a fresh bookmark.
     nonisolated static func write(
-        _ data: Data, item: ShelfItem, date: Date, fallbackFolder: URL, into outcome: inout SaveOutcome
+        _ data: Data, item: ShelfItem, date: Date, fallbackFolder: URL, metadata: ScreenshotMetadata? = nil,
+        into outcome: inout SaveOutcome
     ) {
         let predicted = item.url
         do {
             let url: URL
             do {
-                try PNGWriter.writeAtomically(data, to: predicted)
+                try PNGWriter.writeAtomically(data, to: predicted, metadata: metadata)
                 url = predicted
             } catch let error as POSIXError where error.code == .EEXIST {
-                url = try PNGWriter.writeUnique(data, in: predicted.deletingLastPathComponent(), date: date)
+                url = try PNGWriter.writeUnique(data, in: predicted.deletingLastPathComponent(), date: date, metadata: metadata)
             }
             outcome.saved = savedItem(item, at: url)
             return
@@ -214,12 +216,22 @@ extension AppCoordinator {
             outcome.error = "\(predicted.deletingLastPathComponent().path): \(error.localizedDescription)"
         }
         do {
-            let url = try PNGWriter.writeUnique(data, in: fallbackFolder, date: date)
+            let url = try PNGWriter.writeUnique(data, in: fallbackFolder, date: date, metadata: metadata)
             outcome.saved = savedItem(item, at: url)
             outcome.usedFallback = true
         } catch {
             outcome.error = (outcome.error ?? "") + "; Unsaved: \(error.localizedDescription)"
         }
+    }
+
+    /// The Spotlight attributes `screencapture` sets, so Finder's and Spotlight's screenshot searches find the file.
+    static func metadata(for result: CaptureResult) -> ScreenshotMetadata {
+        let kind: ScreenshotMetadata.Kind = switch result.kind {
+        case .area: .selection
+        case .window: .window
+        case .screen: .display
+        }
+        return ScreenshotMetadata(kind: kind, globalRect: Geometry.flip(result.sourceRect, primaryHeight: Displays.primaryHeight))
     }
 
     private nonisolated static func savedItem(_ item: ShelfItem, at url: URL) -> ShelfItem {

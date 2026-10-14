@@ -25,9 +25,9 @@ public enum PNGWriter {
 
     /// Writes to a hidden temp file in the same folder, then renames into place. Never overwrites: if `url`
     /// exists it throws `POSIXError(.EEXIST)`. No app ever sees a half-written file, and the temp file is
-    /// removed on every failure. Creates the folder if needed.
-    public static func writeAtomically(_ data: Data, to url: URL) throws {
-        let tmp = try writeTemp(data, in: url.deletingLastPathComponent())
+    /// removed on every failure. Creates the folder if needed. `metadata` is set before the file appears.
+    public static func writeAtomically(_ data: Data, to url: URL, metadata: ScreenshotMetadata? = nil) throws {
+        let tmp = try writeTemp(data, in: url.deletingLastPathComponent(), metadata: metadata)
         do {
             try moveExclusively(from: tmp, to: url)
         } catch {
@@ -38,8 +38,10 @@ public enum PNGWriter {
 
     /// Like `writeAtomically`, but picks the name: the first free `FileNamer` name in `folder`, moving on to
     /// ` (2)`, ` (3)`, … if another writer takes a name between the check and the rename. Returns the final URL.
-    public static func writeUnique(_ data: Data, in folder: URL, date: Date, timeZone: TimeZone = .current) throws -> URL {
-        let tmp = try writeTemp(data, in: folder)
+    public static func writeUnique(
+        _ data: Data, in folder: URL, date: Date, timeZone: TimeZone = .current, metadata: ScreenshotMetadata? = nil
+    ) throws -> URL {
+        let tmp = try writeTemp(data, in: folder, metadata: metadata)
         var taken = Set<URL>()
         do {
             for _ in 0..<1000 {
@@ -61,7 +63,7 @@ public enum PNGWriter {
     }
 
     /// Writes `data` to a new hidden temp file in `folder` (created if missing). On failure nothing is left behind.
-    static func writeTemp(_ data: Data, in folder: URL) throws -> URL {
+    static func writeTemp(_ data: Data, in folder: URL, metadata: ScreenshotMetadata? = nil) throws -> URL {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let tmp = folder.appendingPathComponent(".margin-\(UUID().uuidString).tmp")
         do {
@@ -70,6 +72,7 @@ public enum PNGWriter {
             unlink(tmp.path) // a partial write (e.g. disk full) can leave a file behind
             throw error
         }
+        metadata?.apply(to: tmp)
         return tmp
     }
 

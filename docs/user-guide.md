@@ -132,7 +132,8 @@ The moment you let go:
    - names look like `Screenshot 2026-10-14 at 17.42.17.png`, in 24-hour time;
    - two shots in the same second get ` (2)`, ` (3)` and so on;
    - the file appears in one piece, never half-written;
-   - it keeps the display's colour profile, at 144 DPI on Retina displays.
+   - it keeps the display's colour profile, at 144 DPI on Retina displays;
+   - it's tagged as a screenshot, the way macOS tags its own, so Finder's and Spotlight's screenshot searches find it.
 4. It's copied to the clipboard as both the image and the saved file. See [the clipboard section in the README](../README.md#clipboard) for what each app pastes.
 
 If the save folder can't be written, the shot goes to `~/Library/Application Support/Margin/Unsaved/` and the shelf shows "Saved to Unsaved — folder not writable". If it can't be saved at all, the card goes away with "Couldn't save the screenshot".

@@ -34,6 +34,7 @@ Sources/MarginKit/            pure logic, no AppKit windows, fully unit-tested
   ShelfLayout.swift           card sizes, slot positions, visible vs pile
   ShelfStore.swift            Codable model + JSON persistence (bookmarks)
   PNGWriter.swift             ImageIO encode, DPI, atomic write
+  ScreenshotMetadata.swift    the screenshot tags screencapture sets
   SystemShortcuts.swift       parse com.apple.symbolichotkeys (IDs 28–31)
   ClipboardMark.swift         change-count bookkeeping
 Sources/Margin/               the app (AppKit + SwiftUI)
@@ -112,6 +113,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - Use ImageIO with `kCGImagePropertyPNGDictionary: [kCGImagePropertyPNGCompressionFilter: IMAGEIO_PNG_FILTER_NONE]`.
   - Keep the display's color profile.
   - Set DPI to 72 × scale (144 on Retina), as macOS does.
+  - Tag the file the way `screencapture` does: the `kMDItemIsScreenCapture`, `kMDItemScreenCaptureType` (selection, window, display) and `kMDItemScreenCaptureGlobalRect` extended attributes, set on the temp file before it's renamed into place.
   - Write to a hidden temp file in the same folder, then `rename(2)`, so no app sees a half-written file.
 - **Clipboard** (on by default; Settings › Copy each capture). `clearContents()`, then write the PNG data (the same bytes as the file).
   - Before finalising, run `screencapture -c` once on the dev machine, list `NSPasteboard.general.types`, and write the same *image* types macOS writes. **Since 0.0.2** each item also carries `public.file-url` of the saved file (see "Changes after 0.0.1"), so ⌘V in a terminal pastes the path.
