@@ -352,10 +352,11 @@ final class CaptureController: CaptureControlling {
     }
 
     /// A capture worked, so Screen Recording is granted: from now on the cache may touch ScreenCaptureKit in
-    /// the background.
+    /// the background, and an earlier revocation is over.
     private func permissionWorked() {
         permissionConfirmed = true
         cache.startObserving()
+        RuntimeStatus.shared.screenRecordingRevoked = false
     }
 
     /// A capture failed for lack of permission: nothing touches ScreenCaptureKit until one works again.
@@ -368,6 +369,8 @@ final class CaptureController: CaptureControlling {
         if let failed, session === failed { endSession() }
         if ScreenGrabber.isPermissionError(error) {
             permissionLost()
+            // Preflight is cached per process and may still say "granted": record the revocation for the UI.
+            RuntimeStatus.shared.screenRecordingRevoked = true
             CaptureLog.capture.error("capture failed: Screen Recording permission missing")
             onPermissionMissing?()
         } else {
