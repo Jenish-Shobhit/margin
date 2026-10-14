@@ -47,7 +47,11 @@ final class OverlayView: NSView {
     private let imageLayer = CALayer()
     private let unavailableLayer = CALayer()
     private let unavailablePill = PillView(style: .note)
-    private let dimLayers = (0..<4).map { _ in CALayer() }
+    /// Dims the whole display while there's a selection. It never moves, so a moving selection doesn't repaint it.
+    private let dimLayer = CALayer()
+    /// The selection: the frozen frame's own pixels, undimmed, above `dimLayer`. Moving or resizing it repaints
+    /// only its old and new rects. (Dim strips around the selection repainted the full width or height per step.)
+    private let holeLayer = CALayer()
     private let borderLayer = CALayer()
     private let handleLayers = Handle.allCases.map { _ in CALayer() }
     private let guideXLayer = CALayer()
@@ -75,10 +79,13 @@ final class OverlayView: NSView {
         root.addSublayer(imageLayer)
         unavailableLayer.backgroundColor = OverlayStyle.dim
         root.addSublayer(unavailableLayer)
-        for d in dimLayers {
-            d.backgroundColor = OverlayStyle.dim
-            root.addSublayer(d)
-        }
+        dimLayer.backgroundColor = OverlayStyle.dim
+        root.addSublayer(dimLayer)
+        // The selection is pixel-aligned and maps 1:1 onto the frame: never resample.
+        holeLayer.contentsGravity = .resize
+        holeLayer.magnificationFilter = .nearest
+        holeLayer.minificationFilter = .nearest
+        root.addSublayer(holeLayer)
         windowLayer.backgroundColor = OverlayStyle.windowFill
         windowLayer.borderColor = OverlayStyle.windowRing
         windowLayer.borderWidth = 2
@@ -110,9 +117,12 @@ final class OverlayView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         let scale = display.scale
-        for l in [imageLayer, unavailableLayer, borderLayer, guideXLayer, guideYLayer, windowLayer] + dimLayers + handleLayers { l.contentsScale = scale }
+        for l in [imageLayer, unavailableLayer, dimLayer, holeLayer, borderLayer, guideXLayer, guideYLayer, windowLayer] + handleLayers {
+            l.contentsScale = scale
+        }
         imageLayer.frame = CGRect(origin: .zero, size: display.frame.size)
         unavailableLayer.frame = imageLayer.frame
+        dimLayer.frame = imageLayer.frame
         CATransaction.commit()
     }
 
@@ -124,7 +134,8 @@ final class OverlayView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         imageLayer.contents = nil
-        for l in dimLayers + handleLayers + [unavailableLayer, borderLayer, guideXLayer, guideYLayer, windowLayer] { l.isHidden = true }
+        holeLayer.contents = nil
+        for l in handleLayers + [unavailableLayer, dimLayer, holeLayer, borderLayer, guideXLayer, guideYLayer, windowLayer] { l.isHidden = true }
         CATransaction.commit()
         for v in [unavailablePill, windowPill, snapPill, sizePill, loupe, loupeLabel, hud] as [NSView] { v.isHidden = true }
     }
@@ -175,6 +186,7 @@ final class OverlayView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         imageLayer.contents = image
+        holeLayer.contents = image
         CATransaction.commit()
         CATransaction.flush()
     }
@@ -197,11 +209,13 @@ final class OverlayView: NSView {
             if f.selectionDisplayID == here {
                 let r = local(sel)
                 selectionHere = r
-                dimLayers[0].frame = CGRect(x: 0, y: r.maxY, width: b.width, height: max(0, b.maxY - r.maxY))
-                dimLayers[1].frame = CGRect(x: 0, y: 0, width: b.width, height: max(0, r.minY))
-                dimLayers[2].frame = CGRect(x: 0, y: r.minY, width: max(0, r.minX), height: r.height)
-                dimLayers[3].frame = CGRect(x: r.maxX, y: r.minY, width: max(0, b.maxX - r.maxX), height: r.height)
-                for d in dimLayers { d.isHidden = false }
+                dimLayer.isHidden = false
+                holeLayer.frame = r
+                // Unit coordinates of the frame, bottom-up like the layer.
+                holeLayer.contentsRect = b.width > 0 && b.height > 0
+                    ? CGRect(x: r.minX / b.width, y: r.minY / b.height, width: r.width / b.width, height: r.height / b.height)
+                    : .zero
+                holeLayer.isHidden = false
                 borderLayer.frame = r.insetBy(dx: -1, dy: -1)
                 borderLayer.isHidden = false
                 let showEdges = r.width >= 40 && r.height >= 40
@@ -211,14 +225,13 @@ final class OverlayView: NSView {
                 }
             } else {
                 // The selection is on another display: dim this one entirely (unless it already is).
-                dimLayers[0].frame = b
-                dimLayers[0].isHidden = isUnavailable
-                for d in dimLayers.dropFirst() { d.isHidden = true }
+                dimLayer.isHidden = isUnavailable
+                holeLayer.isHidden = true
                 borderLayer.isHidden = true
                 for h in handleLayers { h.isHidden = true }
             }
         } else {
-            for l in dimLayers + handleLayers + [borderLayer] { l.isHidden = true }
+            for l in handleLayers + [dimLayer, holeLayer, borderLayer] { l.isHidden = true }
         }
 
         // Guides.

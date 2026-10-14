@@ -79,6 +79,15 @@ enum SelectionMath {
         return CGRect(x: min(x0, x1), y: min(y0, y1), width: abs(x1 - x0), height: abs(y1 - y0))
     }
 
+    /// Pixels per arrow-key nudge. A tap is 1 px and ⇧ is always 10 px. A held arrow speeds up the longer it
+    /// repeats: 2 px after 0.4 s of repeating, 4 px after 0.8 s. `repeating`: seconds since the held key's first
+    /// repeat, or nil for a fresh press.
+    static func nudgePixels(repeating: Double?, shift: Bool) -> CGFloat {
+        if shift { return 10 }
+        guard let t = repeating else { return 1 }
+        return t < 0.4 ? 1 : t < 0.8 ? 2 : 4
+    }
+
     /// Moves `r` by `d`, staying inside `bounds`.
     static func move(_ r: CGRect, by d: CGVector, within b: CGRect) -> CGRect {
         let x = min(max(r.minX + d.dx, b.minX), b.maxX - r.width)
