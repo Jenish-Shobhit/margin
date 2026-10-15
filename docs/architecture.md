@@ -163,7 +163,7 @@ The target is **≤ 80 ms from the hotkey to the first frozen frame**.
 | `adjusting` | Handles, moving, nudging and ↩ |
 | `moving`, `resizing` | Dragging the selection or one of its handles |
 
-Selections are pixel-aligned and limited to the display where they started. Mouse-up in `dragging` calls `onArea` with the rect, the frozen image and the pixel rect. `CaptureController` closes the overlay and crops off the main thread, and hands a `CaptureResult` to the coordinator. Only once that run-loop turn's Core Animation commit has put the thumbnail on screen does it save the last area and give focus back to the previous app: the preference write and AppKit's deactivation work (about 15 ms) would otherwise hold the commit back.
+Selections are pixel-aligned and limited to the display where they started. Mouse-up in `dragging` calls `onArea` with the rect, the frozen image and the pixel rect. `CaptureController` starts the crop and the thumbnail off the main thread, closes the overlay meanwhile, and hands a `CaptureResult` to the coordinator. Only once that run-loop turn's Core Animation commit has put the thumbnail on screen does it save the last area and give focus back to the previous app: the preference write and AppKit's deactivation work (about 15 ms) would otherwise hold the commit back.
 
 The other kinds:
 

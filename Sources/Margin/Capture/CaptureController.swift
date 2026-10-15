@@ -405,14 +405,16 @@ final class CaptureController: CaptureControlling {
     private func finishArea(_ rect: CGRect, display: DisplayInfo, image: CGImage, pixelRect: CGRect, scale: CGFloat) {
         let clock = Stopwatch()
         let date = Date()
+        // The crop and the thumbnail start at once, off the main thread, while the overlay comes down here.
+        let source = SendableImage(image: image)
+        let prepared = Task.detached(priority: .userInitiated) { await Self.timedCrop(source, to: pixelRect) }
         // Overlay first: the shelf's fly-in starts from the selection, over the live screen.
         let previous = owesFocus ? previousApp : nil
         endSession(restoreFocus: false)
         timings.record("release.endSession", clock.ms)
-        let source = SendableImage(image: image)
         Task {
             var area: LastArea?
-            if case let (shot, cropMs)? = await Self.timedCrop(source, to: pixelRect) {
+            if case let (shot, cropMs)? = await prepared.value {
                 timings.record("release.crop", cropMs)
                 timings.record("thumbnail", shot.thumbnailMs)
                 timings.record("releaseToResult", clock.ms)
