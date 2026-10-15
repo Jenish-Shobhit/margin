@@ -102,7 +102,10 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] Quitting right after a capture waits for the save: ⇧⌘3, then Quit at once (or `osascript -e 'quit app "Margin"'`)
   - [ ] the PNG is in the folder and the card is back after relaunch
   - [ ] the quit never takes more than about 3 s
-- [ ] An unwritable save folder saves to `~/Library/Application Support/Margin/Unsaved/` and shows the toast "Saved to Unsaved — folder not writable"
+- [ ] An unwritable save folder saves to `~/Library/Application Support/Margin/Unsaved/` and shows the red toast "Can't write to “<folder>”. Saved to Unsaved: menu bar › Show Unsaved Shots", wrapped and up for about 4 s (also while tucked: its left edge stays on screen)
+  - [ ] a folder name over 16 characters is shortened with “…”, and the toast still ends with Show Unsaved Shots
+  - [ ] the menu then has **Show Unsaved Shots**, which opens that folder; once the folder is empty, the item is gone from the next menu open on
+  - [ ] the Desktop privacy prompt (`tccutil reset SystemPolicyDesktopFolder io.github.jenish-shobhit.margin` to see it again) gives Margin's reason
 
 **The clipboard**
 
@@ -172,6 +175,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **Dragging**
 
 - [ ] Dragging a card drags a plain file URL (copy, never move); the card stays faint in its slot
+- [ ] Dragging a fresh card before its PNG is written (a full-screen shot of a large display, dragged at once): the drag starts as soon as the file lands, without releasing; releasing before that neither drags nor copies
 - [ ] A successful drop collapses the card out and the rest settle; a cancelled drag springs back
 - [ ] ⌥ held when the drop lands keeps the card
 - [ ] ⌥-dragging shows "Keep on shelf" on the drag image, live as ⌥ changes
@@ -187,6 +191,10 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **Other actions**
 
 - [ ] Space opens Quick Look for the focused card or the selection
+  - [ ] with TextEdit in front: ⌘-click a card, Space, then Space (or Esc) closes Quick Look, and typing goes to TextEdit again; Esc never reaches TextEdit while Quick Look is open
+  - [ ] with two cards ⌘-selected, ← → switch between them in Quick Look
+  - [ ] Quick Look's own close button gives the keyboard back too; clicking inside Quick Look keeps Space and Esc working; clicking another app closes it
+  - [ ] with Quick Look open, a plain click on a card copies it, closes Quick Look and leaves typing with TextEdit; ⇧⌘1 (tuck) closes it too
 - [ ] ⌫ (or ⌦) dismisses (the file stays on disk)
 - [ ] Two-finger swipe right on a card dismisses it
 - [ ] Double-click opens the file in the default app
@@ -271,13 +279,18 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] Dark mode
 - [ ] Reduce motion: no fly-in; cards appear in place
 - [ ] Reduce transparency: glass (pile, tab, toasts) falls back to solid
+- [ ] VoiceOver (or Accessibility Inspector) on the shelf:
+  - [ ] window "Margin Shelf"; the pile, then the cards top to bottom; only the tab while tucked
+  - [ ] a card reads "Screenshot, HH:mm, W × H" (+ "selected", "copied, ready to paste", "saving"), with the file name as help
+  - [ ] its actions (Copy, Open, Quick Look, Show in Finder, Copy Path, Rename, Remove from shelf, Move to Trash) work; Press copies and leaves the keyboard with your app; ✕ and ••• are buttons inside it
+  - [ ] toasts are announced; moving the VoiceOver cursor onto the shelf never takes the keyboard from your app
 
 ## Menu bar (§6)
 
 **The icon and its items**
 
 - [ ] The template icon follows the menu bar's appearance
-- [ ] Items: Capture Area, Capture Window, Capture Screen, Repeat Last Area, Tuck Shelf (Show Shelf while tucked), Restore Last Removed, Open Screenshots Folder, Settings… (⌘,), About Margin <version>, Quit Margin (⌘Q)
+- [ ] Items: Capture Area, Capture Window, Capture Screen, Repeat Last Area, Tuck Shelf (Show Shelf while tucked), Restore Last Removed, Open Screenshots Folder, Show Unsaved Shots (only while the Unsaved folder holds shots), Settings… (⌘,), About Margin <version>, Quit Margin (⌘Q)
 - [ ] The shortcuts shown match Settings
 - [ ] About shows the icon, the current version and build (e.g. 0.0.7 (7)) and "© 2026 Jenish Shobhit · MIT License"
 - [ ] Opening Margin again while it runs (Finder, Spotlight) opens Settings, or First run step 1 without permission
@@ -285,9 +298,11 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **Actions**
 
 - [ ] Restore Last Removed brings back the last removed card(s) like ⌘Z on the shelf, without clicking the shelf first (dismiss, drag-out, clear, trash)
+- [ ] After a drag-out the keyboard stays with the app the card was dropped into (⌘Z there undoes that app's last action, not the drag); Restore Last Removed brings the card back
 - [ ] Capture Window starts the capture in window mode (Space switches to area)
 - [ ] The menu itself never appears in a shot started from it
 - [ ] Open Screenshots Folder creates the folder if missing and opens it in Finder
+- [ ] With a save folder that can't be created (e.g. on an unplugged disk): the toast "Can't open “<folder>”"; with shots in Unsaved, "Can't open “<folder>”. Showing Unsaved shots" and the Unsaved folder opens
 
 **Warnings**
 

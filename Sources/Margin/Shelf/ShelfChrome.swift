@@ -87,13 +87,22 @@ final class ShelfToastView: NSView {
     /// Called once the toast has faded out.
     var onHidden: (() -> Void)?
 
+    /// How long a toast stays up (spec §4), unless its message asks for longer.
+    static let defaultDuration: TimeInterval = 1.2
+    /// A message too wide for one line wraps onto at most this many.
+    private static let maxLines = 3
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
         addSubview(background)
         label.font = .systemFont(ofSize: 11, weight: .medium)
         label.textColor = .labelColor
-        label.lineBreakMode = .byTruncatingTail
+        label.cell?.wraps = true
+        label.cell?.isScrollable = false
+        label.cell?.truncatesLastVisibleLine = true
+        label.lineBreakMode = .byWordWrapping
+        label.maximumNumberOfLines = Self.maxLines
         background.content.addSubview(label)
         alphaValue = 0
         isHidden = true
@@ -103,16 +112,20 @@ final class ShelfToastView: NSView {
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    /// Size for `text` (padding 6 × 10, like the HTML).
-    func show(_ text: String, isError: Bool, anchorRight: CGFloat, bottom: CGFloat, maxWidth: CGFloat) {
+    /// Size for `text` (padding 6 × 10, like the HTML). A message wider than `maxWidth` wraps.
+    func show(_ text: String, isError: Bool, anchorRight: CGFloat, bottom: CGFloat, maxWidth: CGFloat,
+              duration: TimeInterval = ShelfToastView.defaultDuration) {
         label.stringValue = text
         label.textColor = isError ? .systemRed : .labelColor
-        label.sizeToFit()
-        let w = min(ceil(label.frame.width) + 20, maxWidth)
-        let h: CGFloat = 25
+        let textWidth = maxWidth - 20
+        label.preferredMaxLayoutWidth = textWidth
+        let fit = label.sizeThatFits(NSSize(width: textWidth, height: .greatestFiniteMagnitude))
+        let lineW = min(ceil(fit.width), textWidth), lineH = ceil(fit.height)
+        let w = lineW + 20
+        let h = max(25, lineH + 11)
         frame = CGRect(x: anchorRight - w, y: bottom, width: w, height: h)
         background.frame = bounds
-        label.frame = CGRect(x: 10, y: (h - label.frame.height) / 2, width: w - 20, height: label.frame.height)
+        label.frame = CGRect(x: 10, y: (h - lineH) / 2, width: lineW, height: lineH)
 
         hideTask?.cancel()
         isHidden = false
@@ -126,7 +139,7 @@ final class ShelfToastView: NSView {
                 layer.add(rise, forKey: "rise")
             }
         }
-        hideTask = ShelfMotion.after(1.2) { [weak self] in self?.hide() }
+        hideTask = ShelfMotion.after(duration) { [weak self] in self?.hide() }
     }
 
     func hide() {

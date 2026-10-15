@@ -32,11 +32,21 @@
 	<string>26.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Margin saves your screenshots in the Screenshots folder on your Desktop, unless you choose another folder in Settings.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Margin saves your screenshots in the folder you chose in Settings, and shows them on its shelf.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Margin saves your screenshots in the folder you chose in Settings, and shows them on its shelf.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Jenish Shobhit · MIT License</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>Margin saves your screenshots in the folder you chose in Settings, and shows them on its shelf.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Margin saves your screenshots in the folder you chose in Settings, and shows them on its shelf.</string>
 </dict>
 </plist>

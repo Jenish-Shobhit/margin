@@ -103,6 +103,13 @@ final class ShelfController: ShelfControlling {
         observers.append(nc.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.screensChanged() }
         })
+        // Quick Look and the keyboard (`keyWindowChanged`). Checked once the change has settled: while one window
+        // resigns key, the next isn't key yet.
+        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
+            observers.append(nc.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor [weak self] in self?.keyWindowChanged() }
+            })
+        }
         let wnc = NSWorkspace.shared.notificationCenter
         observers.append(wnc.addObserver(forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.accessibilityChanged() }
@@ -244,13 +251,15 @@ final class ShelfController: ShelfControlling {
         markReady(item.id)
     }
 
-    /// The item's file is on disk: drag, copy and the menu work, and a click-copy queued meanwhile runs.
+    /// The item's file is on disk: drag, copy and the menu work, and a click-copy or a drag that was waiting
+    /// for it runs.
     func markReady(_ id: UUID) {
         pending.remove(id)
         if queuedCopy == id {
             queuedCopy = nil
             if item(for: id) != nil { copy([id]) }
         }
+        cards[id]?.fileDidLand()
     }
 
     /// Saving failed: the card goes (no undo) and the message shows as a toast.
@@ -364,6 +373,7 @@ final class ShelfController: ShelfControlling {
         positionToast(animated: animated)
         updateVisibility()
         retargetFlights()
+        NSAccessibility.post(element: panel, notification: .layoutChanged)
     }
 
     /// Sizes the panel: the full stage, or just the tab while tucked and idle.
@@ -598,9 +608,11 @@ final class ShelfController: ShelfControlling {
 
     // MARK: - Toasts
 
-    /// "Copied", "Path copied", "Restored" and errors. Inside the shelf, above the top card, 1.2 s.
-    func showToast(_ text: String, isError: Bool) {
-        toast.show(text, isError: isError, anchorRight: 0, bottom: 0, maxWidth: stageWidth - 12)
+    /// "Copied", "Path copied", "Restored" and errors. Inside the shelf, above the top card, 1.2 s unless the
+    /// message needs longer (up to three lines).
+    func showToast(_ text: String, isError: Bool, duration: TimeInterval = ShelfToastView.defaultDuration) {
+        toast.show(text, isError: isError, anchorRight: 0, bottom: 0, maxWidth: stageWidth - 12, duration: duration)
+        announce(text)
         positionToast()
         if !panel.isVisible { showPanel() }
         applyGeometry(deferShrink: false)
@@ -620,7 +632,10 @@ final class ShelfController: ShelfControlling {
         }
         var f = toast.frame
         let old = f.origin
-        f.origin = CGPoint(x: anchorRight - f.width, y: bottom)
+        // A long (wrapped) toast stays inside the stage, rather than lose its top lines off the panel, or its left
+        // edge: beside the tab, or while peeking, there's less room left of the anchor than a toast's full width.
+        // Shifted right, it's still above the tab and the cards.
+        f.origin = CGPoint(x: max(4, anchorRight - f.width), y: max(0, min(bottom, stageSize.height - f.height - 4)))
         toast.frame = f
         if animated, let layer = toast.layer {
             ShelfMotion.slide(layer, from: CGPoint(x: old.x - f.minX, y: old.y - f.minY))

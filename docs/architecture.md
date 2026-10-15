@@ -57,6 +57,7 @@ flowchart LR
 | `LoginItem.swift` | `SMAppService.mainApp` state and registration |
 | `ShelfUndo.swift` | `UndoSequencer`: the shelf's ⌘Z one step at a time, so a quick second ⌘Z waits for a slow first one. `TrashedFile.putBack`: a trashed shot back home (or already there, after Finder's Put Back) |
 | `ShutterSound.swift` | The system Screen Capture sound, honouring "Play user interface sound effects" |
+| `UnsavedShots.swift` | Whether the Unsaved folder holds shots (for the menu's Show Unsaved Shots), and the toast after a capture went there |
 
 **`Sources/Margin/`**
 
@@ -65,7 +66,7 @@ flowchart LR
 | `App/` | `main.swift` (accessory app), `AppDelegate`, `AppCoordinator` (wires everything, permission state, ⌘V mark), `AppCoordinator+Save` (the save pipeline), `Contracts.swift`, and `MainMenu` (a hidden main menu that gives text fields and windows their standard key equivalents) |
 | `Capture/` | `CaptureController` (area, window, screen, repeat area), `ScreenGrabber` (ScreenCaptureKit calls and cropping), `ShareableContentCache`, `Displays`, logging and timings, and `CaptureSimulation` (DEBUG-only fakes) |
 | `Overlay/` | The frozen-screen overlay: `OverlayPanel` and its pool, `OverlaySession` (selection state machine and keys), `OverlayView` (layers), `OverlayChrome` (hint bar, magnifier, pills), `SelectionMath` and `AreaFlash` |
-| `Shelf/` | `ShelfController` (layout, tuck, peek, toasts) and its extensions: `+Actions` (every interaction, undo, drag-out) and `+Files` (disk checks). Also the views (`ShelfCardView`, `ShelfPileView`, `ShelfChrome`), `ShelfDrag`, `ShelfFlyIn`, `ShelfFiles` (all disk access), `ShelfThumbnails` and `ShelfStyle` |
+| `Shelf/` | `ShelfController` (layout, tuck, peek, toasts) and its extensions: `+Actions` (every interaction, undo, drag-out) and `+Files` (disk checks). Also the views (`ShelfCardView`, `ShelfPileView`, `ShelfChrome`), `ShelfAccessibility` (what VoiceOver sees: the cards, pile and tab as buttons with actions, and toasts as announcements), `ShelfDrag`, `ShelfFlyIn`, `ShelfFiles` (all disk access), `ShelfThumbnails` and `ShelfStyle` |
 | `Hotkeys/` | `HotkeyCenter`: Carbon registration. `OverlayHotkeys`: the overlay's keys as hotkeys while a capture is up, before the overlay can be key |
 | `MenuBar/` | `StatusMenuController` (icon, warning dot, menu rebuilt on open) and `MenuKeyEquivalent` |
 | `Onboarding/` | The first-run window: `FirstRunModel` (polled state), `FirstRunView` (SwiftUI) and its window controller |
@@ -186,7 +187,7 @@ Back on the main actor, `finishSave`:
 
 1. Writes the clipboard, if **Copy each capture** is on and this is still the newest capture (a copy from the shelf since then wins). It writes one item per shot: `public.png`, plus `public.file-url` pointing at the *final* path. It records the pasteboard's `changeCount` and puts the ⌘V mark on the card.
 2. Stores the final path and bookmark, and calls `shelf.itemDidSave`.
-3. Shows the "Saved to Unsaved" toast if needed, bumps the capture counter, and tells first run.
+3. Shows the Unsaved toast if needed (and sets the flag behind the menu's **Show Unsaved Shots**), bumps the capture counter, and tells first run.
 
 If saving fails completely, the card goes with "Couldn't save the screenshot". The clipboard gets the PNG alone, if it's still the newest capture.
 
@@ -196,7 +197,7 @@ Quitting while saves are in flight answers `.terminateLater`. Margin waits for t
 
 - `ShelfFlight` animates the thumbnail from the selection to its slot in about 0.45 s, in a temporary click-through panel. It re-aims if the slot moves (another capture, a tuck, a peek), lands in the tab or the pile when that's where the card is, and then hands off to the real card. The card's accent ring lasts 1.5 s.
 - A one-second timer compares the pasteboard's `changeCount` with the one recorded after Margin's last write. When they differ, the ⌘V mark clears. Margin never reads the clipboard's contents.
-- Drag-out writes a plain `NSURL` per item and offers `.copy` only. A non-empty drop operation without ⌥ removes the cards, as one undo step.
+- Drag-out writes a plain `NSURL` per item and offers `.copy` only. A non-empty drop operation without ⌥ removes the cards, as one undo step. The drag never makes the shelf key, so ⌘Z after a drop belongs to the app that took it; the menu's **Restore Last Removed** (`undo(fromMenu:)`) is the way back.
 
 ## Threading rules
 
@@ -205,7 +206,7 @@ Quitting while saves are in flight answers `.terminateLater`. Margin waits for t
   - writing PNGs and checking whether shelf files exist (`ShelfFiles`);
   - reading a file to copy it, renaming, trashing and untrashing;
   - loading thumbnails from disk;
-  - creating the folder for **Open Screenshots Folder**;
+  - creating the folder for **Open Screenshots Folder**, and checking whether the Unsaved folder holds shots (**Show Unsaved Shots**: the menu is built synchronously, so it reads a flag this check keeps current, at launch and on each menu open);
   - Settings' folder icon.
 
   Even the predicted file name is checked against memory, not the disk. Results come back to the main actor, and a background check is applied only to items that haven't changed since it started.
@@ -225,7 +226,9 @@ Quitting while saves are in flight answers `.terminateLater`. Margin waits for t
 
 All of them join every Space and float over full-screen apps.
 
-**Focus.** The shelf becomes key (`focusShelf`) only on a mouse-up whose next step is a shelf key: ⌘-click, ✕, the pile, Rename…, Move to Trash, Clear shelf. Never on a plain click (copy) or a double-click (open), so ⌘V right after a click reaches the user's app; never on a press that turns into a drag; and never by activating Margin. Its keys (⌘C, ⌘Z, ⌘A, Space, ⌫, Esc) then work while the menu bar still belongs to the other app. `releaseKeys` gives the keyboard back on Esc, after every copy (click, ⌘C, Copy Path) and when the shelf goes out of sight (tuck, end of a peek; a rename in progress is saved first): `NSApp.deactivate()` makes the other app's window key again, unless Margin itself is frontmost.
+**Focus.** The shelf becomes key (`focusShelf`) only on a mouse-up whose next step is a shelf key: ⌘-click, ✕, the pile, Rename…, Move to Trash, Clear shelf. Never on a plain click (copy) or a double-click (open), so ⌘V right after a click reaches the user's app; never on a press that turns into a drag; and never by activating Margin. Its keys (⌘C, ⌘Z, ⌘A, Space, ⌫, Esc) then work while the menu bar still belongs to the other app. `releaseKeys` gives the keyboard back on Esc, after every copy (click, ⌘C, Copy Path), when the shelf goes out of sight (a tuck, which saves a rename in progress first, or the end of a peek, which waits while a rename is open) and when a rename ends because a new shot folded its card into the pile (what was typed is saved): `NSApp.deactivate()` makes the other app's window key again, unless Margin itself is frontmost.
+
+**Quick Look** is made a non-activating panel too (`ShelfRootView.showQuickLook` adds `.nonactivatingPanel` to `QLPreviewPanel`'s style mask before it's shown). As a regular panel it became key in Margin while the keyboard went back to the user's app, so Space and Esc went there and it stayed open. Now it handles its own keys (Space, Esc, arrows). When it closes, the shelf is key again and `endPreviewPanelControl` calls `releaseKeys`. `releaseKeys` with Quick Look open only closes it and lets that hand the keyboard back: deactivating while it animates away leaves the shelf key once it's gone, and a second `orderOut` during that animation cancels the close (`quickLookClosing` prevents one). If neither it nor the shelf has the keyboard any more (a click in another app), it closes (`keyWindowChanged`).
 
 `MainMenu` installs a hidden main menu, so text fields get their standard edit keys. Its ⌘Q acts only while Margin is really frontmost (`NSRunningApplication.current.isActive`), and its Undo goes to the rename field's own undo manager while it's editing.
 
@@ -256,7 +259,7 @@ More on how these behave:
   - **Without permission:** a capture shortcut opens first run at step 1 instead of touching ScreenCaptureKit.
   - **Revocation:** preflight is cached per process, so a revocation while running shows up as a capture error (`SCStreamError.userDeclined`). That sets `RuntimeStatus.screenRecordingRevoked`, which keeps the warning up until a capture succeeds or Margin relaunches.
   - **Relaunch Margin** starts `/bin/sh`, which waits for this process to exit and then `open`s the bundle. It deliberately doesn't use `open -n`, so there's never a second copy.
-- **Files.** The default save folder is in `~/Desktop`, so macOS shows its Desktop-folder prompt on first write. That's the reason for the off-main rule. A denied write falls back to Unsaved.
+- **Files.** The default save folder is in `~/Desktop`, so macOS shows its Desktop-folder prompt on first write, with the reason from `NSDesktopFolderUsageDescription` (`Info.plist` also has the Documents, Downloads, removable and network volume strings, for a folder chosen in Settings). That's the reason for the off-main rule. A denied write falls back to Unsaved, and the menu offers **Show Unsaved Shots** while that folder holds shots.
 - **Launch at login** uses `SMAppService.mainApp`. It's registered once, on the first launch from `/Applications` (never from a dev copy elsewhere). Settings shows `SMAppService`'s real status, including "requires approval".
 - **No Accessibility or Input Monitoring.** Carbon hotkeys don't need them.
 

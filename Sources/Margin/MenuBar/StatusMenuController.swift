@@ -123,6 +123,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         coordinator?.refreshPermission()
+        // Off the main thread: this menu shows the previous check, the next one shows this one.
+        coordinator?.refreshUnsavedShots()
         // Re-read the macOS screenshot shortcuts only here, when someone is about to look (no timer).
         systemConflicts = SystemShortcuts.conflicts(
             SystemShortcuts.current(), with: Preferences.shared.registeredCombos().map(\.combo))
@@ -178,6 +180,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         restore.isEnabled = coordinator?.canRestoreLastRemoved ?? false
         menu.addItem(restore)
         menu.addItem(item("Open Screenshots Folder", symbol: "folder", action: #selector(openFolder)))
+        // Only while shots are waiting there, because the save folder couldn't be written.
+        if coordinator?.hasUnsavedShots == true {
+            menu.addItem(item(UnsavedShots.menuItemTitle, symbol: "tray.full", action: #selector(showUnsaved)))
+        }
         menu.addItem(.separator())
         // Quiet: no warning symbol or dot. The welcome window closes after the first shot, so this is how
         // someone who skipped step 2 finds it again.
@@ -229,6 +235,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func toggleShelf() { coordinator?.toggleShelf() }
     @objc private func restoreLastRemoved() { coordinator?.restoreLastRemoved() }
     @objc private func openFolder() { coordinator?.openScreenshotsFolder() }
+    @objc private func showUnsaved() { coordinator?.showUnsavedShots() }
     @objc private func openSettings() { coordinator?.showSettings() }
     @objc private func fixShortcuts() { coordinator?.showShortcutsStep() }
     @objc private func about() { coordinator?.showAbout() }

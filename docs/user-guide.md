@@ -31,6 +31,7 @@ Margin has no Dock icon. Everything is in its menu bar icon, a small rectangle w
 | Tuck Shelf / Show Shelf ⇧⌘1 | Tuck the shelf away, or bring it back (dimmed while the shelf is empty) |
 | Restore Last Removed | Bring back the card(s) that last left the shelf |
 | Open Screenshots Folder | Open the save folder in Finder (creating it if needed) |
+| Show Unsaved Shots | Open the Unsaved folder, where shots go when the save folder can't be written. Only there while it holds shots |
 | Settings… | Open Settings |
 | About Margin | Version and copyright |
 | Quit Margin | Quit |
@@ -136,7 +137,7 @@ The moment you let go:
    - it's tagged as a screenshot, the way macOS tags its own, so Finder's and Spotlight's screenshot searches find it.
 4. It's copied to the clipboard as both the image and the saved file. See [the clipboard section in the README](../README.md#clipboard) for what each app pastes.
 
-If the save folder can't be written, the shot goes to `~/Library/Application Support/Margin/Unsaved/` and the shelf shows "Saved to Unsaved — folder not writable". If it can't be saved at all, the card goes away with "Couldn't save the screenshot".
+If the save folder can't be written (say you clicked **Don't Allow** when macOS asked about the Desktop folder), the shot goes to `~/Library/Application Support/Margin/Unsaved/` and the shelf says so: "Can't write to “Screenshots”. Saved to Unsaved: menu bar › Show Unsaved Shots". **Show Unsaved Shots** in the menu bar opens that folder; [troubleshooting](troubleshooting.md#macos-asks-to-access-the-desktop-folder) explains how to fix the save folder. If it can't be saved at all, the card goes away with "Couldn't save the screenshot".
 
 If you quit right after a capture, Margin waits (at most about 3 s) for the file to be written.
 
@@ -170,21 +171,22 @@ The shelf survives quitting and restarting.
 | ⌘-click | Add it to, or remove it from, the selection |
 | ⌘A | Select every card that isn't in the pile |
 | ⌘C | Copy the selected cards (or the one under the pointer, or the last one clicked) |
-| Space | Quick Look; Space or Esc closes it |
+| Space | Quick Look; ← and → step through the selected shots, and Space or Esc closes it and hands the keys back to your app |
 | ⌫ (or ⌦) | Dismiss; the file stays on disk |
 | Two-finger swipe right | Dismiss |
 | ✕ | Dismiss |
 | ••• or right-click (or ⌃-click) | Open the card's menu |
-| Esc | Close Quick Look; otherwise clear the selection and hand the keys back to your app |
+| Esc | Close Quick Look, or else clear the selection; either way the keys go back to your app |
 
 **Dragging out.** A card drags as a plain file, so any app that takes files takes it: Finder, Slack, Chrome, WhatsApp, Claude, Notes, a terminal (which types the path).
 
 - While you drag, the card stays faint in its slot.
+- You can drag a shot the moment its card lands. If its file is still being written (a big capture can take a second), the drag starts as soon as it's on disk.
 - When the drop lands, the card leaves the shelf; if you cancel, it springs back.
 - **Hold ⌥ when you drop** to keep the card on the shelf. The dragged image shows "Keep on shelf" while ⌥ is down.
 - Dragging a selected card drags the whole selection, as a stack with a count badge.
 
-Margin never moves or deletes a file because of a drag. "The drop landed" only means the card leaves. If an app wrongly says a drop worked, ⌘Z brings the card back. If it wrongly says the drop failed, the card stays, and ⌫ removes it.
+Margin never moves or deletes a file because of a drag. "The drop landed" only means the card leaves. If an app wrongly says a drop worked, **Restore Last Removed** in the menu bar brings the card back. (Dragging leaves the keyboard with the app you dropped into, so ⌘Z there undoes something in that app, not the drag.) If it wrongly says the drop failed, the card stays, and ⌫ removes it.
 
 **The card menu:**
 
@@ -197,9 +199,9 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 
 ## Undo
 
-**⌘Z** on the shelf brings back the card(s) that last left it. Right after ✕, Move to Trash or Clear shelf the shelf already has the keys; otherwise ⌘-click a card or click the pile first. It remembers up to 20 removals: drag-outs, dismissals, Clear shelf and Move to Trash (the file comes back from the Trash too). A card whose file you've deleted since can't come back: ⌘Z says "File not found", and the next ⌘Z goes on to the removal before.
+**⌘Z** on the shelf brings back the card(s) that last left it. Right after ✕, Move to Trash or Clear shelf the shelf already has the keys; otherwise (after a drag-out, say) ⌘-click a card or click the pile first. It remembers up to 20 removals: drag-outs, dismissals, Clear shelf and Move to Trash (the file comes back from the Trash too). A card whose file you've deleted since can't come back: ⌘Z says "File not found", and the next ⌘Z goes on to the removal before.
 
-**Restore Last Removed** in the menu bar does the same, without clicking the shelf first.
+**Restore Last Removed** in the menu bar does the same, without clicking the shelf first. It's the quickest way back after a drag-out.
 
 ## Settings
 
@@ -235,5 +237,6 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 - **Light and dark mode** are both supported.
 - **Reduce Motion:** there's no fly-in; new cards appear in place, and cards stop springing.
 - **Reduce Transparency:** the pile, the tab and the toasts use a solid background instead of Liquid Glass.
+- **VoiceOver.** The shelf is the window "Margin Shelf". Each card reads as a button, like "Screenshot, 14:32, 3024 × 1964, copied, ready to paste". Pressing it (VO-Space) copies the shot; its actions (VO-⌘-Space) are Copy, Open, Quick Look, Show in Finder, Copy Path, Rename, Remove from shelf and Move to Trash. The pile reads "12 older screenshots" (with Clear shelf), the tab "Show shelf, 5 screenshots", and toasts are spoken.
 
 Margin's capture UI (the shelf, the overlay, toasts, the fly-in) never appears in its captures. To check what the shelf looks like on screen, use macOS's `screencapture -x`, which does see it. Its ordinary windows (Settings, the welcome window, About) are captured like any other app's, and window mode can pick them.

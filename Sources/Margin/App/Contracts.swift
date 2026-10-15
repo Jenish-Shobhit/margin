@@ -76,7 +76,7 @@ protocol ShelfControlling: AnyObject {
     func itemDidSave(_ item: ShelfItem)
     /// Saving failed completely: drop the card (no undo) and show `message` as a toast.
     func itemSaveFailed(_ id: UUID, message: String)
-    /// A short message inside the shelf (e.g. "Saved to Unsaved — folder not writable").
+    /// A short message inside the shelf (e.g. "Restored").
     func showToast(_ text: String)
     /// Remove every item (undoable with ⌘Z). Used by the pile's "Clear shelf" and the DEBUG `clear` command.
     func clear()

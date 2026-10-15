@@ -81,14 +81,14 @@ Other causes:
 
 ## macOS asks to access the Desktop folder
 
-**"Margin" would like to access files in your Desktop folder** appears the first time Margin saves to `~/Desktop/Screenshots`, the default save folder. Click **Allow**.
+**"Margin" would like to access files in your Desktop folder** appears the first time Margin saves to `~/Desktop/Screenshots`, the default save folder, with Margin's reason: it saves your screenshots there. Click **Allow**.
 
-If you clicked **Don't Allow**, captures go to `~/Library/Application Support/Margin/Unsaved/` instead, with the shelf toast "Saved to Unsaved — folder not writable". To fix it, do one of these:
+If you clicked **Don't Allow**, captures go to `~/Library/Application Support/Margin/Unsaved/` instead, with the shelf toast "Can't write to “Screenshots”. Saved to Unsaved: menu bar › Show Unsaved Shots". To fix it, do one of these:
 
 - Turn on **Desktop Folder** for Margin in **System Settings › Privacy & Security › Files & Folders**.
 - Choose a different folder in **Settings › Save to**. A folder outside Desktop, Documents and Downloads, such as `~/Pictures/Screenshots`, doesn't ask.
 
-To open the Unsaved folder and move those shots: `open ~/Library/Application\ Support/Margin/Unsaved`.
+To find those shots, choose **Show Unsaved Shots** in the menu bar (it's there while the Unsaved folder holds any) and move them where you want them. **Open Screenshots Folder** opens the Unsaved folder too when it can't open the save folder.
 
 ## Nothing pastes after a capture
 
@@ -119,7 +119,7 @@ It didn't. Margin offers every drag as a **copy** of the file and never moves or
 What you saw is the card leaving the shelf: a successful drop means "done with this one".
 
 - **Hold ⌥ when you drop** to keep the card on the shelf. The dragged image shows "Keep on shelf".
-- **⌘Z** on the shelf, or **Restore Last Removed** in the menu bar, brings the card back.
+- **Restore Last Removed** in the menu bar brings the card back. A drag leaves the keyboard with the app you dropped into, so ⌘Z right after the drop goes to that app; ⌘Z on the shelf works once you've ⌘-clicked a card or clicked the pile.
 
 The same goes for any app that wrongly reports a drop as successful. If an app wrongly reports a *failed* drop, the card stays on the shelf, and ⌫ dismisses it.
 
@@ -141,7 +141,7 @@ If Settings says **Couldn't turn on launch at login**, move Margin to `/Applicat
 
 ## Where are my screenshots?
 
-In `~/Desktop/Screenshots` unless you changed **Settings › Save to**. **Open Screenshots Folder** in the menu bar opens it. Shots that couldn't be written there are in `~/Library/Application Support/Margin/Unsaved/`.
+In `~/Desktop/Screenshots` unless you changed **Settings › Save to**. **Open Screenshots Folder** in the menu bar opens it. Shots that couldn't be written there are in `~/Library/Application Support/Margin/Unsaved/`: **Show Unsaved Shots** in the menu bar opens it.
 
 To find one from the shelf, choose **Reveal in Finder** from its card's menu.
 

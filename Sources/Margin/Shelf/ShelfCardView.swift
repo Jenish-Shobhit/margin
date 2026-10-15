@@ -30,13 +30,15 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     private(set) var isInPile = false
     private(set) var isDragging = false
     private var isNew = false
-    private var isLeaving = false
+    private(set) var isLeaving = false
     private var placed = false
     /// False until the card has been put in a slot once (a fresh card never animates in from nowhere).
     var isPlaced: Bool { placed }
     private var swipeX: CGFloat = 0
     private var newRingTask: Task<Void, Never>?
     private var tracking: NSTrackingArea?
+    /// ✕ and ••• for assistive apps (`ShelfAccessibility.swift`).
+    private(set) lazy var accessibilityParts = [ShelfCardPart(card: self, kind: .close), ShelfCardPart(card: self, kind: .options)]
 
     init(item: ShelfItem) {
         self.item = item
@@ -273,8 +275,11 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     func setInPile(_ inPile: Bool, animated: Bool) {
         guard inPile != isInPile else { return }
         // Folding away mid-rename (a new shot pushed it up): keep what was typed, as clicking elsewhere does,
-        // rather than leave an invisible field taking the keys.
-        if inPile, isRenaming { endRename(commit: true) }
+        // rather than leave an invisible field taking the keys, and give the keys back, as tucking does.
+        if inPile, isRenaming {
+            endRename(commit: true)
+            controller?.releaseKeys()
+        }
         isInPile = inPile
         if inPile, isHovered { isHovered = false; ShelfMotion.fade(chrome, to: 0, duration: 0) }
         if !inPile { isHidden = false }
@@ -414,13 +419,13 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     // MARK: - Hit areas
 
     /// ✕, top-right. Each hit area is a square centered on its button, larger than the button.
-    private var closeHitRect: CGRect {
+    var closeHitRect: CGRect {
         let s = Self.buttonHitSize, edge = Self.buttonInset + Self.buttonDiameter / 2 + s / 2
         return CGRect(x: bounds.width - edge, y: bounds.height - edge, width: s, height: s)
     }
 
     /// Options, top-left.
-    private var moreHitRect: CGRect {
+    var moreHitRect: CGRect {
         let s = Self.buttonHitSize, edge = Self.buttonInset + Self.buttonDiameter / 2 + s / 2
         return CGRect(x: edge - s, y: bounds.height - edge, width: s, height: s)
     }
@@ -433,7 +438,11 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     private enum Press { case none, card, close, more }
     private var press: Press = .none
     private var downEvent: NSEvent?
+    /// The press moved past the drag threshold: it's a drag from then on, never a click.
     private var didDrag = false
+    /// A drag that crossed the threshold before the shot's file was written: the latest drag event, kept until
+    /// the drag can start (`fileDidLand`, or the next mouse move once the file is there).
+    private var dragAwaitingFile: NSEvent?
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     /// A press never makes the panel key: on mouse-up the controller decides (`focusShelf`), and only for the
@@ -460,6 +469,7 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         }
         downEvent = event
         didDrag = false
+        dragAwaitingFile = nil
         // Spec §4 "check when a drag starts": the background check usually lands before the drag begins.
         controller?.refreshFiles()
         let p = convert(event.locationInWindow, from: nil)
@@ -469,15 +479,42 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard press == .card, !didDrag, let down = downEvent else { return }
-        let a = down.locationInWindow, b = event.locationInWindow
-        guard hypot(b.x - a.x, b.y - a.y) >= 4 else { return }
-        didDrag = true
-        controller?.beginDrag(from: self, event: event)
+        guard press == .card, let down = downEvent else { return }
+        if !didDrag {
+            let a = down.locationInWindow, b = event.locationInWindow
+            guard hypot(b.x - a.x, b.y - a.y) >= 4 else { return }
+            didDrag = true
+        } else if dragAwaitingFile == nil {
+            return   // the drag has started (or can't)
+        }
+        startDrag(event)
+    }
+
+    /// Starts the drag, unless the shot is still being written (a fresh capture: a busy encode can take a
+    /// second). Then the gesture isn't lost: the drag starts on the next mouse move once the file is there, or
+    /// as soon as it lands (`fileDidLand`) if the button is still down. A release before that does nothing.
+    private func startDrag(_ event: NSEvent) {
+        guard let controller else { return }
+        if controller.pending.contains(id) {
+            dragAwaitingFile = event
+            return
+        }
+        dragAwaitingFile = nil
+        controller.beginDrag(from: self, event: event)
+    }
+
+    /// The shot's file is on disk (`ShelfController.markReady`): a drag that was waiting for it starts now.
+    func fileDidLand() {
+        guard let event = dragAwaitingFile else { return }
+        guard press == .card, NSEvent.pressedMouseButtons & 1 != 0 else {
+            dragAwaitingFile = nil
+            return
+        }
+        startDrag(event)
     }
 
     override func mouseUp(with event: NSEvent) {
-        defer { downEvent = nil; press = .none }
+        defer { downEvent = nil; press = .none; dragAwaitingFile = nil }
         guard !didDrag else { return }
         let p = convert(event.locationInWindow, from: nil)
         guard bounds.insetBy(dx: -4, dy: -4).contains(p), press != .none else { return }
@@ -487,8 +524,7 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         case .none:
             return
         case .close:
-            controller?.focusShelf()
-            controller?.dismiss([id], exit: .collapse)
+            controller?.removeFromShelf(id)
         case .more:
             if let menu = controller?.menu(for: self) {
                 menu.popUp(positioning: nil, at: moreMenuAnchor, in: self)

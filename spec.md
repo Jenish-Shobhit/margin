@@ -108,7 +108,8 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 Release starts three things in parallel. The in-memory image feeds the shelf thumbnail right away, and **one** PNG encode feeds both the file and the clipboard.
 
 - **Folder.** `~/Desktop/Screenshots` by default (Settings can change it). Create it if missing.
-  - If the folder can't be written, save to `~/Library/Application Support/Margin/Unsaved/` and show the shelf toast "Saved to Unsaved — folder not writable".
+  - If the folder can't be written, save to `~/Library/Application Support/Margin/Unsaved/` and show the shelf toast "Can't write to “Screenshots”. Saved to Unsaved: menu bar › Show Unsaved Shots" (with the save folder's name, shortened with “…” past 16 characters so the toast's three lines still reach the menu item; an error toast that wraps and stays 4 s). The menu bar offers **Show Unsaved Shots** while that folder holds shots (§6).
+  - `Info.plist` gives the reason for the folder prompts: `NSDesktopFolderUsageDescription` (the default folder is on the Desktop), plus the Documents, Downloads, removable and network volume strings for a folder chosen in Settings.
 - **Name.** `Screenshot yyyy-MM-dd 'at' HH.mm.ss.png`.
   - Use the `en_US_POSIX` locale and the local time zone, 24-hour time and plain ASCII spaces.
   - On a collision, add ` (2)`, ` (3)` and so on before `.png`.
@@ -156,8 +157,13 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - ✕ (top-right, red; since 0.0.6) to dismiss.
   - ••• (top-left, tooltip "Options"; since 0.0.6) for the menu.
   - A meta line at the bottom: `HH:mm · W × H`.
-- **Tuck.** ⌘⇧1 slides the shelf off the edge and leaves a 22 pt tab showing the count. Hovering the tab peeks the shelf; clicking it shows the shelf. Tucking (or the end of a peek) gives the keys back, and a rename in progress keeps what was typed.
-- **Toasts.** Inside the shelf, above the top card, never as notifications: "Copied", "Path copied", "Restored", and error messages. They last 1.2 s.
+- **Tuck.** ⌘⇧1 slides the shelf off the edge and leaves a 22 pt tab showing the count. Hovering the tab peeks the shelf; clicking it shows the shelf. Tucking (or the end of a peek) gives the keys back. Tucking keeps what a rename in progress has typed; a peek doesn't end while a rename is open.
+- **Toasts.** Inside the shelf, above the top card, never as notifications: "Copied", "Path copied", "Restored", and error messages. They last 1.2 s. A message too long for one line wraps (up to three lines); the Unsaved warning (§3) stays 4 s.
+- **VoiceOver.** The shelf window is "Margin Shelf". Its elements, top to bottom: the pile (button "12 older screenshots"; press = a click, which gives the shelf the keys; action Clear shelf), each visible card, and the tab while tucked (button "Show shelf, 5 screenshots"; only the tab while tucked and not peeking).
+  - A card is a button labelled "Screenshot, 14:32, 3024 × 1964", plus "selected", "copied, ready to paste" (the ⌘V mark) and "saving" (pending) as they apply; its help is the file name. Press copies, as a click does; Show Menu opens the ••• menu.
+  - Its actions: Copy, Open, Quick Look, Show in Finder, Copy Path, Rename, Remove from shelf, Move to Trash (only Copy and Remove from shelf while saving). Each does what its mouse twin does, keys included: only Quick Look, Rename, Remove from shelf and Move to Trash give the shelf the keys.
+  - ✕ ("Remove from shelf") and ••• ("Options", a menu button) are buttons inside the card, there whether or not the pointer is over it.
+  - Toasts are posted as announcements (`announcementRequested`, high priority). The panel stays non-activating, and VoiceOver's cursor never makes it key (focusing an element, or raising the window: `accessibilityPerformRaise` only orders it front).
 - **Persistence.**
   - `~/Library/Application Support/Margin/shelf.json`.
   - Store items in order with **bookmark data**, so moved files are followed, plus the date and pixel size.
@@ -167,15 +173,15 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
 
 ## 5. Shelf interactions
 
-The shelf never steals focus. A click (copy) or double-click (open) leaves the keyboard with the app you're in, so ⌘V right after a click pastes there. The shelf takes the keys (the panel becomes key without activating Margin) only when they're needed next: ⌘-click, ✕ (so ⌘Z brings the card back), Rename…, Move to Trash, Clear shelf, or a click on the pile. Esc, a copy (click, ⌘C, Copy Path), tucking or a click elsewhere gives them back.
+The shelf never steals focus. A click (copy) or double-click (open) leaves the keyboard with the app you're in, so ⌘V right after a click pastes there. The shelf takes the keys (the panel becomes key without activating Margin) only when they're needed next: ⌘-click, ✕ (so ⌘Z brings the card back), Rename…, Move to Trash, Clear shelf, or a click on the pile. Esc, a copy (click, ⌘C, Copy Path), tucking, a rename that ends because a new shot pushed its card into the pile, or a click elsewhere gives them back.
 
 | Input | Result |
 |---|---|
-| Drag a card | Drags a **plain file URL** (`NSURL` pasteboard writer, `.copy` only, never `.move`). The card stays faint in its slot during the drag. If `operation` is non-empty at the end, the card collapses out and the rest settle. On cancel, it springs back |
+| Drag a card | Drags a **plain file URL** (`NSURL` pasteboard writer, `.copy` only, never `.move`). The card stays faint in its slot during the drag. If `operation` is non-empty at the end, the card collapses out and the rest settle. On cancel, it springs back. A fresh card whose PNG is still being written starts its drag as soon as the file lands, if the button is still down (a release before that does nothing) |
 | ⌥ held when the drop lands | The card stays on the shelf |
 | ⌘-click | Toggle selection. Dragging a selected card drags all selected cards (stacked drag image with a count badge). ⌘C copies all selected cards as images |
 | Click | Copies that shot at once (same clipboard write as §3), moves the ⌘V mark to it, shows the toast "Copied". The keyboard stays with the app you're in |
-| Space | Quick Look (`QLPreviewPanel`) for the focused card or the selection |
+| Space | Quick Look (`QLPreviewPanel`) for the focused card or the selection. Like the shelf, it takes the keys without activating Margin (its panel is made non-activating): Space or Esc closes it and ← → step through the shots. Closing it (also with its close button, a copy or tucking) gives the keyboard back, as Esc does. Clicking another app closes it |
 | ⌫ | Dismiss. The file stays on disk |
 | Two-finger swipe right on a card | Dismiss |
 | Double-click | Open with the default app (its first click has already copied the shot) |
@@ -183,7 +189,7 @@ The shelf never steals focus. A click (copy) or double-click (open) leaves the k
 | ⌘Z | Restore the last removed card(s). Keeps up to 20 steps, covering drag-out, dismiss, clear and trash (trash restores the file from the Trash; a file already back through Finder's Put Back counts as restored). Steps restore one at a time, newest first: a ⌘Z pressed while a file is still coming back from the Trash waits for it. Files are checked first: a card whose file was deleted meanwhile stays off the shelf ("File not found"), and that step is used up |
 
 - **Drop success.** Never delete or move the file because of a drag. "Success" means only that the card leaves the shelf.
-  - If an app reports success wrongly, ⌘Z brings the card back.
+  - If an app reports success wrongly, **Restore Last Removed** in the menu bar brings the card back. A drag never gives the shelf the keys (§5 intro), so ⌘Z right after a drop goes to the app it was dropped into; on the shelf, ⌘Z works after a ⌘-click or a click on the pile.
   - If an app reports failure wrongly, the card stays and ⌫ removes it.
 - **⌘V mark.** A small accent pill reading "⌘V" sits at the bottom-right of the card whose image is on the clipboard.
   - Poll `NSPasteboard.general.changeCount` about once a second. If it differs from the count recorded after Margin's last write, clear the mark.
@@ -200,7 +206,8 @@ The shelf never steals focus. A click (copy) or double-click (open) leaves the k
   - —
   - Tuck Shelf / Show Shelf ⌘⇧1 (disabled while the shelf is empty)
   - Restore Last Removed (disabled when there's nothing to restore)
-  - Open Screenshots Folder
+  - Open Screenshots Folder (creates it if missing; if it can't be opened, says so in a toast, and opens the Unsaved folder instead when that holds shots)
+  - Show Unsaved Shots (only while `~/Library/Application Support/Margin/Unsaved/` holds shots; opens it in Finder. The menu is built synchronously, so it reads a flag that's checked off the main thread at launch and on each menu open, and set by a fallback save)
   - —
   - "macOS still uses ⇧⌘4 — Fix…" (only while a macOS shortcut takes one of Margin's keys)
   - Settings…
