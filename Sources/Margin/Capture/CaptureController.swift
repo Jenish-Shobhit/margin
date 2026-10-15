@@ -541,14 +541,16 @@ final class CaptureController: CaptureControlling {
                 guard let shot = await Self.crop(image, to: pixelRect) else { throw CaptureError.emptyCrop }
                 timings.record("areaCapture", clock.ms(until: shot.ready))
                 timings.record("thumbnail", shot.thumbnailMs)
-                if repeating {
-                    let flash = Stopwatch()
-                    AreaFlash.show(rect)
-                    timings.record("areaFlash", flash.ms)
-                }
                 onCapture?(CaptureResult(image: shot.image, thumbnail: shot.thumbnail, scale: target.scale, sourceRect: rect,
                                          displayID: display.id, kind: .area, date: shot.date))
-                if !repeating {
+                if repeating {
+                    // Once the thumbnail is committed: the outline's panel would hold that commit back.
+                    FrameTiming.afterCommit { [timings] in
+                        let flash = Stopwatch()
+                        AreaFlash.show(rect)
+                        timings.record("areaFlash", flash.ms)
+                    }
+                } else {
                     Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
                 }
             } catch CaptureError.emptyCrop where repeating {
