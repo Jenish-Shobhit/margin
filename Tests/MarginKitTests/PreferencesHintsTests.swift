@@ -15,3 +15,17 @@ import Testing
     prefs.showsCaptureHints = true
     #expect(prefs.showsCaptureHints)
 }
+
+@MainActor @Test func obsoleteHintCountsAreRemoved() {
+    let suite = "margin.tests.hints.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suite)!
+    defer { defaults.removePersistentDomain(forName: suite) }
+    defaults.set(10, forKey: "hintCaptures.r3")
+    defaults.set(5, forKey: "hintCaptures.r2")
+    let prefs = Preferences(defaults: defaults)
+    prefs.completedCaptures = 40
+    prefs.removeObsoleteKeys()
+    #expect(defaults.object(forKey: "hintCaptures.r3") == nil)
+    #expect(defaults.object(forKey: "hintCaptures.r2") == nil)
+    #expect(prefs.completedCaptures == 40)
+}

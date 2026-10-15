@@ -165,6 +165,14 @@ public final class Preferences {
         return area
     }
 
+    /// Removes keys no version reads any more: `hintCaptures.r<n>` (0.0.5–0.0.7 counted captures to hide the hint
+    /// bar). Silent: nothing a setting depends on changes, so `didChange` isn't posted.
+    public func removeObsoleteKeys() {
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("hintCaptures.") {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
     public func shortcut(for action: ShortcutAction) -> KeyCombo {
         defaults.data(forKey: "shortcut.\(action.rawValue)").flatMap { try? JSONDecoder().decode(KeyCombo.self, from: $0) }
             ?? action.defaultCombo
