@@ -60,4 +60,12 @@ public enum ClipboardWriter {
     public static func write(pngs: [Data], to pasteboard: NSPasteboard = .general) -> Int {
         write(pngs: pngs, fileURLs: [], to: pasteboard)
     }
+
+    /// Copy Path: the paths as plain text, one per line, and no image. Returns the new changeCount.
+    @MainActor @discardableResult
+    public static func write(paths: [String], to pasteboard: NSPasteboard = .general) -> Int {
+        pasteboard.clearContents()
+        pasteboard.setString(paths.joined(separator: "\n"), forType: .string)
+        return pasteboard.changeCount
+    }
 }

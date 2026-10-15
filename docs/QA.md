@@ -219,7 +219,8 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **The ⌘V mark**
 
 - [ ] The ⌘V pill sits on the card whose image is on the clipboard
-- [ ] Copying something else clears the ⌘V mark within about a second
+- [ ] Copying something else clears the ⌘V mark within about a second; Copy Path clears it at once
+- [ ] A copy from the shelf (click, ⌘C or Copy Path) made while a capture is still saving stays on the clipboard when that capture lands
 - [ ] Removing the marked card removes the mark
 
 ## Files changed outside Margin

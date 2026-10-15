@@ -124,6 +124,7 @@ extension ShelfController {
         }
         let items = ready.compactMap { item(for: $0) }
         guard !items.isEmpty else { return }
+        queuedCopy = nil
         copyGeneration += 1
         let generation = copyGeneration
         Task { [weak self] in
@@ -229,21 +230,26 @@ extension ShelfController {
         return menu
     }
 
+    /// Copy Path: the paths as plain text. A copy like any other: the newest one from the shelf wins, and it wins
+    /// over a capture still being saved (`onCopiedPaths`). A path isn't the image, so the ⌘V mark goes.
     func copyPaths(_ ids: [UUID]) {
         let items = ordered(ids).compactMap { item(for: $0) }
         guard !items.isEmpty else { return }
+        queuedCopy = nil
+        copyGeneration += 1
+        let generation = copyGeneration
         Task { [weak self] in
             let results = await ShelfFiles.check(items) { $0.path }
-            guard let self else { return }
+            guard let self, generation == self.copyGeneration else { return }
             let paths = self.apply(results).compactMap(\.value)
             guard !paths.isEmpty else {
                 self.showToast("File not found", isError: true)
                 return
             }
-            let pb = self.pasteboard
-            pb.clearContents()
-            pb.setString(paths.joined(separator: "\n"), forType: .string)
+            ClipboardWriter.write(paths: paths, to: self.pasteboard)
+            self.setClipboardMark(nil)
             self.showToast(paths.count > 1 ? "Paths copied" : "Path copied")
+            self.onCopiedPaths?()
         }
     }
 

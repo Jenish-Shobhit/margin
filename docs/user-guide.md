@@ -153,7 +153,7 @@ The shelf sits at the bottom-right of the display you last captured on, clear of
   - the **•••** Options button at the top-left, for its menu;
   - the time and pixel size along the bottom, e.g. `17:42 · 1280 × 800`.
 - **The pile.** At most four cards show (fewer on a short screen). Older shots fold into a `+N older` **pile** above them. Hover it to fan out the newest few, drag it to send all of them, or right-click it for **Clear shelf**.
-- **The ⌘V mark.** A small violet **⌘V** pill sits on the card whose image is on the clipboard. It goes away within a second of copying something else.
+- **The ⌘V mark.** A small violet **⌘V** pill sits on the card whose image is on the clipboard. It goes away within a second of copying something else, and at once on **Copy Path** (the clipboard then holds the path, not the image).
 - **Toasts.** Short messages appear above the top card for about a second: "Copied", "Path copied", "Restored", "Shelf tucked · ⇧⌘1" and errors. They're never system notifications.
 - **Tucking.** **⇧⌘1** slides the shelf off the edge, leaving a narrow **tab** with the number of shots. Hover the tab to peek at the shelf, and click it (or press ⇧⌘1 again) to bring the shelf back. New shots fly into the tab while it's tucked, and the count goes up. An empty shelf can't be tucked.
 

@@ -194,6 +194,22 @@ import Testing
         #expect(ghosttyPerItemPaste(pb) == nil) // as before 0.0.2: nothing for a terminal to paste
     }
 
+    /// Copy Path replaces an image on the clipboard with the paths alone, one per line.
+    @Test func pathsAreTextOnly() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let pb = NSPasteboard.withUniqueName()
+        defer { pb.releaseGlobally() }
+        let shot = try savedCapture(in: dir)
+        let before = ClipboardWriter.write(pngs: [shot.png], fileURLs: [shot.url], to: pb)
+        let count = ClipboardWriter.write(paths: [shot.url.path, "/tmp/b c.png"], to: pb)
+        #expect(count == pb.changeCount && count > before)
+        #expect(pb.pasteboardItems?.count == 1)
+        #expect(pb.string(forType: .string) == shot.url.path + "\n/tmp/b c.png")
+        #expect(pb.data(forType: .png) == nil)
+        #expect(pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])?.isEmpty ?? true)
+    }
+
     @Test func pngOnlyWriteIsWriteWithoutURLs() throws {
         let a = NSPasteboard.withUniqueName(), b = NSPasteboard.withUniqueName()
         defer { a.releaseGlobally(); b.releaseGlobally() }

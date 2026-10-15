@@ -79,6 +79,7 @@ final class AppCoordinator {
         // Not in the CaptureControlling contract: a failed capture says so in the shelf instead of doing nothing.
         capture.onFailure = { [weak self] message in self?.shelf.showToast(message, isError: true) }
         shelf.onCopied = { [weak self] id, changeCount in self?.shelfDidCopy(id, changeCount: changeCount) }
+        shelf.onCopiedPaths = { [weak self] in self?.shelfDidCopyPaths() }
         shelf.onRemoved = { [weak self] ids in self?.shelfDidRemove(ids) }
         FirstRunWindowController.shared.onRelaunch = { [weak self] in self?.relaunch() }
 
@@ -367,6 +368,14 @@ final class AppCoordinator {
         lastClipboardSequence = captureSequence
         mark.didWrite(itemID: id, changeCount: changeCount)
         shelf.setClipboardMark(id)
+    }
+
+    /// Copy Path wins over a capture still being encoded too. The clipboard holds paths now, not an image, so no
+    /// card has the ⌘V mark.
+    private func shelfDidCopyPaths() {
+        lastClipboardSequence = captureSequence
+        mark.clear()
+        shelf.setClipboardMark(nil)
     }
 
     private func shelfDidRemove(_ ids: [UUID]) {

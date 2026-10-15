@@ -47,7 +47,7 @@ flowchart LR
 | `ShelfLayout.swift` | Card sizes, slots, how many cards fit and the `+N older` pile |
 | `ShelfStore.swift` | `ShelfItem` (path, bookmark, date, pixel size; whether its volume is mounted) and the ordered, JSON-persisted list |
 | `PNGWriter.swift` | One ImageIO encode (no filtering, colour profile, DPI) and the atomic write: temp file, then an exclusive rename |
-| `ClipboardMark.swift` | The ⌘V mark's change-count bookkeeping, and `ClipboardWriter` (PNG + file URL per item) |
+| `ClipboardMark.swift` | The ⌘V mark's change-count bookkeeping, and `ClipboardWriter` (PNG + file URL per item; Copy Path's plain text) |
 | `Preferences.swift` | `KeyCombo`, `ShortcutAction` (defaults, ⌃ twins, conflicts), `LastArea` and the `Preferences` store |
 | `KeyCombo+Display.swift` | `⇧⌘4`-style strings in ⌃⌥⇧⌘ order, key names and Carbon ↔ AppKit modifiers |
 | `KeyboardLayout.swift` | What the character keys type on the user's keyboard layout (`UCKeyTranslate`), so shortcuts read as the keys are labelled. A snapshot taken on the main thread at launch and on every input source change |
@@ -185,7 +185,7 @@ Then, in a detached task:
 
 Back on the main actor, `finishSave`:
 
-1. Writes the clipboard, if **Copy each capture** is on and this is still the newest capture (a copy from the shelf since then wins). It writes one item per shot: `public.png`, plus `public.file-url` pointing at the *final* path. It records the pasteboard's `changeCount` and puts the ⌘V mark on the card.
+1. Writes the clipboard, if **Copy each capture** is on and this is still the newest capture (a copy from the shelf since then wins: a click, ⌘C or Copy Path). It writes one item per shot: `public.png`, plus `public.file-url` pointing at the *final* path. It records the pasteboard's `changeCount` and puts the ⌘V mark on the card.
 2. Stores the final path and bookmark, and calls `shelf.itemDidSave`.
 3. Shows the Unsaved toast if needed (and sets the flag behind the menu's **Show Unsaved Shots**), bumps the capture counter, and tells first run.
 
@@ -196,7 +196,7 @@ Quitting while saves are in flight answers `.terminateLater`. Margin waits for t
 ### On the shelf
 
 - `ShelfFlight` animates the thumbnail from the selection to its slot in about 0.45 s, in a temporary click-through panel. It re-aims if the slot moves (another capture, a tuck, a peek), lands in the tab or the pile when that's where the card is, and then hands off to the real card. The card's accent ring lasts 1.5 s.
-- A one-second timer compares the pasteboard's `changeCount` with the one recorded after Margin's last write. When they differ, the ⌘V mark clears. Margin never reads the clipboard's contents.
+- A one-second timer compares the pasteboard's `changeCount` with the one recorded after Margin's last write. When they differ, the ⌘V mark clears. Copy Path clears it at once, since the clipboard then holds paths, not an image. Margin never reads the clipboard's contents.
 - Drag-out writes a plain `NSURL` per item and offers `.copy` only. A non-empty drop operation without ⌥ removes the cards, as one undo step. The drag never makes the shelf key, so ⌘Z after a drop belongs to the app that took it; the menu's **Restore Last Removed** (`undo(fromMenu:)`) is the way back.
 
 ## Threading rules
