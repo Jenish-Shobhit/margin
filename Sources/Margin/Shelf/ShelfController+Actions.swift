@@ -244,9 +244,10 @@ extension ShelfController {
 
     /// Quick Look has closed: the keyboard goes back to the user's app. Its full screen made Margin the active app,
     /// which deactivating can't undo from here (`releaseKeys` leaves an active Margin alone), so activation goes back
-    /// to `app`, the one the user was in when it opened. Not if one of Margin's own windows (Settings) has the keys.
+    /// to `app`, the one the user was in when it opened. Not if one of Margin's own windows has the keys: Settings, or
+    /// the overlay of a capture that closed Quick Look by taking them (handed away, activation would cancel it).
     func quickLookDidClose(returnTo app: NSRunningApplication?) {
-        let ownWindowIsKey = NSApp.keyWindow.map { $0.level == .normal } ?? false
+        let ownWindowIsKey = NSApp.keyWindow.map { $0.level == .normal || $0 is OverlayPanel } ?? false
         guard let app, NSRunningApplication.current.isActive, !ownWindowIsKey, !app.isTerminated, app != .current else {
             releaseKeys()
             return
