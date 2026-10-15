@@ -16,8 +16,10 @@ extension ShelfController {
         guard !snapshot.isEmpty else { return }
         fileRefreshRunning = true
         let quietUntil = Date().addingTimeInterval(quietWithin)
+        let clock = Stopwatch()
         Task { [weak self] in
             let results = await ShelfFiles.statuses(snapshot)
+            CaptureTimings.shared.record("shelfFileCheck", clock.ms)
             guard let self else { return }
             self.fileRefreshRunning = false
             self.apply(results, quiet: Date() < quietUntil)

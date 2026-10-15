@@ -202,10 +202,19 @@ public final class ShelfStore {
         return false
     }
 
+    /// Called after every save with how long it took (ms) and the file's size, for the timing log.
+    public var didSave: ((_ milliseconds: Double, _ bytes: Int) -> Void)?
+
     public func save() {
         do {
+            let start = ContinuousClock.now
             try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try JSONEncoder().encode(items).write(to: fileURL, options: .atomic)
+            let data = try JSONEncoder().encode(items)
+            try data.write(to: fileURL, options: .atomic)
+            if let didSave {
+                let d = ContinuousClock.now - start
+                didSave(Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15, data.count)
+            }
         } catch {
             Self.log.error("shelf.json not saved: \(error.localizedDescription, privacy: .public)")
         }

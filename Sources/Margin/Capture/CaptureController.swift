@@ -30,7 +30,7 @@ final class CaptureController: CaptureControlling {
 
     private let cache = ShareableContentCache()
     private let pool = OverlayPanelPool()
-    private let timings = CaptureTimings()
+    private let timings = CaptureTimings.shared
     private var session: OverlaySession?
     /// The app that was frontmost when the overlay went up; it gets focus back afterwards.
     private var previousApp: NSRunningApplication?
@@ -147,6 +147,7 @@ final class CaptureController: CaptureControlling {
             }
             permissionWorked()
             timings.record("prewarm", clock.ms)
+            if let launched = ProcessLaunch.ms { timings.record("launchToPrewarmed", launched) }
         } catch {
             CaptureLog.capture.error("prewarm failed: \(error.localizedDescription, privacy: .public)")
             if ScreenGrabber.isPermissionError(error) { permissionLost() }
@@ -269,6 +270,11 @@ final class CaptureController: CaptureControlling {
                     if first {
                         first = false
                         timings.record("hotkeyToFirstFrozen", clock.ms)
+                        // Flushed to the render server just now: on screen with the display's next refresh.
+                        let flushed = CACurrentMediaTime(), flushedMs = clock.ms
+                        FrameTiming.nextRefresh(of: Displays.screen(for: frame.displayID), after: flushed) { [timings] refresh in
+                            timings.record("hotkeyToFirstFrozenFrame", flushedMs + (refresh - flushed) * 1000)
+                        }
                     }
                 }
                 timings.record("freezeCapture.\(frame.displayID)", frame.ms)
@@ -402,20 +408,26 @@ final class CaptureController: CaptureControlling {
         // Overlay first: the shelf's fly-in starts from the selection, over the live screen.
         let previous = owesFocus ? previousApp : nil
         endSession(restoreFocus: false)
+        timings.record("release.endSession", clock.ms)
         let source = SendableImage(image: image)
         Task {
-            if let cropped = await Self.crop(source, to: pixelRect) {
+            if case let (cropped, cropMs)? = await Self.timedCrop(source, to: pixelRect) {
+                timings.record("release.crop", cropMs)
                 timings.record("releaseToResult", clock.ms)
                 onCapture?(CaptureResult(image: cropped.image, scale: scale, sourceRect: rect, displayID: display.id, kind: .area, date: date))
                 // After the hand-off: the write posts Preferences.didChange, which shouldn't delay the thumbnail.
+                let write = Stopwatch()
                 Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
+                timings.record("release.lastArea", write.ms)
             } else {
                 CaptureLog.capture.error("area crop was empty: \(String(describing: pixelRect), privacy: .public)")
                 onFailure?(FailureText.area)
             }
             // Focus goes back only now: AppKit's deactivation work holds the main actor for ~15 ms, which
             // would otherwise sit between the crop and the hand-off to the shelf.
+            let focus = Stopwatch()
             giveFocusBack(to: previous)
+            timings.record("release.focusBack", focus.ms)
         }
     }
 
@@ -426,7 +438,11 @@ final class CaptureController: CaptureControlling {
         endSession()
         Task {
             // Margin took focus for the keys; give it back first so the window is shot with its own focus look.
-            if wasActive, let previous { await Self.waitUntilActive(previous) }
+            if wasActive, let previous {
+                let wait = Stopwatch()
+                await Self.waitUntilActive(previous)
+                timings.record("windowWaitActive", wait.ms)
+            }
             do {
                 let (image, scale) = try await ScreenGrabber.captureWindow(window.target, keepShadow: keepShadow)
                 timings.record("windowCapture", clock.ms)
@@ -495,12 +511,17 @@ final class CaptureController: CaptureControlling {
             do {
                 let target = try await cache.target(for: display)
                 let image = try await ScreenGrabber.capture(target)
+                timings.record("areaCapture.display", clock.ms)
                 permissionWorked()
                 let size = CGSize(width: image.image.width, height: image.image.height)
                 let pixelRect = Geometry.pixelRect(for: rect, displayFrame: display.frame, scale: target.scale, imageSize: size)
                 guard let cropped = await Self.crop(image, to: pixelRect) else { throw CaptureError.emptyCrop }
                 timings.record("areaCapture", clock.ms)
-                if repeating { AreaFlash.show(rect) }
+                if repeating {
+                    let flash = Stopwatch()
+                    AreaFlash.show(rect)
+                    timings.record("areaFlash", flash.ms)
+                }
                 onCapture?(CaptureResult(image: cropped.image, scale: target.scale, sourceRect: rect, displayID: display.id, kind: .area, date: Date()))
                 if !repeating {
                     Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
@@ -522,6 +543,13 @@ final class CaptureController: CaptureControlling {
         ScreenGrabber.crop(image.image, to: pixelRect).map(SendableImage.init)
     }
 
+    /// `crop`, and how long the crop itself took (without the hops to and from the main actor).
+    @concurrent
+    private nonisolated static func timedCrop(_ image: SendableImage, to pixelRect: CGRect) async -> (SendableImage, Double)? {
+        let clock = Stopwatch()
+        return ScreenGrabber.crop(image.image, to: pixelRect).map { (SendableImage(image: $0), clock.ms) }
+    }
+
     /// Waits (briefly) until `app` is active again and has had a frame or two to redraw.
     private static func waitUntilActive(_ app: NSRunningApplication) async {
         for _ in 0..<15 where !app.isActive {
@@ -531,7 +559,11 @@ final class CaptureController: CaptureControlling {
     }
 
     private func hasPermission() -> Bool {
-        if !permissionConfirmed { permissionConfirmed = CGPreflightScreenCaptureAccess() }
+        if !permissionConfirmed {
+            let clock = Stopwatch()
+            permissionConfirmed = CGPreflightScreenCaptureAccess()
+            timings.record("preflight", clock.ms)
+        }
         return permissionConfirmed
     }
 
@@ -591,8 +623,12 @@ final class CaptureController: CaptureControlling {
     private func endSession(restoreFocus: Bool = true) {
         guard let s = session else { return }
         session = nil
+        let clock = Stopwatch()
         hotkeys.unregister()
+        timings.record("endSession.hotkeys", clock.ms)
+        let close = Stopwatch()
         s.close()
+        timings.record("endSession.close", close.ms)
         if owesFocus, restoreFocus {
             giveFocusBack(to: previousApp)
         }
