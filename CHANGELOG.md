@@ -2,6 +2,17 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.18 — 2026-10-15
+
+### Changed
+
+- Window mode puts the clicked window on the shelf at once: its thumbnail is on screen about 27 ms after the click instead of about 145 ms (about 45–50 ms for a window that's partly covered, or with ⌥). It shows the window as it looked in the frozen screen, or as captured at the click, until its own shot, with the window's focused look, takes its place a moment later without a second fly-in. The saved file and the clipboard are exactly as before, and are ready about 10 ms sooner.
+- In window mode the shutter sounds at the click, and the file is named for the moment you clicked.
+
+### Fixed
+
+- Quitting Margin right after a window-mode click lost that shot. Margin now waits for it to be saved.
+
 ## 0.0.17 — 2026-10-15
 
 ### Changed
