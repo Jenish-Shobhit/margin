@@ -71,8 +71,11 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 **Cancelling**
 
 - [ ] Esc cancels: no file, no sound, clipboard unchanged
-- [ ] Space or Esc pressed right after ⇧⌘4, before the screen freezes, reach the overlay, not the app in front (no space typed in a text editor; a full-screen video doesn't pause or leave full screen)
+- [ ] Space or Esc pressed right after ⇧⌘4, before the screen freezes, reach the overlay, not the app in front (no space typed in a text editor; a full-screen video doesn't pause or leave full screen). Only a key within about 10–15 ms of ⇧⌘4 may still reach the app (macOS hands Margin the hotkey that late), up to about 15 ms on the first capture after launch
+- [ ] With a launcher on ⌥Space (Raycast, Alfred, ChatGPT): ⌥Space during a capture opens only the launcher (the overlay doesn't switch to window mode first)
 - [ ] After a capture or Esc, the app in front gets its focus back with the caret where it was, even for an Esc pressed the instant the screen freezes
+  - [ ] also after ⇧⌘4, Esc the instant it freezes, then at once ⇧⌘4 and Esc again before the screen freezes
+- [ ] The key that ends a capture (Esc, ↩) or a Space still held at mouse-up sends no lone key release to the app in front (watch with a key-event viewer, or kitty's keyboard protocol in a terminal)
 - [ ] The crosshair shows as soon as the screen freezes, without moving the mouse
 - [ ] Right-click cancels the same way
 - [ ] ⌘Tab to another app while selecting cancels it
@@ -185,6 +188,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 
 - [ ] ⌘-click toggles selection; dragging a selected card drags all selected (stacked image with a count badge)
 - [ ] ⌘A selects every card outside the pile; Esc clears the selection
+- [ ] With TextEdit in front: ⌘-click a card, ⌘Space twice (Spotlight opens and closes), Esc: typing goes to TextEdit (the menu bar may flash Margin's for a moment)
 - [ ] ⌘C copies all selected cards as images (each with its file URL)
 - [ ] Click copies that shot at once (⌘V straight after the click pastes it), moves the ⌘V mark to it, and shows "Copied"; a double-click copies on its first click and opens on its second
 
@@ -195,10 +199,12 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
   - [ ] with two cards ⌘-selected, ← → switch between them in Quick Look
   - [ ] Quick Look's own close button gives the keyboard back too; clicking inside Quick Look keeps Space and Esc working; clicking another app closes it
   - [ ] with Quick Look open, a plain click on a card copies it, closes Quick Look and leaves typing with TextEdit; ⇧⌘1 (tuck) closes it too
+  - [ ] its full-screen button, then Esc (leaves full screen) and Esc (or Space, or its close button): TextEdit is the active app again and typing goes there
 - [ ] ⌫ (or ⌦) dismisses (the file stays on disk)
 - [ ] Two-finger swipe right on a card dismisses it
 - [ ] Double-click opens the file in the default app
 - [ ] ••• and right-click (or ⌃-click) offer Copy Path · Reveal in Finder · Rename… (renames on disk) · Move to Trash; Copy Paths for a multi-selection
+  - [ ] with TextEdit in front, after a ⌘-click and Esc on the shelf: ••• (or a right-click, or VoiceOver's Show Menu), then Esc: typing goes to TextEdit at once; the same with the pile's right-click menu. After a ⌘-click (no Esc), the shelf keeps the keys
 - [ ] ⌘Z restores the last removed card(s), up to 20 steps: drag-out, dismiss, clear and trash (the file comes back from the Trash)
 - [ ] On cards A, B, C (oldest first): dismiss A, Move B to Trash, then ⌘Z ⌘Z quickly: the shelf reads A, B, C again
 - [ ] Dismiss a card, delete its file in Finder, ⌘Z: "File not found", no card appears and fades; the next ⌘Z restores the removal before

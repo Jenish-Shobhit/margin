@@ -62,7 +62,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 
 ### Freeze (area mode)
 1. On the hotkey, **immediately** show a transparent full-screen overlay on every display and switch the cursor to a crosshair. The overlay is one borderless `NSPanel` per display at level `.screenSaver + 1`, on all Spaces, `.fullScreenAuxiliary`.
-   - The overlay's keys work from the hotkey on, never reaching the app in front: until the first frame is frozen they're caught as Carbon hotkeys (Esc, Space, ↩, ⌤, Z, arrows, with any of ⇧ ⌥ ⌃). Only then does the overlay become key and Margin activate (the crosshair needs it): sooner, the frontmost window would lose its focused look in the frozen frame. When the capture ends, that app gets its focus back as it was.
+   - The overlay's keys work from the hotkey on, never reaching the app in front: until the first frame is frozen they're caught as Carbon hotkeys (⌤, Z and the arrows with any of ⇧ ⌥ ⌃; Esc, Space and ↩ alone or with ⇧, since with ⌥ or ⌃ they're other apps' shortcuts, such as a launcher's ⌥Space), plain Esc and Space before anything else on the hotkey path. A key pressed before macOS hands Margin the hotkey (15–30 ms after it) can't be caught. Only then does the overlay become key and Margin activate (the crosshair needs it): sooner, the frontmost window would lose its focused look in the frozen frame. When the capture ends, that app gets its focus back as it was.
 2. In parallel (a `TaskGroup`), capture every display with `SCScreenshotManager.captureImage(contentFilter:configuration:)`.
    - Filter: `SCContentFilter(display:excludingApplications:[Margin]…)`.
    - Configuration: full pixel size via `SCShareableContent.info(for:).pointPixelScale`, `showsCursor = false`, best resolution.
@@ -174,7 +174,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
 
 ## 5. Shelf interactions
 
-The shelf never steals focus. A click (copy) or double-click (open) leaves the keyboard with the app you're in, so ⌘V right after a click pastes there. The shelf takes the keys (the panel becomes key without activating Margin) only when they're needed next: ⌘-click, ✕ (so ⌘Z brings the card back), Rename…, Move to Trash, Clear shelf, or a click on the pile. Esc, a copy (click, ⌘C, Copy Path), tucking, a rename that ends because a new shot pushed its card into the pile, or a click elsewhere gives them back.
+The shelf never steals focus. A click (copy) or double-click (open) leaves the keyboard with the app you're in, so ⌘V right after a click pastes there. The shelf takes the keys (the panel becomes key without activating Margin) only when they're needed next: ⌘-click, ✕ (so ⌘Z brings the card back), Rename…, Move to Trash, Clear shelf, or a click on the pile. Esc, a copy (click, ⌘C, Copy Path), tucking, a rename that ends because a new shot pushed its card into the pile, or a click elsewhere gives them back, and so does a card's or the pile's menu closed without a choice (Esc, a click elsewhere), unless the shelf had them when it opened.
 
 | Input | Result |
 |---|---|
@@ -182,7 +182,7 @@ The shelf never steals focus. A click (copy) or double-click (open) leaves the k
 | ⌥ held when the drop lands | The card stays on the shelf |
 | ⌘-click | Toggle selection. Dragging a selected card drags all selected cards (stacked drag image with a count badge). ⌘C copies all selected cards as images |
 | Click | Copies that shot at once (same clipboard write as §3), moves the ⌘V mark to it, shows the toast "Copied". The keyboard stays with the app you're in |
-| Space | Quick Look (`QLPreviewPanel`) for the focused card or the selection. Like the shelf, it takes the keys without activating Margin (its panel is made non-activating): Space or Esc closes it and ← → step through the shots. Closing it (also with its close button, a copy or tucking) gives the keyboard back, as Esc does. Clicking another app closes it |
+| Space | Quick Look (`QLPreviewPanel`) for the focused card or the selection. Like the shelf, it takes the keys without activating Margin (its panel is made non-activating): Space or Esc closes it and ← → step through the shots. Closing it (also with its close button, a copy or tucking) gives the keyboard back, as Esc does; after its full-screen button, which makes Margin the active app, activation goes back to the app you were in. Clicking another app closes it |
 | ⌫ | Dismiss. The file stays on disk |
 | Two-finger swipe right on a card | Dismiss |
 | Double-click | Open with the default app (its first click has already copied the shot) |

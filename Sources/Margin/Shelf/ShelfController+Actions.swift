@@ -27,6 +27,9 @@ extension ShelfController {
     /// Only for what needs those keys next (⌘-click, ✕, Rename…, Move to Trash, Clear shelf, the pile): a plain
     /// click copies, and its ⌘V belongs to the app the user is in.
     func focusShelf() {
+        keysWentElsewhere = false
+        keysCameBack = false
+        releasingKeys = false
         if !panel.isKeyWindow { panel.makeKey() }
         if !(panel.firstResponder is NSTextView) { panel.makeFirstResponder(root) }
     }
@@ -43,7 +46,55 @@ extension ShelfController {
             root.closeQuickLook()
             return
         }
-        NSApp.deactivate()
+        if keysCameBack {
+            handKeysBack()
+        } else {
+            releasingKeys = true
+            NSApp.deactivate()
+        }
+    }
+
+    /// `releaseKeys` once another app has handed the keys back to the shelf (Spotlight opened and closed with ⌘Space):
+    /// macOS then no longer leads the keyboard home, and deactivating leaves it with no window at all, typing lost
+    /// until a click. So Margin activates and hands activation to the user's app, as at the end of a capture, which
+    /// gives that app's window the keyboard again. Handed over before Margin's own activation has landed, the app
+    /// would end up active without its key window (see `CaptureController.giveFocusBack`), so it waits for that.
+    private func handKeysBack() {
+        keysCameBack = false
+        guard let app = NSWorkspace.shared.frontmostApplication, app != .current else { return }
+        NSApp.activate()
+        Task { @MainActor [weak self] in
+            let requested = ContinuousClock.now
+            while !NSRunningApplication.current.isActive, ContinuousClock.now - requested < .milliseconds(300) {
+                try? await Task.sleep(for: .milliseconds(5))
+            }
+            let landed = NSRunningApplication.current.isActive
+            try? await Task.sleep(for: .milliseconds(60))
+            // The user went to another app meanwhile: it keeps the keys.
+            guard let self, !app.isTerminated, !landed || NSRunningApplication.current.isActive else { return }
+            self.releasingKeys = true
+            NSApp.yieldActivation(to: app)
+            app.activate(from: .current, options: [])
+        }
+    }
+
+    /// The shelf lost the keys: to another app's window, unless `releaseKeys` gave them away or one of Margin's own
+    /// windows (Quick Look, the overlay, Settings) took them. Keys that had come back are gone again (a click in the
+    /// user's app after Spotlight): only if they come back once more does `releaseKeys` need `handKeysBack`.
+    func shelfResignedKey() {
+        if releasingKeys {
+            releasingKeys = false
+        } else if NSApp.keyWindow == nil, !NSRunningApplication.current.isActive {
+            keysWentElsewhere = true
+            keysCameBack = false
+        }
+    }
+
+    /// The shelf has the keys again without asking for them (`focusShelf`): the app that took them handed them back.
+    func shelfBecameKey() {
+        guard keysWentElsewhere else { return }
+        keysWentElsewhere = false
+        keysCameBack = true
     }
 
     func cardHover(_ card: ShelfCardView, inside: Bool) {
@@ -194,6 +245,20 @@ extension ShelfController {
         root.closeQuickLook()   // or alone, while Margin is in front
     }
 
+    /// Quick Look has closed: the keyboard goes back to the user's app. Its full screen made Margin the active app,
+    /// which deactivating can't undo from here (`releaseKeys` leaves an active Margin alone), so activation goes back
+    /// to `app`, the one the user was in when it opened. Not if one of Margin's own windows has the keys: Settings, or
+    /// the overlay of a capture that closed Quick Look by taking them (handed away, activation would cancel it).
+    func quickLookDidClose(returnTo app: NSRunningApplication?) {
+        let ownWindowIsKey = NSApp.keyWindow.map { $0.level == .normal || $0 is OverlayPanel } ?? false
+        guard let app, NSRunningApplication.current.isActive, !ownWindowIsKey, !app.isTerminated, app != .current else {
+            releaseKeys()
+            return
+        }
+        NSApp.yieldActivation(to: app)
+        app.activate(from: .current, options: [])
+    }
+
     /// Quick Look is open but neither it nor the shelf has the keyboard any more (a click in another app):
     /// nothing could close it with a key, so it closes.
     func keyWindowChanged() {
@@ -210,10 +275,19 @@ extension ShelfController {
 
     // MARK: - Menu (••• and right-click)
 
+    /// An empty card or pile menu. Once the shelf has had the keys, AppKit makes it key again when a menu closes, so
+    /// a menu closed without a choice (Esc, a click elsewhere) gives them back, unless the shelf had them when it
+    /// opened. A chosen item decides for itself.
+    func makeMenu() -> ShelfMenu {
+        keysWentElsewhere = false   // if the shelf gets the keys now, it's from this menu
+        let hadKeys = panel.isKeyWindow || root.isQuickLookKey
+        return ShelfMenu { [weak self] in if !hadKeys { self?.releaseKeys() } }
+    }
+
     func menu(for card: ShelfCardView) -> NSMenu {
         let id = card.id
         let ids = selection.contains(id) && selection.count > 1 ? ordered(selection) : [id]
-        let menu = NSMenu()
+        let menu = makeMenu()
         menu.autoenablesItems = false
         // Until the file is on disk there's nothing to act on.
         let saving = ids.contains { pending.contains($0) }

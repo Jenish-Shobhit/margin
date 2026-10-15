@@ -115,17 +115,14 @@ final class ShelfPileView: NSView {
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
-        let menu = NSMenu()
-        let clear = NSMenuItem(title: "Clear shelf", action: #selector(clearShelf), keyEquivalent: "")
-        clear.target = self
-        menu.addItem(clear)
+        guard let controller else { return nil }
+        let menu = controller.makeMenu()
+        // Counts as a click on the shelf (spec §5): the panel takes key, so ⌘Z brings everything back.
+        menu.addItem(ShelfMenuItem("Clear shelf") { [weak controller] in
+            controller?.focusShelf()
+            controller?.clear()
+        })
         return menu
-    }
-
-    /// Counts as a click on the shelf (spec §5): the panel takes key, so ⌘Z brings everything back.
-    @objc private func clearShelf() {
-        controller?.focusShelf()
-        controller?.clear()
     }
 }
 

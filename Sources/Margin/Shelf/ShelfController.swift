@@ -54,6 +54,12 @@ final class ShelfController: ShelfControlling {
     var copyGeneration = 0
     /// The path each card's thumbnail is loading from. Only the latest load for a card lands.
     var thumbnailLoads: [UUID: String] = [:]
+    /// Where the shelf's keys went, for `releaseKeys`. `keysWentElsewhere`: another app's window took them while the
+    /// shelf had them (Spotlight, a launcher, a click there). `keysCameBack`: that app then handed them back to the
+    /// shelf. `releasingKeys`: the shelf's next resign is `releaseKeys` giving them away.
+    var keysWentElsewhere = false
+    var keysCameBack = false
+    var releasingKeys = false
     private(set) var isPeeking = false
     private(set) var layout = ShelfLayout.layout(heights: [], availableHeight: 0)
 
@@ -113,6 +119,13 @@ final class ShelfController: ShelfControlling {
                 Task { @MainActor [weak self] in self?.keyWindowChanged() }
             })
         }
+        // Where the shelf's keys go (`releaseKeys`), also once the change has settled.
+        observers.append(nc.addObserver(forName: NSWindow.didResignKeyNotification, object: panel, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.shelfResignedKey() }
+        })
+        observers.append(nc.addObserver(forName: NSWindow.didBecomeKeyNotification, object: panel, queue: .main) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.shelfBecameKey() }
+        })
         let wnc = NSWorkspace.shared.notificationCenter
         observers.append(wnc.addObserver(forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.accessibilityChanged() }

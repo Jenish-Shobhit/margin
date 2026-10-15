@@ -41,6 +41,11 @@ final class CaptureController: CaptureControlling {
     /// The app a `giveFocusBack` that's still waiting will hand focus to. A capture started meanwhile takes it as its
     /// own previous app (Margin is frontmost by then), so a quick second ⌘⇧4 still ends with focus back there.
     private var pendingFocusReturn: NSRunningApplication?
+    /// This capture took `previousApp` over from a waiting `giveFocusBack`: Margin is active from the last one, so
+    /// focus goes back even if this one ends before it activates itself (Esc before the first frame).
+    private var inheritedFocusReturn = false
+    /// Margin has (or is taking) focus that this capture has to give back.
+    private var owesFocus: Bool { activatedForSession || inheritedFocusReturn }
     /// The overlay's keys from the moment the capture starts, before it can be key (see `OverlayHotkeys`).
     private lazy var hotkeys = OverlayHotkeys { [weak self] event in
         guard let session = self?.session else { return }
@@ -106,9 +111,9 @@ final class CaptureController: CaptureControlling {
                 MainActor.assumeIsolated {
                     guard let self, self.session != nil else { return }
                     CaptureLog.capture.info("\(name.rawValue, privacy: .public): cancelling the overlay")
-                    let activated = self.activatedForSession
+                    let owed = self.owesFocus
                     self.endSession(restoreFocus: restoreFocus)
-                    if !restoreFocus, activated, NSApp.keyWindow == nil {
+                    if !restoreFocus, owed, NSApp.keyWindow == nil {
                         self.giveFocusBack(to: Self.frontmostWindowOwner())
                     }
                 }
@@ -133,6 +138,7 @@ final class CaptureController: CaptureControlling {
         // Margin listed in SCShareableContent (needed to exclude it).
         pool.sync()
         pool.warmUp()
+        hotkeys.prepare()
         do {
             try await cache.refresh()
             let main = CGMainDisplayID()
@@ -161,14 +167,22 @@ final class CaptureController: CaptureControlling {
     private func begin(in mode: OverlaySession.Mode) {
         guard session == nil else { return }
         let clock = Stopwatch()
+        // The overlay can be key only with the first frame; until then its keys would reach the frontmost app (Space
+        // typed into a document, Esc taking a full-screen app out of full screen). They're caught as hotkeys instead,
+        // Esc and Space before anything else: once the captures have started, the window server is slow to take them.
+        hotkeys.registerFirst()
         let signpost = CaptureLog.signposter.beginInterval("freeze")
         guard hasPermission() else {
+            hotkeys.unregister()
             CaptureLog.signposter.endInterval("freeze", signpost)
             onPermissionMissing?()
             return
         }
         let displays = Displays.all
-        guard !displays.isEmpty else { return }
+        guard !displays.isEmpty else {
+            hotkeys.unregister()
+            return
+        }
 
         // Start the captures first: they run off the main thread while the panels go up. A display that
         // ScreenCaptureKit didn't list at the last refresh (Sidecar, AirPlay, DisplayLink…) just fails in the
@@ -176,10 +190,6 @@ final class CaptureController: CaptureControlling {
         // freeze down the cold path.
         let grab = Self.frameGrabber()
         let early = cache.needsRefresh(for: displays) ? nil : Self.captureAll(jobs(for: displays), grab: grab)
-        // The overlay can be key only with the first frame; until then its keys would reach the frontmost app (Space
-        // typed into a document, Esc taking a full-screen app out of full screen). Caught as hotkeys instead, from
-        // before the panels go up: the sooner, the better.
-        hotkeys.register()
 
         pool.sync()
         let session = OverlaySession(panels: pool.panels(for: displays), cache: cache, mode: mode,
@@ -193,11 +203,14 @@ final class CaptureController: CaptureControlling {
         session.onCancel = { [weak self] in self?.endSession() }
         self.session = session
         previousApp = pendingFocusReturn ?? NSWorkspace.shared.frontmostApplication
+        inheritedFocusReturn = pendingFocusReturn != nil
         pendingFocusReturn = nil
         activatedForSession = false
         becameActiveDuringSession = false
         session.show()
         timings.record("hotkeyToOverlay", clock.ms)
+        // The other overlay keys, now that it's on screen (they'd hold it back by 2–10 ms).
+        hotkeys.register()
 
         Task { [weak self] in
             await self?.freeze(session, displays: displays, early: early, grab: grab, clock: clock)
@@ -387,7 +400,7 @@ final class CaptureController: CaptureControlling {
         let clock = Stopwatch()
         let date = Date()
         // Overlay first: the shelf's fly-in starts from the selection, over the live screen.
-        let previous = activatedForSession ? previousApp : nil
+        let previous = owesFocus ? previousApp : nil
         endSession(restoreFocus: false)
         let source = SendableImage(image: image)
         Task {
@@ -408,7 +421,7 @@ final class CaptureController: CaptureControlling {
 
     private func finishWindow(_ window: CapturableWindow, keepShadow: Bool) {
         let clock = Stopwatch()
-        let wasActive = activatedForSession
+        let wasActive = owesFocus
         let previous = previousApp
         endSession()
         Task {
@@ -580,10 +593,11 @@ final class CaptureController: CaptureControlling {
         session = nil
         hotkeys.unregister()
         s.close()
-        if activatedForSession, restoreFocus {
+        if owesFocus, restoreFocus {
             giveFocusBack(to: previousApp)
         }
         activatedForSession = false
+        inheritedFocusReturn = false
         becameActiveDuringSession = false
         previousApp = nil
     }
