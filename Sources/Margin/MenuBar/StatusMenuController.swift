@@ -127,6 +127,23 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     // MARK: - NSMenuDelegate
 
+    /// What gives the shelf's keys back once the menu has closed (`ShelfController.menuOpening`).
+    private var giveKeysBack: (() -> Void)?
+
+    func menuWillOpen(_ menu: NSMenu) {
+        giveKeysBack = coordinator?.shelf.menuOpening()
+    }
+
+    /// Once the shelf has had the keys, AppKit makes it key again as this menu closes, with or without a choice, and
+    /// none of the items needs it to keep them: they go back to the user's app, unless the shelf had them when the menu
+    /// opened. After the chosen item's action, which runs once the menu has closed: an item that opens one of Margin's
+    /// windows (Settings…, About) has made it key by then, and the shelf has nothing to give back.
+    func menuDidClose(_ menu: NSMenu) {
+        let giveKeysBack = self.giveKeysBack
+        self.giveKeysBack = nil
+        Task { @MainActor in giveKeysBack?() }
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         coordinator?.refreshPermission()
         // Off the main thread: this menu shows the previous check, the next one shows this one.

@@ -279,9 +279,15 @@ extension ShelfController {
     /// a menu closed without a choice (Esc, a click elsewhere) gives them back, unless the shelf had them when it
     /// opened. A chosen item decides for itself.
     func makeMenu() -> ShelfMenu {
+        ShelfMenu(onDismiss: menuOpening())
+    }
+
+    /// Any menu of Margin's is opening (a card's, the pile's, the menu bar icon's). Call the result when it has closed:
+    /// it gives the keys back if the shelf has them only because AppKit made it key again as the menu closed.
+    func menuOpening() -> () -> Void {
         keysWentElsewhere = false   // if the shelf gets the keys now, it's from this menu
         let hadKeys = panel.isKeyWindow || root.isQuickLookKey
-        return ShelfMenu { [weak self] in if !hadKeys { self?.releaseKeys() } }
+        return { [weak self] in if !hadKeys { self?.releaseKeys() } }
     }
 
     func menu(for card: ShelfCardView) -> NSMenu {
