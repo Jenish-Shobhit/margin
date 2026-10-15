@@ -35,6 +35,8 @@ As an alternative to Open Anyway, you can clear the quarantine flag yourself. Do
 xattr -dr com.apple.quarantine /Applications/Margin.app
 ```
 
+**A new copy opens Margin's Settings and doesn't start.** Only one Margin runs at a time. Opening another copy (a newer download, say) while one is running opens the running one's Settings instead, and the new copy quits within a few seconds. Quit Margin first (menu bar › **Quit Margin**), then open the copy you want.
+
 ## Margin asks for Screen Recording, or lost it
 
 Margin needs Screen Recording to see the screen. Without it, its menu bar icon shows an orange dot, the menu's first item reads **Allow Screen Recording…**, and pressing a capture shortcut opens the Welcome window at step 1 instead of capturing.
@@ -78,6 +80,7 @@ Other causes:
 - Another app may take the same keys without Margin being told. macOS doesn't always report the clash, so there may be no warning. Quit apps that have their own capture shortcuts (other screenshot or clipboard tools), or give Margin a different shortcut in Settings.
 - While a shortcut button in Settings is listening for keys, Margin's shortcuts are paused. Press Esc or click elsewhere.
 - A capture is already on screen, or Margin is quitting.
+- One of Margin's menus was open (the menu bar icon's, or a card's). A shortcut pressed then does nothing, rather than firing as the menu closes. Press it again once the menu is closed.
 
 ## macOS asks to access the Desktop folder
 
@@ -129,6 +132,7 @@ The same goes for any app that wrongly reports a drop as successful. If an app w
 - **It's on another display.** The shelf moves to the display of your most recent capture.
 - **It's empty**, so it's hidden. **Restore Last Removed** in the menu bar brings back what last left it.
 - **The files were deleted or moved to the Trash.** Cards drop off when their file is gone.
+- **Its list was damaged.** The shelf is kept in `~/Library/Application Support/Margin/shelf.json`. If part of that file can't be read, the cards that can still be read come back, and the original file is kept beside it as `shelf.json.bad` (attach it to a bug report).
 - **Margin isn't running.** If there's no menu bar icon, open Margin from Applications. If the icon is hidden by your menu bar settings, opening Margin again opens its Settings.
 
 ## Launch at login needs approval
