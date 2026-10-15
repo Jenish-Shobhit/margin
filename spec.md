@@ -96,7 +96,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 
 ### Full screen (⌘⇧3) and repeat area (⌘⇧2)
 - Both capture directly with no overlay. They use the same filter, so the shelf never appears in the shot.
-- ⌘⇧2 briefly flashes the area outline (150 ms) *after* capturing, once the shot's thumbnail is on its way to the shelf.
+- ⌘⇧2 briefly flashes the area outline (150 ms) *after* capturing.
 - The last area is remembered relative to its display (plus the display's size in points), not in global points, so it stays on the same part of that display when displays are added, removed or rearranged. Repeating it doesn't change it. An area saved by 0.0.8 or earlier is converted on the first ⌘⇧2 when there's one display; otherwise ⌘⇧2 asks for a new area once.
 
 ### When a capture fails
