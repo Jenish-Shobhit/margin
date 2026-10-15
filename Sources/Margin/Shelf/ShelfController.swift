@@ -80,6 +80,8 @@ final class ShelfController: ShelfControlling {
     private var flights: [UUID: ShelfFlight] = [:]
     /// After the user empties the shelf, the (invisible) panel stays a moment so ⌘Z can still reach it.
     var lingerUntil = Date.distantPast
+    /// The thumbnails `restore` is still loading, and since when (for the timing log).
+    private var restoreLoads: (ids: Set<UUID>, clock: Stopwatch)?
     private var observers: [NSObjectProtocol] = []
 
     init(store: ShelfStore) {
@@ -138,6 +140,7 @@ final class ShelfController: ShelfControlling {
     // MARK: - ShelfControlling
 
     func restore() {
+        let clock = Stopwatch()
         pending = []
         awaitingSave = []
         queuedCopy = nil
@@ -148,6 +151,7 @@ final class ShelfController: ShelfControlling {
         cards = [:]
         thumbnailLoads = [:]
         selection = []
+        restoreLoads = store.items.isEmpty ? nil : (ids: Set(store.items.map(\.id)), clock: clock)
         for item in store.items {
             makeCard(item)
             loadThumbnail(for: item)
@@ -155,6 +159,7 @@ final class ShelfController: ShelfControlling {
         relayout(animated: false)
         updateVisibility()
         recoverLeftoverSavesThenRefresh(quietWithin: 0.5)
+        CaptureTimings.shared.record("shelfRestore", clock.ms)
     }
 
     func add(_ item: ShelfItem, thumbnail: CGImage, flyInFrom sourceRect: CGRect, displayID: CGDirectDisplayID) {
@@ -323,12 +328,20 @@ final class ShelfController: ShelfControlling {
         thumbnailLoads[item.id] = item.path
         Task { [weak self] in
             let box = await ShelfThumbnails.load(url: item.url, pixelSize: item.pixelSize)
+            self?.restoreLoadFinished(item.id)
             guard let self, self.thumbnailLoads[item.id] == item.path else { return }
             self.thumbnailLoads[item.id] = nil
             guard let box else { return }
             self.cards[item.id]?.setThumbnail(box.image)
             self.refreshFan(force: true)
         }
+    }
+
+    /// Times the thumbnails `restore` loads: logged once the last one is in.
+    private func restoreLoadFinished(_ id: UUID) {
+        guard var loads = restoreLoads, loads.ids.remove(id) != nil else { return }
+        restoreLoads = loads.ids.isEmpty ? nil : loads
+        if loads.ids.isEmpty { CaptureTimings.shared.record("shelfRestoreThumbnails", loads.clock.ms) }
     }
 
     func item(for id: UUID) -> ShelfItem? { store.items.first { $0.id == id } }

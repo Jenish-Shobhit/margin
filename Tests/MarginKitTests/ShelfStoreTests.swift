@@ -136,6 +136,21 @@ import Testing
         #expect(stateFiles(dir) == ["shelf.json.bad"])
     }
 
+    @Test func everySaveReportsItsSize() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let store = makeStore(dir)
+        var reports: [(ms: Double, bytes: Int)] = []
+        store.didSave = { reports.append(($0, $1)) }
+        let a = ShelfItem(url: try dir.file("a.png"), createdAt: .now, pixelSize: CGSize(width: 10, height: 10))
+        store.append(a)
+        store.update(a)
+        let size = try FileManager.default.attributesOfItem(atPath: store.fileURL.path)[.size] as? Int
+        #expect(reports.count == 2)
+        #expect(reports.last?.bytes == size)
+        #expect(reports.allSatisfy { $0.ms >= 0 })
+    }
+
     @Test func updateReplacesByID() throws {
         let dir = try TempDir()
         defer { dir.remove() }

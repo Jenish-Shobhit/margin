@@ -18,7 +18,7 @@ final class AppCoordinator {
     private var menuBar: StatusMenuController?
     private var hotkeys: HotkeyCenter?
     private var pasteboardTimer: Timer?
-    #if DEBUG
+    #if DEBUG || MARGIN_BENCH
     private var debugListener: DebugCommandListener?
     #endif
 
@@ -77,6 +77,10 @@ final class AppCoordinator {
         Preferences.shared.removeObsoleteKeys()
         // A leftover save put back into Unsaved shows in the menu (Show Unsaved Shots).
         shelf.onLeftoversRecovered = { [weak self] in self?.refreshUnsavedShots() }
+        store.didSave = { ms, bytes in
+            CaptureTimings.shared.record("shelfSave", ms)
+            CaptureTimings.shared.recordSize("shelfJSON", bytes: bytes)
+        }
         shelf.restore()
 
         capture.onCapture = { [weak self] result in self?.handleCapture(result) }
@@ -119,9 +123,10 @@ final class AppCoordinator {
         RunLoop.main.add(timer, forMode: .common)
         pasteboardTimer = timer
 
-        #if DEBUG
+        #if DEBUG || MARGIN_BENCH
         debugListener = DebugCommandListener(coordinator: self)
         #endif
+        if let launched = ProcessLaunch.ms { CaptureTimings.shared.record("launchToStarted", launched) }
         Self.log.notice("Margin started (permission \(self.permissionGranted ? "granted" : "missing", privacy: .public))")
     }
 

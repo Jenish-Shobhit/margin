@@ -44,17 +44,25 @@ extension AppCoordinator {
 extension AppCoordinator {
     func handleCapture(_ result: CaptureResult) {
         let signpost = Self.signposter.beginInterval("thumbnail")
+        let mainClock = Stopwatch()
+        let t = CaptureTimings.shared
         // A capture worked, so Screen Recording does: clears a revoked-permission warning.
         screenRecordingWorked()
 
         // 1. Sound, immediately.
-        if prefs.shutterSound { ShutterSound.play() }
+        if prefs.shutterSound {
+            let sound = Stopwatch()
+            ShutterSound.play()
+            t.record("release.sound", sound.ms)
+        }
 
         // 2. The predicted file name, reserved in memory so two captures in the same second differ.
         // A name already taken on disk is resolved by the writer, and the shelf hears the final path.
+        let nameClock = Stopwatch()
         let reserved = reservedPaths
         let url = FileNamer.uniqueURL(in: prefs.saveFolder, for: result.date) { reserved.contains($0.path) }
         reservedPaths.insert(url.path)
+        t.record("release.name", nameClock.ms)
 
         // 3–4. Thumbnail from the in-memory image, onto the shelf (pending until `itemDidSave`).
         let pixelSize = CGSize(width: result.image.width, height: result.image.height)
@@ -62,9 +70,18 @@ extension AppCoordinator {
         let thumbnail = Self.makeThumbnail(result.image, pixelSize: pixelSize)
         let thumbnailMs = Self.milliseconds(since: thumbStart)
         let item = Self.pendingItem(at: url, createdAt: result.date, pixelSize: pixelSize)
+        let addClock = Stopwatch()
         shelf.add(item, thumbnail: thumbnail, flyInFrom: result.sourceRect, displayID: result.displayID)
         let releaseToThumbnailMs = Date().timeIntervalSince(result.date) * 1000
         Self.signposter.endInterval("thumbnail", signpost)
+        t.record("release.thumbnail", thumbnailMs)
+        t.record("release.shelfAdd", addClock.ms)
+        t.record("releaseToThumbnail", releaseToThumbnailMs)
+        // `shelf.add` only starts the fly-in: it's on screen once the main thread has committed it (after whatever
+        // else this turn of the run loop does) and the display has refreshed.
+        FrameTiming.measure(from: result.date, on: Displays.screen(for: result.displayID),
+                            commit: { t.record("releaseToThumbnailCommit", $0) },
+                            frame: { t.record("releaseToThumbnailFrame", $0) })
 
         let kind = "\(result.kind)"
         Self.timingLog.notice(
@@ -79,6 +96,8 @@ extension AppCoordinator {
         let fallbackFolder = Preferences.fallbackSaveFolder
         let metadata = Self.metadata(for: result)
         savesInFlight += 1 // `finishSave` always runs, on success and failure alike
+
+        t.record("release.main", mainClock.ms)
 
         // 5. Encode + write off the main actor; the clipboard gets the same bytes once the file is in place.
         Task.detached(priority: .userInitiated) { [weak self] in
@@ -111,7 +130,9 @@ extension AppCoordinator {
     private func copyCapture(_ data: Data, fileURL: URL?, itemID: UUID, sequence: Int, releaseDate: Date) {
         guard prefs.copyEachCapture, sequence > lastClipboardSequence else { return }
         lastClipboardSequence = sequence
+        let clock = Stopwatch()
         let changeCount = ClipboardWriter.write(pngs: [data], fileURLs: [fileURL])
+        CaptureTimings.shared.record("finishSave.clipboard", clock.ms)
         let releaseToClipboardMs = Date().timeIntervalSince(releaseDate) * 1000
         Self.timingLog.notice(
             "release→clipboard \(releaseToClipboardMs, format: .fixed(precision: 1)) ms (\(fileURL == nil ? "PNG only" : "PNG + file URL", privacy: .public))")
@@ -127,8 +148,16 @@ extension AppCoordinator {
     }
 
     private func finishSave(itemID: UUID, sequence: Int, releaseDate: Date, timings: Timings, outcome: SaveOutcome) {
+        let mainClock = Stopwatch()
+        let t = CaptureTimings.shared
         // Last, so a quit waiting on this save goes ahead only after shelf.json has the final path.
-        defer { saveFinished() }
+        defer {
+            saveFinished()
+            t.record("finishSave.main", mainClock.ms)
+        }
+        if let ms = outcome.encodeMs { t.record("encode", ms) }
+        if let ms = outcome.writeMs { t.record("write", ms) }
+        if let data = outcome.data { t.recordSize("png", bytes: data.count) }
         // First, so the clipboard isn't kept waiting by the store and the shelf.
         if let data = outcome.data {
             copyCapture(data, fileURL: outcome.saved?.url, itemID: itemID, sequence: sequence, releaseDate: releaseDate)
@@ -154,6 +183,8 @@ extension AppCoordinator {
         lastSavedPath = saved.path
         let releaseToFileMs = (outcome.finishedAt ?? Date()).timeIntervalSince(releaseDate) * 1000
         timings.releaseToFileMs = releaseToFileMs
+        t.record("releaseToFile", releaseToFileMs)
+        t.record("releaseToFinishSave", Date().timeIntervalSince(releaseDate) * 1000)
         timings.savedPath = saved.path
         lastTimings = timings
         Self.timingLog.notice(
@@ -180,8 +211,10 @@ extension AppCoordinator {
         }
 
         // 7. Bookkeeping.
+        let bookkeeping = Stopwatch()
         prefs.completedCaptures += 1
         FirstRunWindowController.shared.captureSucceeded()
+        t.record("finishSave.prefs", bookkeeping.ms)
     }
 
     /// `ShelfItem.init(url:…)` checks the disk for the file (to bookmark it), and the file doesn't exist

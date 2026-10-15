@@ -10,6 +10,7 @@ Margin builds with SwiftPM and the Xcode Command Line Tools alone. There's no Xc
 - [Signing: the Margin Dev certificate](#signing-the-margin-dev-certificate)
 - [The debug hook](#the-debug-hook)
 - [Timings and logs](#timings-and-logs)
+- [Benchmarks](#benchmarks)
 - [The app icon](#the-app-icon)
 - [Releasing](#releasing)
 
@@ -78,7 +79,7 @@ The app target (windows, capture, the shelf) is checked by hand with [docs/QA.md
 ## scripts/build.sh
 
 ```text
-scripts/build.sh [--debug] [--install] [--run] [--zip]
+scripts/build.sh [--debug | --bench] [--install] [--run] [--zip]
 ```
 
 The script runs these steps:
@@ -93,9 +94,10 @@ The script runs these steps:
 | Option | Effect |
 |---|---|
 | `--debug` | Debug configuration. Includes the [debug hook](#the-debug-hook) |
-| `--install` | Replace `/Applications/Margin.app`. With `--debug`, prints a warning banner before and after the build |
+| `--bench` | Release optimisation plus the debug hook (`-DMARGIN_BENCH`), in its own build folder (`.build/bench`), for [benchmarks](#benchmarks) |
+| `--install` | Replace `/Applications/Margin.app`. With `--debug` or `--bench`, prints a warning banner before and after the build |
 | `--run` | Open the built (or installed) app |
-| `--zip` | Write the release zip. **Refused with `--debug`** (exit 2), before anything builds |
+| `--zip` | Write the release zip. **Refused with `--debug` or `--bench`** (exit 2), before anything builds, and refused if the binary contains the hook anyway |
 | `-h`, `--help` | Show usage |
 
 The version comes from `CFBundleShortVersionString` in `Resources/Info.plist`.
@@ -173,7 +175,7 @@ tccutil reset ScreenCapture io.github.jenish-shobhit.margin
 
 Debug builds (`scripts/build.sh --debug`) include a control hook for driving Margin without a mouse.
 
-- It's compiled only under `#if DEBUG`. Release builds don't contain it.
+- It's compiled only under `#if DEBUG || MARGIN_BENCH`. Release builds don't contain it; bench builds (`--bench`) do.
 - It listens for the distributed notification `io.github.jenish-shobhit.margin.debug`, whose object is the command.
 
 `scripts/debug.sh` posts the commands:
@@ -195,6 +197,7 @@ scripts/debug.sh dump-state                     # print the state as JSON
   - the overlay's mode while a capture is up (`overlay.mode`), and who has focus (`focus`: Margin's key window, whether it's active, the frontmost app);
   - the last capture's timings.
 - To check visuals, take a `screencapture -x`: it sees the shelf, while Margin's own captures never do.
+- `scripts/bench.sh` also uses `hotkey <action>`, `capture-window`, `select x y w h`, `click x y`, `cancel` and `mark <text>`, which drive a live overlay in-process (see `DebugCommandListener.swift`).
 
 **Any process running as your user can post that notification.** A debug build can therefore be made to capture the screen, clear the shelf or write its state to `/tmp`. That's why:
 
@@ -215,6 +218,19 @@ Without `--level info` you'll miss the per-step lines (`hotkeyToFirstFrozen`, `r
 
 The intervals are also signposts (`freeze`, `captureDisplay`, `crop`, `thumbnail`, `save`, …), so Instruments' os_signpost instrument shows them as intervals.
 
+The info lines read `name: 12.3 ms` (sizes: `name: 45.6 KB`). The ones that say what a user feels:
+
+| Line | From | To |
+|---|---|---|
+| `hotkeyEventToHandler` | The Carbon hotkey event's time stamp | Margin's handler (in-process dispatch only: the event is stamped as it reaches Margin; `scripts/bench.sh run --real-hotkey` measures the press itself as `keyPressToHandler`) |
+| `hotkeyToFirstFrozen`, `…Frame` | The handler | The first frozen frame handed to the render server, and the display's next refresh after that |
+| `releaseToThumbnailCommit`, `…Frame` | Mouse-up (or the capture, for ⇧⌘3, ⇧⌘2 and window mode) | The main thread's Core Animation commit after the thumbnail went to the shelf, and the next refresh after that |
+| `releaseToFile` | The same | The PNG renamed into place |
+| `screenCapture`, `areaCapture`, `windowCapture` | The shortcut or click | The image, before the release clock starts |
+| `release.*`, `finishSave.*` | | Main-thread steps of the release (`release.main` is all of `handleCapture`) and of the save's return |
+| `launchToStarted`, `launchToPrewarmed` | The process start | Everything wired up; the first capture ready |
+| `shelfRestore`, `shelfRestoreThumbnails`, `shelfSave` | | The shelf at launch, its thumbnails loaded, each `shelf.json` write |
+
 The targets are:
 
 | From | To | Target |
@@ -222,6 +238,30 @@ The targets are:
 | Hotkey | First frozen frame on screen | ≤ 80 ms |
 | Release | Thumbnail on the shelf | ≤ 100 ms |
 | Release | PNG renamed into place | ≤ 200 ms |
+
+## Benchmarks
+
+`scripts/bench.sh` measures those lines in a **bench build**: release optimisation (debug builds distort timing) plus the debug hook, which a shipped release never has.
+
+```sh
+scripts/bench.sh build                    # a bench app of this tree; prints .build/bench-apps/<sha>/Margin.app
+scripts/bench.sh build main               # or of any ref (built in a temporary worktree)
+scripts/bench.sh run --app <app> --n 30   # 30 of each: ⇧⌘4 small / medium / full display, ⇧⌘3, ⇧⌘2, window mode
+scripts/bench.sh ab <A.app> <B.app>       # two builds interleaved in blocks of 5, with the change and a p-value
+scripts/bench.sh launch --shelf empty     # launch → ready, and memory (--shelf <file> for a full shelf)
+scripts/bench.sh make-shelf <dir> 200 [<png>]  # a shelf.json of 200 cards for that (clones of <png>)
+scripts/bench.sh encode <png>…            # PNG filter options on real captures: time, size, thumbnail decode
+scripts/bench.sh micro                    # small main-thread steps in isolation
+scripts/bench.sh report <results.jsonl>   # the table again; two files side by side
+scripts/bench.sh help                     # every option
+```
+
+- It prints median, p90, min and max per metric and suite, against the [targets](#timings-and-logs), and keeps every value in a results file (`.build/bench-scratch/`).
+- It drives the same calls a shortcut and a drag make (`hotkey captureArea`, then `select`), so everything but the window server's hand-over of the key is measured; `--real-hotkey` posts a real ⇧⌘4 instead (it needs Accessibility, and macOS's own ⇧⌘4 off).
+- Captures see the bench's own window, a flat app UI or, with `--content photo`, a busy photo-like image, so PNG times don't depend on what's on screen.
+- It backs up the installed app, Margin's preferences, `shelf.json` and the clipboard, and restores them at the end (or on Ctrl-C). Meanwhile shots go to its scratch folder, with **Copy each capture** and the sound off (`--sound` keeps it).
+- It acts only while its window or Margin is in front and nobody is using the keyboard or mouse: it takes the screen after 20 s without input (`--idle`) and pauses on any input or when another app comes forward.
+- Profile the same runs with `sample Margin 10 -file out.txt` while it captures.
 
 ## The app icon
 
