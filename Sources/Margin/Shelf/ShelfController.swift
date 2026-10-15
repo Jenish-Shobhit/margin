@@ -204,10 +204,10 @@ final class ShelfController: ShelfControlling {
         }
     }
 
-    /// Not in the ShelfControlling contract: window mode's stand-in (cut from the frozen frame at the click) gives way to
-    /// the window's own shot, wherever its thumbnail is: in the air (without flying in again), on the card or in the
-    /// pile's fan, or in an undo step if the card was removed meanwhile. `pixelSize` is the shot's, in case it differs
-    /// from the stand-in's.
+    /// Not in the ShelfControlling contract: window mode's stand-in (made at the click) gives way to the window's own shot,
+    /// wherever its thumbnail is: in the air (without flying in again), on the card or in the pile's fan, or in an undo
+    /// step if the card was removed meanwhile. `pixelSize` is the shot's, which differs from the stand-in's when the
+    /// shadow (⌥) grew with the window's focused look.
     func replaceThumbnail(of id: UUID, with thumbnail: CGImage, pixelSize: CGSize) {
         flights[id]?.replaceImage(thumbnail)
         if var current = item(for: id), current.pixelSize != pixelSize {
@@ -219,8 +219,17 @@ final class ShelfController: ShelfControlling {
         }
         if cards[id] != nil {
             setFreshThumbnail(thumbnail, of: id)
-        } else {
-            for i in undoStack.indices where undoStack[i].thumbnails[id] != nil { undoStack[i].thumbnails[id] = thumbnail }
+            return
+        }
+        for i in undoStack.indices where undoStack[i].removals.contains(where: { $0.item.id == id }) {
+            if undoStack[i].thumbnails[id] != nil { undoStack[i].thumbnails[id] = thumbnail }
+            undoStack[i].removals = undoStack[i].removals.map { r in
+                guard r.item.id == id else { return r }
+                var item = r.item
+                item.pixelWidth = Int(pixelSize.width)
+                item.pixelHeight = Int(pixelSize.height)
+                return ShelfStore.Removal(index: r.index, item: item)
+            }
         }
     }
 
