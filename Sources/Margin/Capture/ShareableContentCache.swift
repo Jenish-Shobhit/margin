@@ -2,7 +2,8 @@ import AppKit
 import MarginKit
 import ScreenCaptureKit
 
-/// A normal on-screen window (another app's, or Margin's Settings, First run or About), for snapping and window mode.
+/// An on-screen window window mode can pick (another app's, or Margin's Settings, First run or About), floating ones
+/// included (`WindowPicking`), for snapping and window mode.
 struct CapturableWindow {
     let target: WindowTarget
     let id: CGWindowID
@@ -23,9 +24,10 @@ private struct ContentBox: @unchecked Sendable {
 final class ShareableContentCache {
     /// Freeze targets per display, built with Margin excluded.
     private(set) var targets: [CGDirectDisplayID: DisplayTarget] = [:]
-    /// Front-to-back.
-    private(set) var windows: [CapturableWindow] = []
-    /// Frames to snap to: `windows` minus any window entirely hidden behind a single window in front of it,
+    /// Front to back: the windows window mode can pick, and the system UI in front of them (the Dock, the menu bar),
+    /// which hides them without being picked itself (`window` nil).
+    private var stack: [(frame: CGRect, window: CapturableWindow?)] = []
+    /// Frames to snap to: the windows that can be picked, minus any entirely hidden behind a single one in front of it,
     /// so invisible edges don't pull the selection.
     private(set) var snapFrames: [CGRect] = []
     private(set) var hasMarginApp = false
@@ -188,9 +190,9 @@ final class ShareableContentCache {
         Displays.all.allSatisfy { d in targets[d.id].map { $0.pixelSize == d.pixelSize } ?? true }
     }
 
-    /// The topmost window under a point (AppKit global points).
+    /// The topmost window under a point (AppKit global points); nil over system UI such as the Dock.
     func window(at point: CGPoint) -> CapturableWindow? {
-        windows.first { $0.frame.contains(point) }
+        stack.first { $0.frame.contains(point) }?.window
     }
 
     /// Takes the windows and rebuilds the targets, except from an on-screen-only fetch that doesn't list Margin (its
@@ -226,28 +228,36 @@ final class ShareableContentCache {
     }
 
     private func applyWindows(_ content: SCShareableContent) {
-        // SCShareableContent's window order isn't z-order; CGWindowList's is (front to back).
+        // SCShareableContent's window order isn't z-order; CGWindowList's is (front to back). Each window's place in it
+        // decides what it is (`WindowPicking`), and a window to pick must also be one ScreenCaptureKit can capture.
         let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
-        var rank: [CGWindowID: Int] = [:]
-        for (i, info) in list.enumerated() {
-            guard let id = (info[kCGWindowNumber as String] as? NSNumber)?.uint32Value,
-                  (info[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1 > 0 else { continue }
-            rank[id] = i
-        }
+        let capturable = Dictionary(content.windows.filter(\.isOnScreen).map { ($0.windowID, $0) }, uniquingKeysWith: { a, _ in a })
         let primaryHeight = Displays.primaryHeight
-        // Margin's own Settings, First run and About windows included: they're in shots, so they can be picked.
-        windows = content.windows
-            .filter { w in
-                w.isOnScreen && w.windowLayer == 0 && rank[w.windowID] != nil
-                    && w.frame.width >= 24 && w.frame.height >= 24
+        let displays = Displays.all.map(\.frame)
+        stack = []
+        for info in list {
+            guard let id = (info[kCGWindowNumber as String] as? NSNumber)?.uint32Value,
+                  (info[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1 > 0,
+                  let layer = (info[kCGWindowLayer as String] as? NSNumber)?.intValue,
+                  let bounds = (info[kCGWindowBounds as String] as? NSDictionary).flatMap({ CGRect(dictionaryRepresentation: $0) })
+            else { continue }
+            let frame = Geometry.flip(bounds, primaryHeight: primaryHeight)
+            guard frame.width >= 24, frame.height >= 24 else { continue }
+            switch WindowPicking.role(layer: layer, frame: frame, displays: displays) {
+            case .ignored:
+                continue
+            case .cover:
+                stack.append((frame, nil))
+            case .pickable:
+                // Margin's own Settings, First run and About windows included: they're in shots, so they can be picked.
+                guard let w = capturable[id] else { continue }
+                let window = CapturableWindow(target: WindowTarget(window: w), id: id,
+                                              frame: Geometry.flip(w.frame, primaryHeight: primaryHeight),
+                                              appName: w.owningApplication?.applicationName ?? "Window")
+                stack.append((window.frame, window))
             }
-            .sorted { rank[$0.windowID]! < rank[$1.windowID]! }
-            .map { w in
-                CapturableWindow(target: WindowTarget(window: w), id: w.windowID,
-                                 frame: Geometry.flip(w.frame, primaryHeight: primaryHeight),
-                                 appName: w.owningApplication?.applicationName ?? "Window")
-            }
-        let frames = windows.map(\.frame)
+        }
+        let frames = stack.compactMap { $0.window?.frame }
         snapFrames = frames.enumerated()
             .filter { i, f in !frames[..<i].contains { $0.contains(f) } }
             .map(\.element)

@@ -90,6 +90,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 ### Window mode
 - Space (from area mode) toggles it.
 - Hovering highlights the window under the pointer and shows the pill `App · W × H`.
+  - Windows are taken front to back from `CGWindowList`. Normal windows and the ones floating above them below the Dock's level (floating panels, Picture in Picture, always-on-top windows: layers 1–19) can be picked, so a floating window is picked over the one behind it. System UI from the Dock's level to below menus (the Dock, banners, the menu bar) isn't picked but hides what's behind it. Menus and up (Margin's capture UI among them) are ignored, and so is a window above layer 0 that's bigger than its display or covers all of it: an overlay, usually see-through. Snapping uses the windows that can be picked.
 - Clicking captures that window with `SCContentFilter(desktopIndependentWindow:)`. That gives just the window, even if it's partly covered, with rounded corners and a transparent background.
 - There is **no shadow** (`ignoreShadowsSingleWindow = true`). Holding ⌥ while clicking keeps the shadow.
 

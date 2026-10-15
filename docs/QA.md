@@ -88,6 +88,8 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 ## Capture: window mode (§2)
 
 - [ ] Hovering highlights the window under the pointer with the pill `App · W × H`
+- [ ] A floating window (a utility panel at `.floating`, Picture in Picture) over a normal one is highlighted and captured itself, not the window behind; selections snap to its edges
+- [ ] Over the Dock or the menu bar nothing is highlighted (never the window behind), and an invisible overlay window above the others (bigger than the screen) doesn't stop windows under it from being picked
 - [ ] The hint bar reads Click to capture · ⌥ Keep shadow · Space Area · Esc Cancel
 - [ ] Clicking captures just that window, even when partly covered
 - [ ] Window shots have rounded, transparent corners and no shadow

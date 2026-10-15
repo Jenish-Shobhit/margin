@@ -110,7 +110,7 @@ A display that macOS can't capture (some Sidecar, AirPlay or DisplayLink setups)
 
 Press **Space** during an area capture (before you start dragging), or choose **Capture Window** from the menu bar.
 
-- The window under the pointer is highlighted, with a pill such as `Safari · 2880 × 1800` (pixels).
+- The window under the pointer is highlighted, with a pill such as `Safari · 2880 × 1800` (pixels). A window floating above the others (a tool palette, Picture in Picture, an always-on-top window) is picked over the one behind it. The Dock and the menu bar aren't picked, and nothing behind them is either.
 - **Click** to capture just that window, even if other windows partly cover it. The shot has transparent rounded corners and no shadow.
 - **⌥-click** to keep the window's shadow. While ⌥ is held, "Keep shadow" lights up in the hint bar and the pill adds "· shadow".
 - **Space** goes back to area mode. **Esc** or a right-click cancels.
