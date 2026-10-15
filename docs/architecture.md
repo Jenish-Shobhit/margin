@@ -231,7 +231,7 @@ A save cut off between the temp file and the rename (a crash, a forced quit, tha
 | Capture overlay (one per display) | `.screenSaver + 1` | Borderless, non-activating, made once and reused. Key from the first frozen frame; its keys are hotkeys until then. Swallows ⌘ shortcuts |
 | ⇧⌘2 outline | `.screenSaver + 1` | Click-through, 150 ms. Made once and reused; the outline is two layer borders |
 | Shelf | `.screenSaver` | Borderless, **non-activating** `NSPanel`; hidden when empty |
-| Fly-in | `.screenSaver` | Click-through, one per shot in the air |
+| Fly-in | `.screenSaver` | Click-through, one per shot in the air. Reused: up to two wait, ordered out, for the next shots |
 
 All of them join every Space and float over full-screen apps.
 

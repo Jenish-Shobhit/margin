@@ -49,20 +49,7 @@ final class ShelfFlight {
         area = area.insetBy(dx: -60, dy: -60)
         self.area = area
 
-        panel = NSPanel(contentRect: area, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false
-        panel.ignoresMouseEvents = true
-        panel.level = .screenSaver
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
-        panel.hidesOnDeactivate = false
-        panel.isReleasedWhenClosed = false
-        panel.animationBehavior = .none
-        let content = NSView(frame: CGRect(origin: .zero, size: area.size))
-        content.wantsLayer = true
-        panel.contentView = content
-        panel.setFrame(area, display: false)
+        panel = FlightPanels.take(area)
 
         // shell: shadow + ring; img: rounded, aspect-filled.
         let start = local(from)
@@ -85,7 +72,7 @@ final class ShelfFlight {
         ring.cornerCurve = .continuous
         shell.addSublayer(img)
         shell.addSublayer(ring)
-        content.layer?.addSublayer(shell)
+        panel.contentView?.layer?.addSublayer(shell)
 
         panel.orderFrontRegardless()
         fly(from: start, to: to, duration: 0.45, bounce: landing.absorbs ? 0.05 : 0.22, fadeDelay: 0.3)
@@ -114,7 +101,7 @@ final class ShelfFlight {
         handoff?.cancel()
         onLand = nil
         ShelfMotion.fade(shell, to: 0, duration: 0.15)
-        ShelfMotion.after(0.17) { [panel] in panel.orderOut(nil) }
+        ShelfMotion.after(0.17) { [panel, shell] in FlightPanels.giveBack(panel, emptying: shell) }
     }
 
     // MARK: - Private
@@ -174,6 +161,48 @@ final class ShelfFlight {
         onLand = nil
         done?(landing)
         // One more frame so the real card is on screen before the flyer goes.
-        ShelfMotion.after(0.03) { [panel] in panel.orderOut(nil) }
+        ShelfMotion.after(0.03) { [panel, shell] in FlightPanels.giveBack(panel, emptying: shell) }
+    }
+}
+
+/// The fly-in's panels, reused: making a new one for every shot cost the main thread 2–3 ms on the way to the
+/// thumbnail's commit. A panel goes back empty and ordered out once its flyer has gone; shots in the air at once
+/// each take their own.
+@MainActor
+private enum FlightPanels {
+    private static var spare: [NSPanel] = []
+    /// More than this many shots rarely fly at once; any extra panels are let go.
+    private static let maxSpare = 2
+
+    /// A panel over `frame` (global points), not yet on screen.
+    static func take(_ frame: CGRect) -> NSPanel {
+        guard let panel = spare.popLast() else { return make(frame) }
+        panel.setFrame(frame, display: false)
+        return panel
+    }
+
+    /// Ordered out, without the flyer's `layer`.
+    static func giveBack(_ panel: NSPanel, emptying layer: CALayer) {
+        panel.orderOut(nil)
+        layer.removeFromSuperlayer()
+        if spare.count < maxSpare { spare.append(panel) }
+    }
+
+    private static func make(_ frame: CGRect) -> NSPanel {
+        let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.ignoresMouseEvents = true
+        panel.level = .screenSaver
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        panel.hidesOnDeactivate = false
+        panel.isReleasedWhenClosed = false
+        panel.animationBehavior = .none
+        let content = NSView(frame: CGRect(origin: .zero, size: frame.size))
+        content.wantsLayer = true
+        panel.contentView = content
+        panel.setFrame(frame, display: false)
+        return panel
     }
 }
