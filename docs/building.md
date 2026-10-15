@@ -186,12 +186,14 @@ scripts/debug.sh capture-area 100 100 400 300   # x y w h in AppKit global point
 scripts/debug.sh capture-screen                 # the display under the pointer
 scripts/debug.sh toggle-shelf                   # tuck / show
 scripts/debug.sh clear                          # empty the shelf (undoable)
+scripts/debug.sh dismiss 4                      # the 4 newest cards off the shelf (undoable)
+scripts/debug.sh restore-last                   # Restore Last Removed
 scripts/debug.sh dump-state                     # print the state as JSON
 ```
 
 - AppKit global points have their origin at the bottom-left of the main display, with y going up.
 - `dump-state` makes the app write `/tmp/margin-state.json`, which the script prints. It includes:
-  - the shelf's items and paths, the tuck state, the ⌘V mark and the pasteboard change count;
+  - the shelf's items and paths, which have a live card (`cards`: in the pile or not, with a decoded thumbnail or not), the tuck state, the ⌘V mark and the pasteboard change count;
   - the permission state and the login item;
   - each hotkey registration and its `OSStatus`;
   - the overlay's mode while a capture is up (`overlay.mode`), and who has focus (`focus`: Margin's key window, whether it's active, the frontmost app);
@@ -229,7 +231,9 @@ The info lines read `name: 12.3 ms` (sizes: `name: 45.6 KB`). The ones that say 
 | `screenCapture`, `areaCapture`, `windowCapture` | The shortcut or click | The image, before the release clock starts |
 | `release.*`, `finishSave.*` | | Main-thread steps of the release (`release.main` is all of `handleCapture`) and of the save's return |
 | `launchToStarted`, `launchToPrewarmed` | The process start | Everything wired up; the first capture ready |
-| `shelfRestore`, `shelfRestoreThumbnails`, `shelfSave` | | The shelf at launch, its thumbnails loaded, each `shelf.json` write |
+| `shelfRestore`, `shelfRestoreThumbnails` | | The shelf at launch, and the thumbnails of the cards in view (or nearly) loaded |
+| `shelfSave`, `shelfWrite` | | What each change to the shelf costs the main thread for `shelf.json` (handing the list over), and the write itself, in the background |
+| `shelfFileCheck`, `shelfFileCheck.apply` | | A background check of the shelf's files, and applying its result on the main thread |
 
 The targets are:
 

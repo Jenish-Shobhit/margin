@@ -22,7 +22,9 @@ extension ShelfController {
             CaptureTimings.shared.record("shelfFileCheck", clock.ms)
             guard let self else { return }
             self.fileRefreshRunning = false
+            let applying = Stopwatch()
             self.apply(results, quiet: Date() < quietUntil)
+            CaptureTimings.shared.record("shelfFileCheck.apply", applying.ms)
             if self.fileRefreshQueued {
                 self.fileRefreshQueued = false
                 self.refreshFiles()
@@ -53,28 +55,30 @@ extension ShelfController {
         }
     }
 
-    /// Applies a background check: a moved file's new path and bookmark go to the store, and a file that's
-    /// definitely gone takes its card off the shelf (not undoable). Items that changed since the check
-    /// started, pending items and cards being dragged are left alone. Returns the results for items still
-    /// on the shelf, in the order given.
+    /// Applies a background check: a moved file's new path and bookmark go to the store (all in one write: a moved
+    /// folder updates every card), and a file that's definitely gone takes its card off the shelf (not undoable).
+    /// Items that changed since the check started, pending items and cards being dragged are left alone. Returns
+    /// the results for items still on the shelf, in the order given.
     @discardableResult
     func apply<Value>(_ results: [ShelfFiles.Result<Value>], quiet: Bool = false) -> [ShelfFiles.Result<Value>] {
         var gone: [UUID] = []
+        var moved: [ShelfItem] = []
         var live: [ShelfFiles.Result<Value>] = []
         let dragging = Set(dragSource?.ids ?? [])
+        let items = Dictionary(store.items.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         for r in results {
             let id = r.item.id
-            guard let current = item(for: id), !pending.contains(id) else { continue }
+            guard let current = items[id], !pending.contains(id) else { continue }
             let unchanged = current == r.item
             switch r.status {
             case .found(let fresh):
                 if unchanged, fresh != current {
-                    store.update(fresh)
+                    moved.append(fresh)
                     cards[id]?.update(item: fresh)
                 }
                 // A card still without its shot (the file was renamed or moved before the thumbnail loaded from
-                // the old path, or was unreadable until now) loads it from where the file is.
-                if unchanged, let card = cards[id], card.thumbnail == nil { loadThumbnail(for: fresh) }
+                // the old path, or was unreadable until now) loads it from where the file is, if it's in view.
+                if unchanged, let card = cards[id], card.thumbnail == nil { thumbnailLoads.retry(id) }
                 live.append(r)
             case .gone:
                 if unchanged, !dragging.contains(id) { gone.append(id) } else { live.append(r) }
@@ -82,10 +86,12 @@ extension ShelfController {
                 live.append(r)
             }
         }
+        if !moved.isEmpty { store.update(moved) }
         if !gone.isEmpty {
             store.remove(ids: Set(gone))
             detach(gone, exit: .fade, animated: !quiet)
         }
+        loadThumbnails()
         return live
     }
 }

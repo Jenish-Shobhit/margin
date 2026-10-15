@@ -147,6 +147,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - 10 pt gap, 14 pt from the screen edge and the bottom of the visible frame.
   - Corner radius 10, a subtle 1 px border and a soft shadow.
   - Thumbnails are downsampled to 2× the card size (`CGImageSourceCreateThumbnailAtIndex` for persisted items; the in-memory image for new ones).
+  - Since 0.0.16, only the cards that can be seen or soon could be are live (a view and a decoded thumbnail): the visible cards, the pile's fan (3) and the next 4 in the pile, plus any selected or last-clicked card. The rest of the pile becomes a card when it comes forward (a removal, ⌘Z), decoding at most 2 thumbnails at a time, newest first, and stops being one when it folds deeper again. Launch and memory then stay about the same however big the shelf is.
 - **Order.** The newest is at the bottom, and older cards slide up with a spring.
 - **Pile.** Show at most **4** cards, or fewer if they don't fit vertically. Older items fold into a pile above them labelled `+N older`.
   - Hovering the pile fans it out.
@@ -169,6 +170,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - Toasts are posted as announcements (`announcementRequested`, high priority). The panel stays non-activating, and VoiceOver's cursor never makes it key (focusing an element, or raising the window: `accessibilityPerformRaise` only orders it front).
 - **Persistence.**
   - `~/Library/Application Support/Margin/shelf.json`.
+  - Since 0.0.16 it's written off the main thread, on a serial queue that always ends with the newest list. A capture's card is in the file before its PNG is written (§3), and quitting waits for writes still on their way.
   - Store items in order with **bookmark data**, so moved files are followed, plus the date and pixel size.
   - Items survive quit and reboot.
   - Read item by item: an item that can't be read (a damaged file, or one written by a newer version) is skipped, not the whole shelf. A file with anything unreadable in it is kept as `shelf.json.bad` (never replacing an earlier one) before anything saves over it.
