@@ -38,8 +38,9 @@ final class CaptureController: CaptureControlling {
     private var becameActiveDuringSession = false
     /// When `takeFocus` last asked to activate Margin, and when AppKit's didBecomeActive said it had (`giveFocusBack`).
     private var activation: (requested: ContinuousClock.Instant, landed: ContinuousClock.Instant?)?
-    /// The app a `giveFocusBack` that's still waiting will hand focus to. A capture started meanwhile takes it as its
-    /// own previous app (Margin is frontmost by then), so a quick second ⌘⇧4 still ends with focus back there.
+    /// The app a `giveFocusBack` that's still waiting, or an area's release that hasn't given focus back yet
+    /// (`finishArea`), will hand focus to. A capture started meanwhile takes it as its own previous app (Margin is
+    /// frontmost by then), so a quick second ⌘⇧4 still ends with focus back there.
     private var pendingFocusReturn: NSRunningApplication?
     /// This capture took `previousApp` over from a waiting `giveFocusBack`: Margin is active from the last one, so
     /// focus goes back even if this one ends before it activates itself (Esc before the first frame).
@@ -410,6 +411,9 @@ final class CaptureController: CaptureControlling {
         let prepared = Task.detached(priority: .userInitiated) { await Self.timedCrop(source, to: pixelRect, scale: scale) }
         // Overlay first: the shelf's fly-in starts from the selection, over the live screen.
         let previous = owesFocus ? previousApp : nil
+        // Owed from the mouse-up on, not from the hand-off: a ⇧⌘4 that lands while the crop and thumbnail are being
+        // made must take `previous` over (`begin`), or its overlay would hand focus back to Margin itself.
+        if let previous { pendingFocusReturn = previous }
         endSession(restoreFocus: false)
         timings.record("release.endSession", clock.ms)
         Task {
@@ -432,9 +436,9 @@ final class CaptureController: CaptureControlling {
     /// The rest of a release, once this run-loop turn's Core Animation commit has put the thumbnail on screen: the last
     /// area (its write posts Preferences.didChange), then focus back to `previous`. AppKit's deactivation work holds the
     /// main actor for ~15 ms, and done in the same turn as the hand-off to the shelf, either would delay the commit.
-    /// `previous` waits as `pendingFocusReturn` meanwhile, so a capture started before then takes it over (`begin`).
+    /// `previous` waits as `pendingFocusReturn` since the mouse-up (`finishArea`), so a capture started before then
+    /// takes it over (`begin`).
     private func finishRelease(lastArea area: LastArea?, focusTo previous: NSRunningApplication?) {
-        if let previous { pendingFocusReturn = previous }
         FrameTiming.afterCommit { [weak self] in
             guard let self else { return }
             if let area {
