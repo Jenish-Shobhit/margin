@@ -79,12 +79,14 @@ extension ShelfController {
     }
 
     /// The shelf lost the keys: to another app's window, unless `releaseKeys` gave them away or one of Margin's own
-    /// windows (Quick Look, the overlay, Settings) took them.
+    /// windows (Quick Look, the overlay, Settings) took them. Keys that had come back are gone again (a click in the
+    /// user's app after Spotlight): only if they come back once more does `releaseKeys` need `handKeysBack`.
     func shelfResignedKey() {
         if releasingKeys {
             releasingKeys = false
         } else if NSApp.keyWindow == nil, !NSRunningApplication.current.isActive {
             keysWentElsewhere = true
+            keysCameBack = false
         }
     }
 
