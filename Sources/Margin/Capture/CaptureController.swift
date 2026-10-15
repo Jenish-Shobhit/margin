@@ -41,6 +41,11 @@ final class CaptureController: CaptureControlling {
     /// The app a `giveFocusBack` that's still waiting will hand focus to. A capture started meanwhile takes it as its
     /// own previous app (Margin is frontmost by then), so a quick second ⌘⇧4 still ends with focus back there.
     private var pendingFocusReturn: NSRunningApplication?
+    /// This capture took `previousApp` over from a waiting `giveFocusBack`: Margin is active from the last one, so
+    /// focus goes back even if this one ends before it activates itself (Esc before the first frame).
+    private var inheritedFocusReturn = false
+    /// Margin has (or is taking) focus that this capture has to give back.
+    private var owesFocus: Bool { activatedForSession || inheritedFocusReturn }
     /// The overlay's keys from the moment the capture starts, before it can be key (see `OverlayHotkeys`).
     private lazy var hotkeys = OverlayHotkeys { [weak self] event in
         guard let session = self?.session else { return }
@@ -106,9 +111,9 @@ final class CaptureController: CaptureControlling {
                 MainActor.assumeIsolated {
                     guard let self, self.session != nil else { return }
                     CaptureLog.capture.info("\(name.rawValue, privacy: .public): cancelling the overlay")
-                    let activated = self.activatedForSession
+                    let owed = self.owesFocus
                     self.endSession(restoreFocus: restoreFocus)
-                    if !restoreFocus, activated, NSApp.keyWindow == nil {
+                    if !restoreFocus, owed, NSApp.keyWindow == nil {
                         self.giveFocusBack(to: Self.frontmostWindowOwner())
                     }
                 }
@@ -198,6 +203,7 @@ final class CaptureController: CaptureControlling {
         session.onCancel = { [weak self] in self?.endSession() }
         self.session = session
         previousApp = pendingFocusReturn ?? NSWorkspace.shared.frontmostApplication
+        inheritedFocusReturn = pendingFocusReturn != nil
         pendingFocusReturn = nil
         activatedForSession = false
         becameActiveDuringSession = false
@@ -394,7 +400,7 @@ final class CaptureController: CaptureControlling {
         let clock = Stopwatch()
         let date = Date()
         // Overlay first: the shelf's fly-in starts from the selection, over the live screen.
-        let previous = activatedForSession ? previousApp : nil
+        let previous = owesFocus ? previousApp : nil
         endSession(restoreFocus: false)
         let source = SendableImage(image: image)
         Task {
@@ -415,7 +421,7 @@ final class CaptureController: CaptureControlling {
 
     private func finishWindow(_ window: CapturableWindow, keepShadow: Bool) {
         let clock = Stopwatch()
-        let wasActive = activatedForSession
+        let wasActive = owesFocus
         let previous = previousApp
         endSession()
         Task {
@@ -587,10 +593,11 @@ final class CaptureController: CaptureControlling {
         session = nil
         hotkeys.unregister()
         s.close()
-        if activatedForSession, restoreFocus {
+        if owesFocus, restoreFocus {
             giveFocusBack(to: previousApp)
         }
         activatedForSession = false
+        inheritedFocusReturn = false
         becameActiveDuringSession = false
         previousApp = nil
     }
