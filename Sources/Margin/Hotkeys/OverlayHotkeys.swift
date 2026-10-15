@@ -23,7 +23,9 @@ import os
 ///
 /// Unregistering a hotkey drops a press of it that's still waiting in the event queue, so only the arrows go when
 /// the overlay becomes key (they need key repeat, which hotkeys don't have; there's no selection to nudge yet then).
-/// The others stay until the capture ends.
+/// The others stay until the capture ends, and a key held down then (the Esc or ↩ that ended it, a Space held to
+/// move the selection) until it's released: unregistered at once, its release would reach the app in front alone,
+/// and apps that read key releases (a terminal with the kitty keyboard protocol, games) would get a stray one.
 @MainActor
 final class OverlayHotkeys {
     private static let log = Logger(subsystem: AppCoordinator.subsystem, category: "hotkeys")
@@ -43,6 +45,13 @@ final class OverlayHotkeys {
     private let onKey: (NSEvent) -> Void
     /// Registered combos by hotkey ID.
     private var combos: [UInt32: Combo] = [:]
+    /// The combos pressed and not yet released.
+    private var held: Set<UInt32> = []
+    /// Set when the capture has ended with keys still held: their combos are all that's left, each waiting for its
+    /// release, and this drops them all if one never comes (`releaseTimeout`).
+    private var lingering: Task<Void, Never>?
+    /// The longest a key that was held when the capture ended keeps its combo taken.
+    private static let releaseTimeout = Duration.milliseconds(500)
 
     init(onKey: @escaping (NSEvent) -> Void) {
         self.onKey = onKey
@@ -80,6 +89,8 @@ final class OverlayHotkeys {
 
     /// First thing when the capture starts: plain Esc and Space, the keys most likely pressed straight after ⇧⌘4.
     func registerFirst() {
+        // A key still held from the last capture lets go now: this capture registers its own.
+        if lingering != nil { dropAll() }
         Self.installHandler()
         Self.active = self
         for (index, (keyCode, characters)) in Self.firstKeys.enumerated() {
@@ -119,13 +130,39 @@ final class OverlayHotkeys {
         for (id, combo) in combos where Self.arrows.contains(combo.keyCode) {
             UnregisterEventHotKey(combo.ref)
             combos[id] = nil
+            held.remove(id)   // its release is an ordinary key event now
         }
     }
 
-    /// When the capture ends.
+    /// When the capture ends. A combo whose key is still down stays until the key is released (its release is
+    /// swallowed then), or at most `releaseTimeout`, so no combo can stay taken.
     func unregister() {
+        for (id, combo) in combos where !held.contains(id) {
+            UnregisterEventHotKey(combo.ref)
+            combos[id] = nil
+        }
+        if combos.isEmpty { held = [] }
+        guard !combos.isEmpty, lingering == nil else { return }
+        lingering = Task { [weak self] in
+            try? await Task.sleep(for: Self.releaseTimeout)
+            guard !Task.isCancelled else { return }
+            self?.dropAll()
+        }
+    }
+
+    /// After the capture: one lingering combo's key went up (or down again).
+    private func drop(_ id: UInt32) {
+        if let combo = combos.removeValue(forKey: id) { UnregisterEventHotKey(combo.ref) }
+        held.remove(id)
+        if combos.isEmpty { dropAll() }
+    }
+
+    private func dropAll() {
         for combo in combos.values { UnregisterEventHotKey(combo.ref) }
         combos = [:]
+        held = []
+        lingering?.cancel()
+        lingering = nil
     }
 
     private static func installHandler() {
@@ -141,8 +178,14 @@ final class OverlayHotkeys {
 
     fileprivate static func dispatch(_ hotKeyID: EventHotKeyID, pressed: Bool) -> Bool {
         guard hotKeyID.signature == signature else { return false }
-        guard let hotkeys = active, let combo = hotkeys.combos[hotKeyID.id],
-              let event = NSEvent.keyEvent(
+        guard let hotkeys = active, let combo = hotkeys.combos[hotKeyID.id] else { return true }
+        // The capture is over: the release of a key held when it ended.
+        if hotkeys.lingering != nil {
+            hotkeys.drop(hotKeyID.id)
+            return true
+        }
+        if pressed { hotkeys.held.insert(hotKeyID.id) } else { hotkeys.held.remove(hotKeyID.id) }
+        guard let event = NSEvent.keyEvent(
                 with: pressed ? .keyDown : .keyUp, location: NSEvent.mouseLocation,
                 modifierFlags: KeyCombo.cocoaModifiers(from: combo.modifiers), timestamp: ProcessInfo.processInfo.systemUptime,
                 windowNumber: 0, context: nil, characters: combo.characters, charactersIgnoringModifiers: combo.characters,
