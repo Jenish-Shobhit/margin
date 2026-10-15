@@ -106,7 +106,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 
 ## 3. Save, copy, sound — the moment of release
 
-Release starts three things in parallel. The in-memory image feeds the shelf thumbnail right away, and **one** PNG encode feeds both the file and the clipboard.
+Release starts three things in parallel. The in-memory image feeds the shelf thumbnail right away, and **one** PNG encode feeds both the file and the clipboard. Both start off the main thread as soon as the image is ready (for an area, at mouse-up, while the overlay comes down); the main thread names the shot and puts the thumbnail on the shelf. After an area, focus goes back to the app you were in only once the thumbnail is committed to the screen.
 
 - **Folder.** `~/Desktop/Screenshots` by default (Settings can change it). Create it if missing.
   - If the folder can't be written, save to `~/Library/Application Support/Margin/Unsaved/` and show the shelf toast "Can't write to “Screenshots”. Saved to Unsaved: menu bar › Show Unsaved Shots" (with the save folder's name, shortened with “…” past 16 characters so the toast's three lines still reach the menu item; an error toast that wraps and stays 4 s). The menu bar offers **Show Unsaved Shots** while that folder holds shots (§6).

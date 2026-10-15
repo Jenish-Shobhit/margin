@@ -177,6 +177,8 @@ The other kinds:
 
 ### The release (`AppCoordinator+Save`)
 
+By the time the coordinator gets the `CaptureResult`, `CaptureController` has made it in one step off the main thread (`Shot`), as soon as the image was ready (for an area, from mouse-up on, while the overlay comes down): the crop, which shares the frozen frame's pixels, then the PNG encode, started in a task of its own, and the thumbnail, made meanwhile.
+
 On the main actor, in this order:
 
 1. Plays the shutter sound.
