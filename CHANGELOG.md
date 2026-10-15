@@ -2,6 +2,21 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.14 — 2026-10-15
+
+### Fixed
+
+- Closing a card's or the pile's menu without choosing anything (Esc, or a click elsewhere) left the shelf holding the keyboard, so typing was lost. The keyboard now goes back to your app, unless the shelf already had it before the menu opened.
+- After Spotlight opened and closed while the shelf had the keyboard, Esc left the keyboard nowhere until a click. It now goes back to your app.
+- Quick Look's full-screen button left Margin the active app once Quick Look closed. Your app now gets its focus back.
+- ⌥Space (and ⌥ or ⌃ with Esc, Space or ↩) during a capture went to the capture screen as well as to the app that owns that shortcut, such as a launcher. It now goes only to that app.
+- The key that ended a capture (Esc, ↩) sent its release to your app.
+- A second ⇧⌘4 cancelled before the screen froze could leave your app without keyboard focus.
+
+### Changed
+
+- Esc and Space are caught from the very start of ⇧⌘4, and the capture screen appears about 3 ms sooner.
+
 ## 0.0.13 — 2026-10-15
 
 ### Fixed
