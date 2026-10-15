@@ -32,12 +32,17 @@ extension ShelfController {
 
     /// After a layout: cards that folded deep into the pile go (once they're out of sight), and the live ones without
     /// a thumbnail decode theirs.
-    func dropHiddenCards() {
+    func dropHiddenCards(lookAgain: Bool = true) {
         let live = Set(liveItems.map(\.id))
-        for (id, card) in cards where !live.contains(id) && card.isInPile && card.isHidden {
+        var folding = false
+        for (id, card) in cards where !live.contains(id) && card.isInPile {
+            guard card.isHidden else { folding = true; continue }
             card.removeFromSuperview()
             cards[id] = nil
         }
+        // A card still folding away hides when its fold ends (`ShelfCardView.setInPile`): it goes then, not at
+        // whatever layout comes next.
+        if folding, lookAgain { ShelfMotion.after(0.45) { [weak self] in self?.dropHiddenCards(lookAgain: false) } }
         loadThumbnails()
     }
 
