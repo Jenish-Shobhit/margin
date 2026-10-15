@@ -90,6 +90,7 @@ extension AppCoordinator {
         let fallbackFolder = Preferences.fallbackSaveFolder
         let metadata = Self.metadata(for: result)
         savesInFlight += 1 // `finishSave` always runs, on success and failure alike
+        let store = store
 
         t.record("release.main", mainClock.ms)
 
@@ -104,6 +105,9 @@ extension AppCoordinator {
             outcome.encodeMs = png.ms
 
             if let data = outcome.data {
+                // The card is in shelf.json before the PNG is written (spec §3): a save cut off between the two
+                // leaves a card waiting for its file, which is how `LeftoverSaves` finds it at the next launch.
+                await store.waitForWrites()
                 let writeStart = ContinuousClock.now
                 Self.write(data, item: item, date: result.date, fallbackFolder: fallbackFolder, metadata: metadata, into: &outcome)
                 outcome.writeMs = Self.milliseconds(since: writeStart)

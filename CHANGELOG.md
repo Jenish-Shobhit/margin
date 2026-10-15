@@ -2,6 +2,14 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.16 — 2026-10-15
+
+### Changed
+
+- A big shelf no longer slows launch or uses much memory. Only the cards in view, and the few that would come out of the pile next, are made and load their thumbnails, two at a time. With 200 shots on the shelf, Margin is ready in about 0.3 s instead of 1.1–5.6 s, and uses about 33 MB instead of 165–190 MB.
+- The shelf's list (`shelf.json`) is written in the background instead of on the main thread, and moving your screenshots folder updates it in one write instead of one per shot (200 shots: 0.5 ms instead of about 0.4 s of a frozen shelf).
+- PNGs are saved with the Up compression filter. Photo-like and gradient-heavy shots save about 45% faster and are about 30% smaller (a busy full screen: 165 ms instead of 298 ms to encode, 8.9 MB instead of 12.9 MB); ordinary UI shots save as fast as before and are 5–13% smaller.
+
 ## 0.0.15 — 2026-10-15
 
 ### Fixed
