@@ -193,6 +193,19 @@ extension ShelfController {
         root.closeQuickLook()   // or alone, while Margin is in front
     }
 
+    /// Quick Look has closed: the keyboard goes back to the user's app. Its full screen made Margin the active app,
+    /// which deactivating can't undo from here (`releaseKeys` leaves an active Margin alone), so activation goes back
+    /// to `app`, the one the user was in when it opened. Not if one of Margin's own windows (Settings) has the keys.
+    func quickLookDidClose(returnTo app: NSRunningApplication?) {
+        let ownWindowIsKey = NSApp.keyWindow.map { $0.level == .normal } ?? false
+        guard let app, NSRunningApplication.current.isActive, !ownWindowIsKey, !app.isTerminated, app != .current else {
+            releaseKeys()
+            return
+        }
+        NSApp.yieldActivation(to: app)
+        app.activate(from: .current, options: [])
+    }
+
     /// Quick Look is open but neither it nor the shelf has the keyboard any more (a click in another app):
     /// nothing could close it with a key, so it closes.
     func keyWindowChanged() {

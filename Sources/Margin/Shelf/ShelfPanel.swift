@@ -113,10 +113,15 @@ final class ShelfRootView: NSView, QLPreviewPanelDataSource, QLPreviewPanelDeleg
         if QLPreviewPanel.sharedPreviewPanelExists(), ql.isVisible, ql.currentController != nil {
             ql.reloadData()
         } else {
+            quickLookReturnApp = NSRunningApplication.current.isActive ? nil : NSWorkspace.shared.frontmostApplication
             ql.styleMask.insert(.nonactivatingPanel)
             ql.makeKeyAndOrderFront(nil)
         }
     }
+
+    /// The app the user was in when Quick Look opened (nil when Margin was in front). Its full-screen button
+    /// activates Margin, as any full-screen window does its app; once it has closed, activation goes back there.
+    private var quickLookReturnApp: NSRunningApplication?
 
     /// Set while Quick Look animates away after `closeQuickLook`: another `orderOut` then cancels the close and
     /// leaves it open (macOS 27), so it counts as closed already.
@@ -162,9 +167,11 @@ final class ShelfRootView: NSView, QLPreviewPanelDataSource, QLPreviewPanelDeleg
             quickLookClosing = false
             // Closed, by its own keys (Space, Esc), its close button or `releaseKeys`: the shelf is key again,
             // and the keyboard goes back to the user's app, as Esc on the shelf does.
+            let returnApp = quickLookReturnApp
+            quickLookReturnApp = nil
             Task { @MainActor [weak self] in
                 guard let self, !self.isQuickLookOpen else { return }
-                self.controller?.releaseKeys()
+                self.controller?.quickLookDidClose(returnTo: returnApp)
             }
         }
     }

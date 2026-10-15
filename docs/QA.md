@@ -195,6 +195,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
   - [ ] with two cards ⌘-selected, ← → switch between them in Quick Look
   - [ ] Quick Look's own close button gives the keyboard back too; clicking inside Quick Look keeps Space and Esc working; clicking another app closes it
   - [ ] with Quick Look open, a plain click on a card copies it, closes Quick Look and leaves typing with TextEdit; ⇧⌘1 (tuck) closes it too
+  - [ ] its full-screen button, then Esc (leaves full screen) and Esc (or Space, or its close button): TextEdit is the active app again and typing goes there
 - [ ] ⌫ (or ⌦) dismisses (the file stays on disk)
 - [ ] Two-finger swipe right on a card dismisses it
 - [ ] Double-click opens the file in the default app
