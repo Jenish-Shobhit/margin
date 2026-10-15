@@ -185,6 +185,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 
 - [ ] ⌘-click toggles selection; dragging a selected card drags all selected (stacked image with a count badge)
 - [ ] ⌘A selects every card outside the pile; Esc clears the selection
+- [ ] With TextEdit in front: ⌘-click a card, ⌘Space twice (Spotlight opens and closes), Esc: typing goes to TextEdit (the menu bar may flash Margin's for a moment)
 - [ ] ⌘C copies all selected cards as images (each with its file URL)
 - [ ] Click copies that shot at once (⌘V straight after the click pastes it), moves the ⌘V mark to it, and shows "Copied"; a double-click copies on its first click and opens on its second
 
