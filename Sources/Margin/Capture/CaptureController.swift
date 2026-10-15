@@ -411,20 +411,35 @@ final class CaptureController: CaptureControlling {
         timings.record("release.endSession", clock.ms)
         let source = SendableImage(image: image)
         Task {
+            var area: LastArea?
             if case let (cropped, cropMs)? = await Self.timedCrop(source, to: pixelRect) {
                 timings.record("release.crop", cropMs)
                 timings.record("releaseToResult", clock.ms)
                 onCapture?(CaptureResult(image: cropped.image, scale: scale, sourceRect: rect, displayID: display.id, kind: .area, date: date))
-                // After the hand-off: the write posts Preferences.didChange, which shouldn't delay the thumbnail.
-                let write = Stopwatch()
-                Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
-                timings.record("release.lastArea", write.ms)
+                area = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
             } else {
                 CaptureLog.capture.error("area crop was empty: \(String(describing: pixelRect), privacy: .public)")
                 onFailure?(FailureText.area)
             }
-            // Focus goes back only now: AppKit's deactivation work holds the main actor for ~15 ms, which
-            // would otherwise sit between the crop and the hand-off to the shelf.
+            finishRelease(lastArea: area, focusTo: previous)
+        }
+    }
+
+    /// The rest of a release, once this run-loop turn's Core Animation commit has put the thumbnail on screen: the last
+    /// area (its write posts Preferences.didChange), then focus back to `previous`. AppKit's deactivation work holds the
+    /// main actor for ~15 ms, and done in the same turn as the hand-off to the shelf, either would delay the commit.
+    /// `previous` waits as `pendingFocusReturn` meanwhile, so a capture started before then takes it over (`begin`).
+    private func finishRelease(lastArea area: LastArea?, focusTo previous: NSRunningApplication?) {
+        if let previous { pendingFocusReturn = previous }
+        FrameTiming.afterCommit { [weak self] in
+            guard let self else { return }
+            if let area {
+                let write = Stopwatch()
+                Preferences.shared.lastArea = area
+                timings.record("release.lastArea", write.ms)
+            }
+            guard let previous, pendingFocusReturn === previous else { return }
+            pendingFocusReturn = nil
             let focus = Stopwatch()
             giveFocusBack(to: previous)
             timings.record("release.focusBack", focus.ms)
