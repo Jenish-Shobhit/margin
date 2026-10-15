@@ -146,7 +146,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - 176 pt wide. Height follows the shot's aspect ratio, clamped to 64–176 pt, with aspect-fill.
   - 10 pt gap, 14 pt from the screen edge and the bottom of the visible frame.
   - Corner radius 10, a subtle 1 px border and a soft shadow.
-  - Thumbnails are downsampled to 2× the card size (`CGImageSourceCreateThumbnailAtIndex` for persisted items; the in-memory image for new ones).
+  - Thumbnails are downsampled to 2× the card size (`CGImageSourceCreateThumbnailAtIndex` for persisted items; the in-memory image for new ones, off the main thread right after the capture).
 - **Order.** The newest is at the bottom, and older cards slide up with a spring.
 - **Pile.** Show at most **4** cards, or fewer if they don't fit vertically. Older items fold into a pile above them labelled `+N older`.
   - Hovering the pile fans it out.

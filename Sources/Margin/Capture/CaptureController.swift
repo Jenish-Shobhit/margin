@@ -412,10 +412,12 @@ final class CaptureController: CaptureControlling {
         let source = SendableImage(image: image)
         Task {
             var area: LastArea?
-            if case let (cropped, cropMs)? = await Self.timedCrop(source, to: pixelRect) {
+            if case let (shot, cropMs)? = await Self.timedCrop(source, to: pixelRect) {
                 timings.record("release.crop", cropMs)
+                timings.record("thumbnail", shot.thumbnailMs)
                 timings.record("releaseToResult", clock.ms)
-                onCapture?(CaptureResult(image: cropped.image, scale: scale, sourceRect: rect, displayID: display.id, kind: .area, date: date))
+                onCapture?(CaptureResult(image: shot.image, thumbnail: shot.thumbnail, scale: scale, sourceRect: rect,
+                                         displayID: display.id, kind: .area, date: date))
                 area = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
             } else {
                 CaptureLog.capture.error("area crop was empty: \(String(describing: pixelRect), privacy: .public)")
@@ -459,11 +461,13 @@ final class CaptureController: CaptureControlling {
                 timings.record("windowWaitActive", wait.ms)
             }
             do {
-                let (image, scale) = try await ScreenGrabber.captureWindow(window.target, keepShadow: keepShadow)
-                timings.record("windowCapture", clock.ms)
+                let (shot, scale) = try await Self.captureWindow(window.target, keepShadow: keepShadow)
+                timings.record("windowCapture", clock.ms(until: shot.ready))
+                timings.record("thumbnail", shot.thumbnailMs)
                 permissionWorked()
                 let displayID = Displays.display(bestFor: window.frame)?.id ?? CGMainDisplayID()
-                onCapture?(CaptureResult(image: image.image, scale: scale, sourceRect: window.frame, displayID: displayID, kind: .window, date: Date()))
+                onCapture?(CaptureResult(image: shot.image, thumbnail: shot.thumbnail, scale: scale, sourceRect: window.frame,
+                                         displayID: displayID, kind: .window, date: shot.date))
             } catch {
                 fail(error, session: nil, message: FailureText.window)
             }
@@ -481,10 +485,12 @@ final class CaptureController: CaptureControlling {
         Task {
             do {
                 let target = try await cache.target(for: display)
-                let image = try await ScreenGrabber.capture(target)
-                timings.record("screenCapture", clock.ms)
+                let shot = try await Self.capture(target)
+                timings.record("screenCapture", clock.ms(until: shot.ready))
+                timings.record("thumbnail", shot.thumbnailMs)
                 permissionWorked()
-                onCapture?(CaptureResult(image: image.image, scale: target.scale, sourceRect: display.frame, displayID: display.id, kind: .screen, date: Date()))
+                onCapture?(CaptureResult(image: shot.image, thumbnail: shot.thumbnail, scale: target.scale, sourceRect: display.frame,
+                                         displayID: display.id, kind: .screen, date: shot.date))
             } catch {
                 fail(error, session: nil, message: FailureText.display)
             }
@@ -530,14 +536,16 @@ final class CaptureController: CaptureControlling {
                 permissionWorked()
                 let size = CGSize(width: image.image.width, height: image.image.height)
                 let pixelRect = Geometry.pixelRect(for: rect, displayFrame: display.frame, scale: target.scale, imageSize: size)
-                guard let cropped = await Self.crop(image, to: pixelRect) else { throw CaptureError.emptyCrop }
-                timings.record("areaCapture", clock.ms)
+                guard let shot = await Self.crop(image, to: pixelRect) else { throw CaptureError.emptyCrop }
+                timings.record("areaCapture", clock.ms(until: shot.ready))
+                timings.record("thumbnail", shot.thumbnailMs)
                 if repeating {
                     let flash = Stopwatch()
                     AreaFlash.show(rect)
                     timings.record("areaFlash", flash.ms)
                 }
-                onCapture?(CaptureResult(image: cropped.image, scale: target.scale, sourceRect: rect, displayID: display.id, kind: .area, date: Date()))
+                onCapture?(CaptureResult(image: shot.image, thumbnail: shot.thumbnail, scale: target.scale, sourceRect: rect,
+                                         displayID: display.id, kind: .area, date: shot.date))
                 if !repeating {
                     Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
                 }
@@ -553,16 +561,32 @@ final class CaptureController: CaptureControlling {
 
     // MARK: Helpers
 
+    // Each of these makes the shelf's thumbnail as well, before going back to the main actor.
+
+    /// One display's frame.
     @concurrent
-    private nonisolated static func crop(_ image: SendableImage, to pixelRect: CGRect) async -> SendableImage? {
-        ScreenGrabber.crop(image.image, to: pixelRect).map(SendableImage.init)
+    private nonisolated static func capture(_ target: DisplayTarget) async throws -> Shot {
+        Shot(try await ScreenGrabber.capture(target).image)
     }
 
-    /// `crop`, and how long the crop itself took (without the hops to and from the main actor).
     @concurrent
-    private nonisolated static func timedCrop(_ image: SendableImage, to pixelRect: CGRect) async -> (SendableImage, Double)? {
+    private nonisolated static func captureWindow(_ target: WindowTarget, keepShadow: Bool) async throws -> (Shot, CGFloat) {
+        let (image, scale) = try await ScreenGrabber.captureWindow(target, keepShadow: keepShadow)
+        return (Shot(image.image), scale)
+    }
+
+    @concurrent
+    private nonisolated static func crop(_ image: SendableImage, to pixelRect: CGRect) async -> Shot? {
+        ScreenGrabber.crop(image.image, to: pixelRect).map(Shot.init)
+    }
+
+    /// `crop`, and how long the crop itself took (without the thumbnail and the hops to and from the main actor).
+    @concurrent
+    private nonisolated static func timedCrop(_ image: SendableImage, to pixelRect: CGRect) async -> (Shot, Double)? {
         let clock = Stopwatch()
-        return ScreenGrabber.crop(image.image, to: pixelRect).map { (SendableImage(image: $0), clock.ms) }
+        guard let cropped = ScreenGrabber.crop(image.image, to: pixelRect) else { return nil }
+        let cropMs = clock.ms
+        return (Shot(cropped), cropMs)
     }
 
     /// Waits (briefly) until `app` is active again and has had a frame or two to redraw.

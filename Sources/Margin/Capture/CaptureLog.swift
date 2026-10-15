@@ -15,8 +15,11 @@ enum CaptureLog {
 struct Stopwatch: Sendable {
     private let start = ContinuousClock.now
 
-    var ms: Double {
-        let d = ContinuousClock.now - start
+    var ms: Double { ms(until: .now) }
+
+    /// The reading at `end`.
+    func ms(until end: ContinuousClock.Instant) -> Double {
+        let d = end - start
         return Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15
     }
 }

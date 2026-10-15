@@ -83,6 +83,7 @@ flowchart LR
 **`CaptureResult`** is one finished capture:
 
 - `image`: full resolution, in the display's colour space, with transparent corners for windows;
+- `thumbnail`: `image` downsampled for the shelf card, made off the main thread right after the capture or crop;
 - `scale`: pixels per point, used for the DPI;
 - `sourceRect`: the on-screen rect in AppKit global points, where the fly-in starts;
 - `displayID`, `kind` (`.area`, `.window` or `.screen`) and `date`.
@@ -176,7 +177,7 @@ On the main actor, in this order:
 
 1. Plays the shutter sound.
 2. Predicts the file name with `FileNamer`. It's checked against an in-memory set of names already handed out, *not* the disk.
-3. Downsamples a thumbnail from the in-memory image and calls `shelf.add` with a pending item. The fly-in starts here. The target is **≤ 100 ms from release to thumbnail**.
+3. Calls `shelf.add` with a pending item and the result's thumbnail, which `CaptureController` downsampled off the main thread before handing the shot over. The fly-in starts here. The target is **≤ 100 ms from release to thumbnail**.
 
 Then, in a detached task:
 
@@ -216,7 +217,7 @@ A save cut off between the temp file and the rename (a crash, a forced quit, tha
   - Settings' folder icon.
 
   Even the predicted file name is checked against memory, not the disk. Results come back to the main actor, and a background check is applied only to items that haven't changed since it started.
-- **ScreenCaptureKit and pixel work run off the main thread:** captures, crops, encodes and downsampling files. `SCShareableContent` is never fetched on the hotkey path.
+- **ScreenCaptureKit and pixel work run off the main thread:** captures, crops, encodes, a new shot's thumbnail and downsampling files. `SCShareableContent` is never fetched on the hotkey path.
 - **Nothing touches ScreenCaptureKit before permission is confirmed.** An early call can raise the system prompt at a random moment, long before the user reaches **Allow…**. `CGPreflightScreenCaptureAccess` (6–10 ms) runs on the hotkey path only until access is confirmed.
 - **Blocking system work stays off the main thread.** `SystemShortcuts.setEnabled` waits on `activateSettings` and asserts it isn't on the main thread; the UI calls `setEnabledInBackground`.
 - **The one exception is `shelf.json`.** It lives in Application Support, which never prompts, and it's read and written on the main actor.

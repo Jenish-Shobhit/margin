@@ -20,6 +20,27 @@ struct DisplayTarget: @unchecked Sendable {
     let pixelSize: CGSize
 }
 
+/// A shot on its way to the shelf: the image and its card thumbnail, both made off the main thread.
+struct Shot: @unchecked Sendable {
+    let image: CGImage
+    let thumbnail: CGImage
+    /// When the image was ready, before the thumbnail: a shot without the overlay starts its release clock here.
+    let date: Date
+    let ready: ContinuousClock.Instant
+    /// How long the thumbnail took.
+    let thumbnailMs: Double
+
+    /// Makes the thumbnail: never on the main thread (a full display takes about 19 ms).
+    init(_ image: CGImage) {
+        self.image = image
+        date = Date()
+        ready = .now
+        let clock = Stopwatch()
+        thumbnail = ScreenGrabber.thumbnail(of: image)
+        thumbnailMs = clock.ms
+    }
+}
+
 /// A window to capture on its own. Wraps the non-Sendable SCWindow.
 struct WindowTarget: @unchecked Sendable {
     let window: SCWindow
@@ -112,6 +133,26 @@ enum ScreenGrabber {
         ctx.setBlendMode(.copy)
         ctx.draw(sub, in: CGRect(x: 0, y: 0, width: r.width, height: r.height))
         return ctx.makeImage() ?? sub
+    }
+
+    /// Downsampled to cover the shelf card at 2× (aspect-fill), for the shelf's thumbnail and fly-in.
+    static func thumbnail(of image: CGImage) -> CGImage {
+        let w = CGFloat(image.width), h = CGFloat(image.height)
+        guard w > 0, h > 0 else { return image }
+        let cardHeight = ShelfLayout.cardHeight(forPixelSize: CGSize(width: w, height: h))
+        let scale = min(1, max(ShelfLayout.cardWidth * 2 / w, cardHeight * 2 / h))
+        guard scale < 0.9 else { return image }
+        let tw = max(1, Int((w * scale).rounded())), th = max(1, Int((h * scale).rounded()))
+
+        var space = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
+        if space.model != .rgb || !space.supportsOutput { space = CGColorSpace(name: CGColorSpace.sRGB)! }
+        let info = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        guard let ctx = CGContext(
+            data: nil, width: tw, height: th, bitsPerComponent: 8, bytesPerRow: 0, space: space, bitmapInfo: info)
+        else { return image }
+        ctx.interpolationQuality = .high
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: tw, height: th))
+        return ctx.makeImage() ?? image
     }
 
     /// True when an error means Screen Recording permission is missing.
