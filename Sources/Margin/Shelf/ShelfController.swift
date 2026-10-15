@@ -170,12 +170,7 @@ final class ShelfController: ShelfControlling {
         awaitingSave.insert(item.id)
         if self.item(for: item.id) == nil { store.append(item) }
         let card = makeCard(item)
-        card.setThumbnail(thumbnail)
-        Task { [weak self] in
-            let small = await ShelfThumbnails.downsample(ShelfImageBox(image: thumbnail))
-            self?.cards[item.id]?.setThumbnail(small.image)
-            self?.refreshFan(force: true)
-        }
+        setFreshThumbnail(thumbnail, of: item.id)
 
         let intoTab = isTucked && !isPeeking
         let reduce = ShelfStyle.reduceMotion
@@ -195,6 +190,38 @@ final class ShelfController: ShelfControlling {
             self?.flightLanded(id, landing)
         }
         if let flight { flights[id] = flight }
+    }
+
+    /// A new shot's thumbnail onto its card at once, then the card's own size of it (downsampled off the main thread),
+    /// unless another has replaced it meanwhile (`replaceThumbnail`).
+    private func setFreshThumbnail(_ thumbnail: CGImage, of id: UUID) {
+        cards[id]?.setThumbnail(thumbnail)
+        Task { [weak self] in
+            let small = await ShelfThumbnails.downsample(ShelfImageBox(image: thumbnail))
+            guard let self, let card = cards[id], card.thumbnail === thumbnail else { return }
+            card.setThumbnail(small.image)
+            refreshFan(force: true)
+        }
+    }
+
+    /// Not in the ShelfControlling contract: window mode's stand-in (cut from the frozen frame at the click) gives way to
+    /// the window's own shot, wherever its thumbnail is: in the air (without flying in again), on the card or in the
+    /// pile's fan, or in an undo step if the card was removed meanwhile. `pixelSize` is the shot's, in case it differs
+    /// from the stand-in's.
+    func replaceThumbnail(of id: UUID, with thumbnail: CGImage, pixelSize: CGSize) {
+        flights[id]?.replaceImage(thumbnail)
+        if var current = item(for: id), current.pixelSize != pixelSize {
+            current.pixelWidth = Int(pixelSize.width)
+            current.pixelHeight = Int(pixelSize.height)
+            store.update(current)
+            cards[id]?.update(item: current)
+            relayout(animated: true)
+        }
+        if cards[id] != nil {
+            setFreshThumbnail(thumbnail, of: id)
+        } else {
+            for i in undoStack.indices where undoStack[i].thumbnails[id] != nil { undoStack[i].thumbnails[id] = thumbnail }
+        }
     }
 
     // MARK: - Fly-in

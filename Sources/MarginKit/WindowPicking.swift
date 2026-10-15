@@ -29,6 +29,16 @@ public enum WindowPicking {
         return layer < dockLevel ? .pickable : .cover
     }
 
+    /// Whether a window at `frame` shows whole on screen, and nothing else in its frame: nothing in front of it
+    /// (`inFront`, the frames before it front to back, system UI that covers included) overlaps it. Frames that only
+    /// touch don't overlap.
+    public static func isUncovered(_ frame: CGRect, inFront: [CGRect]) -> Bool {
+        !inFront.contains { other in
+            let overlap = other.intersection(frame)
+            return !overlap.isNull && overlap.width > 0 && overlap.height > 0
+        }
+    }
+
     /// Bigger than the display that holds most of it, in either direction, or as big as it in both; or on none.
     static func isOverlay(_ frame: CGRect, displays: [CGRect]) -> Bool {
         let area = { (r: CGRect) in r.isNull ? 0 : r.width * r.height }

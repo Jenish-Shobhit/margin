@@ -468,6 +468,8 @@ final class Bench {
         let action = v["screenCapture"] ?? v["areaCapture"] ?? v["windowCapture"]
         if let action {
             if let f = v["releaseToThumbnailFrame"] { metrics.append(("e2e.toThumbnailFrame", action + f, "ms")) }
+            // Window mode's own shot, when a stand-in went to the shelf first.
+            if let f = v["releaseToShotThumbnailFrame"] { metrics.append(("e2e.toShotThumbnailFrame", action + f, "ms")) }
             if let f = v["releaseToFile"] { metrics.append(("e2e.toFile", action + f, "ms")) }
         }
         // A real ⇧⌘4: from posting the key press to Margin's handler (the window server's hand-over), on the mach clock.

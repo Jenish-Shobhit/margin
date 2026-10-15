@@ -12,6 +12,16 @@ import Testing
         WindowPicking.role(layer: layer, frame: frame, displays: displays)
     }
 
+    @Test func aWindowIsUncoveredWhenNothingInFrontOverlapsIt() {
+        let window = CGRect(x: 200, y: 150, width: 900, height: 600)
+        #expect(WindowPicking.isUncovered(window, inFront: []))
+        #expect(WindowPicking.isUncovered(window, inFront: [CGRect(x: 1100, y: 150, width: 300, height: 300)]))  // touching
+        #expect(WindowPicking.isUncovered(window, inFront: [CGRect(x: 0, y: 923, width: 1470, height: 33)]))     // the menu bar
+        #expect(!WindowPicking.isUncovered(window, inFront: [CGRect(x: 1000, y: 650, width: 300, height: 300)])) // over a corner
+        #expect(!WindowPicking.isUncovered(window, inFront: [CGRect(x: 300, y: 0, width: 870, height: 160)]))    // the Dock
+        #expect(!WindowPicking.isUncovered(window, inFront: [CGRect(x: 400, y: 300, width: 100, height: 100)]))  // inside it
+    }
+
     @Test func theLevels() {
         #expect(WindowPicking.dockLevel == 20)
         #expect(WindowPicking.popUpMenuLevel == 101)

@@ -24,6 +24,16 @@ struct DisplayTarget: @unchecked Sendable {
 struct EncodedPNG: Sendable {
     let data: Data?
     let ms: Double
+    /// No bytes because the capture itself failed after its stand-in went to the shelf (`CaptureResult.windowShot`):
+    /// what the toast that takes the card away says.
+    var failure: String? = nil
+}
+
+/// Window mode's shot, replacing the stand-in on the shelf (`CaptureResult.windowShot`): its card thumbnail and its
+/// pixel size.
+struct ShotThumbnail: @unchecked Sendable {
+    let thumbnail: CGImage
+    let pixelSize: CGSize
 }
 
 /// A shot on its way to the shelf: the image, its card thumbnail and its PNG, all made off the main thread and started

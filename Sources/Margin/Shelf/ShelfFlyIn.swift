@@ -94,6 +94,12 @@ final class ShelfFlight {
         fly(from: now, to: rect, duration: 0.35, bounce: landing.absorbs ? 0.05 : 0.15, fadeDelay: 0.12)
     }
 
+    /// Another image of the same shot, in place of this one from now on (window mode's stand-in giving way to the shot).
+    func replaceImage(_ image: CGImage) {
+        guard !finished else { return }
+        img.contents = image
+    }
+
     /// The shot left the shelf mid-flight: the flyer fades away and nothing lands.
     func cancel() {
         guard !finished else { return }
