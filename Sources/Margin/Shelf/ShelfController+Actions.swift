@@ -209,10 +209,18 @@ extension ShelfController {
 
     // MARK: - Menu (••• and right-click)
 
+    /// An empty card or pile menu. Once the shelf has had the keys, AppKit makes it key again when a menu closes, so
+    /// a menu closed without a choice (Esc, a click elsewhere) gives them back, unless the shelf had them when it
+    /// opened. A chosen item decides for itself.
+    func makeMenu() -> ShelfMenu {
+        let hadKeys = panel.isKeyWindow || root.isQuickLookKey
+        return ShelfMenu { [weak self] in if !hadKeys { self?.releaseKeys() } }
+    }
+
     func menu(for card: ShelfCardView) -> NSMenu {
         let id = card.id
         let ids = selection.contains(id) && selection.count > 1 ? ordered(selection) : [id]
-        let menu = NSMenu()
+        let menu = makeMenu()
         menu.autoenablesItems = false
         // Until the file is on disk there's nothing to act on.
         let saving = ids.contains { pending.contains($0) }

@@ -199,6 +199,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] Two-finger swipe right on a card dismisses it
 - [ ] Double-click opens the file in the default app
 - [ ] ••• and right-click (or ⌃-click) offer Copy Path · Reveal in Finder · Rename… (renames on disk) · Move to Trash; Copy Paths for a multi-selection
+  - [ ] with TextEdit in front, after a ⌘-click and Esc on the shelf: ••• (or a right-click, or VoiceOver's Show Menu), then Esc: typing goes to TextEdit at once; the same with the pile's right-click menu. After a ⌘-click (no Esc), the shelf keeps the keys
 - [ ] ⌘Z restores the last removed card(s), up to 20 steps: drag-out, dismiss, clear and trash (the file comes back from the Trash)
 - [ ] On cards A, B, C (oldest first): dismiss A, Move B to Trash, then ⌘Z ⌘Z quickly: the shelf reads A, B, C again
 - [ ] Dismiss a card, delete its file in Finder, ⌘Z: "File not found", no card appears and fades; the next ⌘Z restores the removal before

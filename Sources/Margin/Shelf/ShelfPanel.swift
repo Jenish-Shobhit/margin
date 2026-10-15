@@ -198,5 +198,31 @@ final class ShelfMenuItem: NSMenuItem {
         target = self
     }
 
-    @objc private func fire() { handler?() }
+    @objc private func fire() {
+        (menu as? ShelfMenu)?.choseItem = true
+        handler?()
+    }
+}
+
+/// A card's or the pile's menu (`ShelfController.makeMenu`). Closed without a choice (Esc, a click elsewhere), it
+/// calls `onDismiss`. A chosen item's action runs right after `menuDidClose`, before the menu's tracking returns, so
+/// the check waits for that.
+@MainActor
+final class ShelfMenu: NSMenu, NSMenuDelegate {
+    fileprivate var choseItem = false
+    private let onDismiss: () -> Void
+
+    init(onDismiss: @escaping () -> Void) {
+        self.onDismiss = onDismiss
+        super.init(title: "")
+        delegate = self
+    }
+
+    required init(coder: NSCoder) { fatalError() }
+
+    func menuWillOpen(_ menu: NSMenu) { choseItem = false }
+
+    func menuDidClose(_ menu: NSMenu) {
+        Task { @MainActor [self] in if !choseItem { onDismiss() } }
+    }
 }
