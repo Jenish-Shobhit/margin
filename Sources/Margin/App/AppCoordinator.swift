@@ -60,6 +60,8 @@ final class AppCoordinator {
     private(set) var hasUnsavedShots = false
     /// Bumped by every check and fallback save: only the latest one sets `hasUnsavedShots`.
     private var unsavedShotsGeneration = 0
+    /// AppKit's About panel, once it has made one.
+    private weak var aboutPanel: NSWindow?
 
     init() {
         store = ShelfStore(fileURL: ShelfStore.defaultFileURL)
@@ -286,7 +288,12 @@ final class AppCoordinator {
 
     func showAbout() {
         NSApp.activate()
+        let before = Set(NSApp.windows.map(ObjectIdentifier.init))
         NSApp.orderFrontStandardAboutPanel(nil)
+        // As in Settings and First run: macOS can refuse a menu bar app activation (cooperative activation), which
+        // would leave the panel behind the frontmost app. It's the window that call made, now or the last time.
+        if let panel = NSApp.windows.first(where: { !before.contains(ObjectIdentifier($0)) }) { aboutPanel = panel }
+        aboutPanel?.orderFrontRegardless()
     }
 
     func showPermissionStep() {
