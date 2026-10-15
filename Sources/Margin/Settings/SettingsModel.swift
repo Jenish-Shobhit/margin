@@ -210,6 +210,8 @@ final class SettingsModel {
     var saveFolderDisplay: String { (saveFolder.path as NSString).abbreviatingWithTildeInPath }
 
     func chooseFolder(for window: NSWindow?) {
+        // The panel's keys are its own (⇧⌘G goes to a folder): a recorder that was listening stops.
+        stopRecording()
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false

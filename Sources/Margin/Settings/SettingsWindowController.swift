@@ -49,8 +49,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowDidResignKey(_ notification: Notification) {
-        // The open panel sheet takes key too; only stop listening when the window really loses focus.
-        guard window?.attachedSheet == nil else { return }
+        // Whatever has the keys now (another app, a sheet or an alert), they're no longer the recorder's: the local
+        // monitor sees every key Margin gets, and would record ⇧⌘G typed in the folder sheet.
         model.stopRecording()
     }
 

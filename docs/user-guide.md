@@ -153,7 +153,7 @@ The shelf sits at the bottom-right of the display you last captured on, clear of
   - the **•••** Options button at the top-left, for its menu;
   - the time and pixel size along the bottom, e.g. `17:42 · 1280 × 800`.
 - **The pile.** At most four cards show (fewer on a short screen). Older shots fold into a `+N older` **pile** above them. Hover it to fan out the newest few, drag it to send all of them, or right-click it for **Clear shelf**.
-- **The ⌘V mark.** A small violet **⌘V** pill sits on the card whose image is on the clipboard. It goes away within a second of copying something else.
+- **The ⌘V mark.** A small violet **⌘V** pill sits on the card whose image is on the clipboard. It goes away within a second of copying something else, and at once on **Copy Path** (the clipboard then holds the path, not the image).
 - **Toasts.** Short messages appear above the top card for about a second: "Copied", "Path copied", "Restored", "Shelf tucked · ⇧⌘1" and errors. They're never system notifications.
 - **Tucking.** **⇧⌘1** slides the shelf off the edge, leaving a narrow **tab** with the number of shots. Hover the tab to peek at the shelf, and click it (or press ⇧⌘1 again) to bring the shelf back. New shots fly into the tab while it's tucked, and the count goes up. An empty shelf can't be tucked.
 
@@ -224,11 +224,11 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 - Shortcuts macOS or most apps already use are refused too, with the reason: ⇧⌘Z (Redo), ⇧⌘5 (the screenshot toolbar), ⌃⌘Q (Lock Screen), ⌥⌘⎋ (Force Quit) and the like, plus any system shortcut you've set in System Settings › Keyboard › Keyboard Shortcuts.
 - **Esc** cancels and **Delete** resets it to the default.
 - Margin refuses a shortcut that another of its actions already uses.
-- While a button is listening, Margin's shortcuts are paused, so you can record the current one.
+- While a button is listening, Margin's shortcuts are paused, so you can record the current one. It stops listening when you click **Choose…** or switch to another window.
 - The ⌃ twins follow automatically.
 - Window capture is always Space after the area shortcut.
 - If a shortcut can't be registered (another app has it), a warning shows under it.
-- Shortcuts are shown with the letters of your keyboard layout: on a German keyboard the key right of T reads Z. Switch input source and Settings and the menu follow.
+- Shortcuts are shown with the letters of your keyboard layout: on a German keyboard the key right of T reads Z. A shortcut with ⌘ reads as its key types with ⌘ held, as menus show it: on "Dvorak – QWERTY ⌘" that's the QWERTY letter. Switch input source and Settings and the menu follow.
 
 ## Displays, Spaces and accessibility
 

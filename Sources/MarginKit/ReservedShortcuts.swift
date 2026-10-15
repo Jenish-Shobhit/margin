@@ -28,7 +28,8 @@ public enum ReservedShortcuts {
     ]
 
     /// A key in `common`. Menu shortcuts are typed characters, so they follow the keyboard layout (Redo is ⇧⌘ on
-    /// the key labelled Z, wherever a German or French layout puts it); system shortcuts are bound to key codes.
+    /// the key labelled Z, wherever a German or French layout puts it; on "Dvorak – QWERTY ⌘", on the key that types
+    /// Z with ⌘ held); system shortcuts are bound to key codes.
     enum Key: Equatable {
         case character(String)
         case code(UInt32)
@@ -36,7 +37,7 @@ public enum ReservedShortcuts {
 
     /// What `combo` is in `common`, on `layout`.
     static func commonName(for combo: KeyCombo, layout: KeyboardLayout) -> String? {
-        let name = KeyCombo.keyName(for: combo.keyCode, layout: layout)
+        let name = combo.keyName(layout: layout)
         return common.first { key, modifiers, _ in
             guard modifiers == combo.modifiers else { return false }
             switch key {

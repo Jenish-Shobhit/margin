@@ -3,7 +3,8 @@ import Foundation
 import Synchronization
 
 /// What the character keys type on the user's keyboard layout, so a shortcut reads the way its keys are labelled:
-/// key code 0x10 is Y on a US keyboard but Z on a German one, and 0x0C is Q in the US but A in France.
+/// key code 0x10 is Y on a US keyboard but Z on a German one, and 0x0C is Q in the US but A in France. A shortcut
+/// with ⌘ is named by what its key types with ⌘ held, as menus name it: "Dvorak – QWERTY ⌘" types QWERTY then.
 ///
 /// Text Input Sources may only be read on the main thread, so the app takes a snapshot (`update()`) at launch and
 /// whenever the input source changes (`startObserving()`); naming a key only reads the snapshot, from any thread.
@@ -16,8 +17,8 @@ public final class KeyboardLayout: Sendable {
     /// Posted on the main thread when `current` changed to another layout.
     public static let didChange = Notification.Name("MarginKeyboardLayoutDidChange")
 
-    /// What a key types with no modifiers (`shift` false) or with ⇧; nil when it types nothing.
-    public typealias Translate = @Sendable (_ keyCode: UInt32, _ shift: Bool) -> String?
+    /// What a key types with no modifiers, or with ⇧ and/or ⌘ held; nil when it types nothing.
+    public typealias Translate = @Sendable (_ keyCode: UInt32, _ shift: Bool, _ command: Bool) -> String?
 
     private struct Snapshot: Sendable {
         /// The input source ID, e.g. `com.apple.keylayout.German`.
@@ -74,13 +75,17 @@ public final class KeyboardLayout: Sendable {
         }
     }
 
-    /// The name of a character key on this layout: what it types, upper-cased ("Z", "Ö", "ß"). A key that types a
-    /// symbol unshifted and a digit with ⇧ (the French digit row) is named by the digit, as macOS does. Nil when
-    /// there's no snapshot or the key types nothing printable.
-    public func characterName(for keyCode: UInt32) -> String? {
+    /// The name of a character key on this layout: what it types, upper-cased ("Z", "Ö", "ß"), with ⌘ held when
+    /// `command` (for a combo with ⌘) and ⌘ changes what it types. A key that types a symbol unshifted and a digit
+    /// with ⇧ (the French digit row) is named by the digit, as macOS does. Nil when there's no snapshot or the key
+    /// types nothing printable.
+    public func characterName(for keyCode: UInt32, command: Bool) -> String? {
         guard let translate = snapshot.withLock({ $0?.translate }) else { return nil }
-        guard let plain = translate(keyCode, false).flatMap(Self.printable) else { return nil }
-        if !Self.isDigit(plain), let shifted = translate(keyCode, true).flatMap(Self.printable), Self.isDigit(shifted) {
+        // Some layouts ignore ⇧ while ⌘ is down (Lithuanian LST 1582 types ; with ⇧⌘ on the 4 key), which would hide
+        // the digit: where ⌘ types what the key types anyway, the key keeps its plain name.
+        let command = command && translate(keyCode, false, true) != translate(keyCode, false, false)
+        guard let plain = translate(keyCode, false, command).flatMap(Self.printable) else { return nil }
+        if !Self.isDigit(plain), let shifted = translate(keyCode, true, command).flatMap(Self.printable), Self.isDigit(shifted) {
             return shifted
         }
         let upper = plain.uppercased()
@@ -94,7 +99,9 @@ public final class KeyboardLayout: Sendable {
               let dataRef = property(source, kTISPropertyUnicodeKeyLayoutData) else { return nil }
         let data = Unmanaged<CFData>.fromOpaque(dataRef).takeUnretainedValue() as Data
         let keyboardType = UInt32(LMGetKbdType())
-        return Snapshot(id: id) { keyCode, shift in translate(data, keyCode: keyCode, shift: shift, keyboardType: keyboardType) }
+        return Snapshot(id: id) { keyCode, shift, command in
+            translate(data, keyCode: keyCode, shift: shift, command: command, keyboardType: keyboardType)
+        }
     }
 
     private static func property(_ source: TISInputSource, _ key: CFString) -> UnsafeMutableRawPointer? {
@@ -106,13 +113,13 @@ public final class KeyboardLayout: Sendable {
     }
 
     /// `UCKeyTranslate` with dead keys off, so ^ or ´ come back as themselves.
-    private static func translate(_ layout: Data, keyCode: UInt32, shift: Bool, keyboardType: UInt32) -> String? {
+    private static func translate(_ layout: Data, keyCode: UInt32, shift: Bool, command: Bool, keyboardType: UInt32) -> String? {
         layout.withUnsafeBytes { raw -> String? in
             guard let base = raw.baseAddress?.assumingMemoryBound(to: UCKeyboardLayout.self) else { return nil }
             var deadKeys: UInt32 = 0
             var length = 0
             var chars = [UniChar](repeating: 0, count: 4)
-            let modifiers: UInt32 = shift ? UInt32(shiftKey >> 8) & 0xFF : 0
+            let modifiers = UInt32(((shift ? shiftKey : 0) | (command ? cmdKey : 0)) >> 8) & 0xFF
             let status = UCKeyTranslate(base, UInt16(keyCode), UInt16(kUCKeyActionDisplay), modifiers, keyboardType,
                                         OptionBits(kUCKeyTranslateNoDeadKeysBit), &deadKeys, chars.count, &length, &chars)
             guard status == noErr, length > 0 else { return nil }

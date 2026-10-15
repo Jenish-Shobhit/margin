@@ -107,7 +107,7 @@ extension AppCoordinator {
     /// 6. Clipboard + ⌘V mark, once the PNG is renamed into place: the PNG plus the file at its *final* URL
     /// (it can differ from the predicted one: " (2)", the Unsaved folder), so ⌘V in a terminal pastes its
     /// path. If saving failed, the PNG alone. Only the newest capture may overwrite the clipboard, and a
-    /// shelf copy since this capture began wins (`shelfDidCopy`).
+    /// shelf copy since this capture began wins (`shelfDidCopy`, `shelfDidCopyPaths`).
     private func copyCapture(_ data: Data, fileURL: URL?, itemID: UUID, sequence: Int, releaseDate: Date) {
         guard prefs.copyEachCapture, sequence > lastClipboardSequence else { return }
         lastClipboardSequence = sequence

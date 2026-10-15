@@ -122,6 +122,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
 - **Clipboard** (on by default; Settings › Copy each capture). `clearContents()`, then write the PNG data (the same bytes as the file).
   - Before finalising, run `screencapture -c` once on the dev machine, list `NSPasteboard.general.types`, and write the same *image* types macOS writes. **Since 0.0.2** each item also carries `public.file-url` of the saved file (see "Changes after 0.0.1"), so ⌘V in a terminal pastes the path.
   - Record `changeCount` for the ⌘V mark (§5).
+  - Only the newest capture writes the clipboard, and only if nothing was copied from the shelf (a click, ⌘C or Copy Path) since it was taken: that copy wins.
 - **Sound.** Play the system "Screen Capture" sound via `AudioServicesPlaySystemSound`, so it follows the alert volume.
   - Skip it when `com.apple.sound.uiaudio.enabled` is 0 or Settings › Sound is off.
   - Play only on a successful capture.
@@ -194,6 +195,7 @@ The shelf never steals focus. A click (copy) or double-click (open) leaves the k
 - **⌘V mark.** A small accent pill reading "⌘V" sits at the bottom-right of the card whose image is on the clipboard.
   - Poll `NSPasteboard.general.changeCount` about once a second. If it differs from the count recorded after Margin's last write, clear the mark.
   - If the marked card is removed, the mark goes with it.
+  - Copy Path clears it at once: the clipboard then holds the path, not the image.
 
 ## 6. Menu bar
 
@@ -245,6 +247,8 @@ There are six settings, in one small SwiftUI window:
 - **Show key hints while capturing** (on): the hint bar at the top of the capture overlay.
 - **Launch at login** (on; `SMAppService.mainApp`).
 - **Shortcuts:** recorders for Area, Screen, Repeat area and Tuck shelf. A recorded combo needs ⌘ or ⌃, and is refused (with the reason, `ReservedShortcuts`) when it's ⌘ or ⌃ with one typing key, a combo macOS or most apps use (⇧⌘Z, ⇧⌘5, ⌃⌘Q, ⌥⌘⎋…), or an enabled system shortcut from `com.apple.symbolichotkeys`. Window mode is always Space from area mode, and the ⌃ twins follow automatically.
+  - A recorder listens until it gets a combo (or Esc, or Delete), is clicked again, or the Settings window loses the keys: to another app, or to a sheet (Choose…'s folder panel, whose ⇧⌘G goes to a folder, never to the recorder).
+  - Keys are named as the keyboard layout types them (`KeyboardLayout`), in Settings and the menu; a combo with ⌘ as its key types with ⌘ held, as menus name it. Menu shortcuts are refused by that name: Redo is ⇧⌘ on whichever key types Z with ⌘, which on "Dvorak – QWERTY ⌘" is where QWERTY has Z.
 
 ## 9. Not in 0.0.1
 

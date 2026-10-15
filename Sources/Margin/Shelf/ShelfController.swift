@@ -12,6 +12,9 @@ final class ShelfController: ShelfControlling {
     // MARK: Contract
     var onCopied: ((UUID, Int) -> Void)?
     var onRemoved: (([UUID]) -> Void)?
+    /// Not in the ShelfControlling contract: Copy Path wrote the clipboard. A copy from the shelf like `onCopied`,
+    /// but of paths, not an image, so no card gets the ⌘V mark.
+    var onCopiedPaths: (() -> Void)?
     private(set) var isTucked = false
     var markedItemID: UUID?
     var itemIDs: [UUID] { store.items.map(\.id) }
@@ -42,12 +45,12 @@ final class ShelfController: ShelfControlling {
     /// Added this session with no `itemDidSave`/`itemSaveFailed` yet, on the shelf or not. When ⌘Z brings
     /// one of these back, it's pending again until its file shows up on disk.
     var awaitingSave: Set<UUID> = []
-    /// A click-copy on a pending card, done when its file lands.
+    /// A click-copy on a pending card, done when its file lands (unless another copy comes first).
     var queuedCopy: UUID?
     /// Background file checks (`refreshFiles`): one at a time, rerun once if asked meanwhile.
     var fileRefreshRunning = false
     var fileRefreshQueued = false
-    /// Bumped by every copy; a slower read that finishes after a newer copy started doesn't write.
+    /// Bumped by every copy and Copy Path; a slower read that finishes after a newer copy started doesn't write.
     var copyGeneration = 0
     /// The path each card's thumbnail is loading from. Only the latest load for a card lands.
     var thumbnailLoads: [UUID: String] = [:]
