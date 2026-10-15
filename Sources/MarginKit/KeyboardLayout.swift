@@ -76,10 +76,14 @@ public final class KeyboardLayout: Sendable {
     }
 
     /// The name of a character key on this layout: what it types, upper-cased ("Z", "Ö", "ß"), with ⌘ held when
-    /// `command` (for a combo with ⌘). A key that types a symbol unshifted and a digit with ⇧ (the French digit row)
-    /// is named by the digit, as macOS does. Nil when there's no snapshot or the key types nothing printable.
+    /// `command` (for a combo with ⌘) and ⌘ changes what it types. A key that types a symbol unshifted and a digit
+    /// with ⇧ (the French digit row) is named by the digit, as macOS does. Nil when there's no snapshot or the key
+    /// types nothing printable.
     public func characterName(for keyCode: UInt32, command: Bool) -> String? {
         guard let translate = snapshot.withLock({ $0?.translate }) else { return nil }
+        // Some layouts ignore ⇧ while ⌘ is down (Lithuanian LST 1582 types ; with ⇧⌘ on the 4 key), which would hide
+        // the digit: where ⌘ types what the key types anyway, the key keeps its plain name.
+        let command = command && translate(keyCode, false, true) != translate(keyCode, false, false)
         guard let plain = translate(keyCode, false, command).flatMap(Self.printable) else { return nil }
         if !Self.isDigit(plain), let shifted = translate(keyCode, true, command).flatMap(Self.printable), Self.isDigit(shifted) {
             return shifted

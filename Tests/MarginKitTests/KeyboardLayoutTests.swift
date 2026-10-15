@@ -169,6 +169,24 @@ import Testing
         }
     }
 
+    /// A layout that ignores ⇧ while ⌘ is down: Lithuanian (LST 1582) types ; on the 4 key and 4 with ⇧, but ; with ⇧⌘.
+    /// Where ⌘ doesn't change what a key types, the key keeps its plain name, digit included.
+    static let ignoresShiftWithCommand = KeyboardLayout(id: "lst1582") { code, shift, command in
+        let keys: [UInt32: (String, String)] = [0x15: (";", "4"), 0x06: ("z", "Z")]
+        return keys[code].map { shift && !command ? $0.1 : $0.0 }
+    }
+
+    @MainActor @Test func aKeyThatTypesTheSameWithCommandKeepsItsPlainName() throws {
+        let layout = Self.ignoresShiftWithCommand
+        #expect(layout.characterName(for: 0x15, command: true) == "4")
+        #expect(KeyCombo(keyCode: 0x15, modifiers: shift | cmd).displayString(layout: layout) == "⇧⌘4")
+        #expect(KeyCombo(keyCode: 0x06, modifiers: shift | cmd).displayString(layout: layout) == "⇧⌘Z")
+        let lst1582 = try #require(KeyboardLayout(inputSourceID: "com.apple.keylayout.Lithuanian-LST1582"))
+        for action in ShortcutAction.allCases {
+            #expect(action.defaultCombo.displayString(layout: lst1582) == action.defaultCombo.displayString(layout: .us))
+        }
+    }
+
     @MainActor @Test func usLayoutMatchesTheBuiltInNames() throws {
         let us = try #require(KeyboardLayout(inputSourceID: "com.apple.keylayout.US"))
         for code in UInt32(0)..<128 {
