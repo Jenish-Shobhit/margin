@@ -135,7 +135,7 @@ At launch, once Screen Recording is confirmed, `CaptureController.prewarm()` get
 - It fetches `SCShareableContent` into `ShareableContentCache`. That builds a capture target per display, with a filter that excludes Margin's own windows.
 - It runs one 16 × 16 capture to warm up ScreenCaptureKit.
 
-After that, the cache refreshes on display, app and Space changes (debounced 150 ms), never on the hotkey path. A fetch that fails, or whose targets don't match the displays yet, is retried up to three times (0.5, 1 and 2 s apart). The cache remembers each display's pixel size at the last fetch: a display that's new, or has changed size or scale since (a refresh still pending or failed), isn't trusted, and its capture fetches first (the cold path).
+After that, the cache refreshes on display, app and Space changes (debounced 150 ms), never on the hotkey path. A fetch that fails, or whose targets don't match the displays yet, is retried up to three times (0.5, 1 and 2 s apart). One that fails for lack of Screen Recording permission (revoked while running) isn't: the cache stops observing until a capture works again, since any further call could raise the system prompt at a random moment. The cache remembers each display's pixel size at the last fetch: a display that's new, or has changed size or scale since (a refresh still pending or failed), isn't trusted, and its capture fetches first (the cold path).
 
 ### The freeze (⇧⌘4)
 

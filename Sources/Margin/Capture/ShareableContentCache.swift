@@ -92,8 +92,9 @@ final class ShareableContentCache {
         scheduleRefresh()
     }
 
-    /// Screen Recording was lost: no more background fetches until a capture works again, and drop the targets
-    /// so the next capture fetches fresh content (changes went unobserved in between).
+    /// Screen Recording was lost (a capture, the prewarm or a background refresh said so): no more background fetches
+    /// until a capture works again, and drop the targets so the next capture fetches fresh content (changes went
+    /// unobserved in between).
     func stopObserving() {
         for (center, token) in observers { center.removeObserver(token) }
         observers = []
@@ -121,8 +122,13 @@ final class ShareableContentCache {
                     if self.targetsMatchDisplays { return }
                     CaptureLog.capture.info("refresh: a display target doesn't match its display yet")
                 } catch {
-                    // Without permission, any further call could raise the system prompt.
-                    if ScreenGrabber.isPermissionError(error) { return }
+                    // Without permission, any further call could raise the system prompt: stop listening for changes
+                    // too (an app launching, a Space switch) until a capture works again (`startObserving`).
+                    if ScreenGrabber.isPermissionError(error) {
+                        CaptureLog.capture.error("refresh failed: Screen Recording permission missing; not refreshing until a capture works")
+                        self.stopObserving()
+                        return
+                    }
                     CaptureLog.capture.error("refresh failed: \(error.localizedDescription, privacy: .public)")
                 }
                 guard attempt < Self.refreshRetries else {
