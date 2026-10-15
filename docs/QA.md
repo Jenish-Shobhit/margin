@@ -359,6 +359,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] A combo without ⌘ or ⌃ is refused with a message
 - [ ] A combo another action uses is refused, naming that action
 - [ ] Esc cancels recording; Delete resets to the default
+- [ ] Click a recorder, then **Choose…**: the recorder stops listening, and ⇧⌘G in the folder sheet opens Go to Folder without changing a shortcut
 
 **macOS screenshot shortcuts row**
 

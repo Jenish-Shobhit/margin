@@ -224,7 +224,7 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 - Shortcuts macOS or most apps already use are refused too, with the reason: ⇧⌘Z (Redo), ⇧⌘5 (the screenshot toolbar), ⌃⌘Q (Lock Screen), ⌥⌘⎋ (Force Quit) and the like, plus any system shortcut you've set in System Settings › Keyboard › Keyboard Shortcuts.
 - **Esc** cancels and **Delete** resets it to the default.
 - Margin refuses a shortcut that another of its actions already uses.
-- While a button is listening, Margin's shortcuts are paused, so you can record the current one.
+- While a button is listening, Margin's shortcuts are paused, so you can record the current one. It stops listening when you click **Choose…** or switch to another window.
 - The ⌃ twins follow automatically.
 - Window capture is always Space after the area shortcut.
 - If a shortcut can't be registered (another app has it), a warning shows under it.

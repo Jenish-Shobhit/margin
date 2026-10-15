@@ -269,7 +269,7 @@ More on how these behave:
 
 - **What it registers:** `Preferences.registeredCombos()`, which is each action's shortcut plus the ⌃ twin of each capture action.
 - **When it re-registers:** whenever the shortcuts change.
-- **While recording:** everything is unregistered while a Settings recorder is listening (`Preferences.isRecordingShortcut`), so pressing the current shortcut records it instead of firing it.
+- **While recording:** everything is unregistered while a Settings recorder is listening (`Preferences.isRecordingShortcut`), so pressing the current shortcut records it instead of firing it. The recorder is a local event monitor, so it sees every key Margin's windows get, a sheet's too: it stops when the Settings window resigns key, a sheet or alert included, and when **Choose…** opens the folder panel (⇧⌘G there is the panel's Go to Folder).
 - **Failures:** two actions on one combo, Carbon's `eventHotKeyExistsErr`, or any other `OSStatus`. They go to `RuntimeStatus.hotkeyFailures`. The menu bar shows a warning dot and an item that opens Settings, and Settings shows a message under the shortcut.
 - **macOS's own shortcuts:** while the macOS screenshot shortcuts are on, macOS takes ⇧⌘3 and ⇧⌘4 first, but registration still succeeds. That's why that clash is detected separately (below).
 
