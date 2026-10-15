@@ -165,6 +165,31 @@ import Testing
         #expect(reloaded.items == [a])
     }
 
+    @Test func updatingManyItemsSavesOnce() throws {
+        // A moved folder: every card gets a new path, in one write.
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let store = makeStore(dir)
+        var items = try (0..<5).map { ShelfItem(url: try dir.file("\($0).png"), createdAt: .now, pixelSize: CGSize(width: 10, height: 10)) }
+        for item in items { store.append(item) }
+        var saves = 0
+        store.didSave = { _, _ in saves += 1 }
+        items[1].path = "/moved/1.png"
+        items[3].path = "/moved/3.png"
+        let stranger = ShelfItem(url: dir.url.appendingPathComponent("x.png"), createdAt: .now, pixelSize: .zero)
+        store.update([items[3], stranger, items[1]])
+        #expect(saves == 1)
+        #expect(store.items == items) // in shelf order; the unknown item is skipped
+        let reloaded = makeStore(dir)
+        reloaded.load()
+        #expect(reloaded.items == items)
+
+        // Nothing of the shelf's in it: no write at all.
+        store.update([stranger])
+        store.update([])
+        #expect(saves == 1)
+    }
+
     @Test func removeAndRestoreKeepIndices() throws {
         let dir = try TempDir()
         defer { dir.remove() }

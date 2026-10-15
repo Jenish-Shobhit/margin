@@ -122,6 +122,14 @@ enum Offline {
             let r = timed(50) { store.save() }
             row("ShelfStore.save, \(count) cards (\(bytes / 1024) KB)", r)
             row("ShelfStore.load, \(count) cards", timed(20) { store.load() })
+            // A file check after the shelf's folder moved: every card has a new path.
+            let moved = store.items.map { item -> ShelfItem in
+                var m = item
+                m.path = "/moved/" + item.url.lastPathComponent
+                return m
+            }
+            row("  … all \(count) moved: update one at a time", timed(count >= 200 ? 3 : 10) { for m in moved { store.update(m) } })
+            row("  … all \(count) moved: update(_:) at once", timed(count >= 200 ? 3 : 10) { store.update(moved) })
         }
         let pb = NSPasteboard(name: NSPasteboard.Name("margin-bench-\(UUID().uuidString)"))
         for mb in [1, 4, 12] {

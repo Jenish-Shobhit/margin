@@ -231,6 +231,19 @@ public final class ShelfStore {
         save()
     }
 
+    /// Replaces several items (matched by id; ones no longer here are skipped), saving once: a check that found
+    /// every file of a moved folder updates them all in one write, not one per item.
+    public func update(_ changed: [ShelfItem]) {
+        let byID = Dictionary(changed.map { ($0.id, $0) }, uniquingKeysWith: { _, newer in newer })
+        var replaced = false
+        for i in items.indices {
+            guard let item = byID[items[i].id] else { continue }
+            items[i] = item
+            replaced = true
+        }
+        if replaced { save() }
+    }
+
     /// Removes the given items; returns what's needed to undo, in ascending index order.
     @discardableResult
     public func remove(ids: Set<UUID>) -> [Removal] {

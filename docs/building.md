@@ -230,6 +230,7 @@ The info lines read `name: 12.3 ms` (sizes: `name: 45.6 KB`). The ones that say 
 | `release.*`, `finishSave.*` | | Main-thread steps of the release (`release.main` is all of `handleCapture`) and of the save's return |
 | `launchToStarted`, `launchToPrewarmed` | The process start | Everything wired up; the first capture ready |
 | `shelfRestore`, `shelfRestoreThumbnails`, `shelfSave` | | The shelf at launch, the thumbnails of the cards in view (or nearly) loaded, each `shelf.json` write |
+| `shelfFileCheck`, `shelfFileCheck.apply` | | A background check of the shelf's files, and applying its result on the main thread |
 
 The targets are:
 

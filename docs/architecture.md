@@ -258,7 +258,7 @@ More on how these behave:
 - **The hint bar** shows while `Preferences.showsCaptureHints` is on (the default; a Settings toggle).
 - **Bookmarks** let a card follow a file renamed or moved in Finder.
 - **When a shelf file counts as gone:** `ShelfFiles.status` tells a file that's definitely gone (`ENOENT` on a mounted volume, or in a `.Trash` folder) from one Margin can't see right now (access denied, or its volume isn't mounted: `ShelfItem.isOnUnmountedVolume` checks the mount point the bookmark recorded, or `/Volumes/<name>`). Only the first drops the card, so a folder Margin may not read, or an unplugged disk, never empties the shelf.
-- **When files are checked:** at launch, when the shelf appears, and on a mouse-down that may become a drag.
+- **When files are checked:** at launch, when the shelf appears, and on a mouse-down that may become a drag. A check's moved files go to the store together (`ShelfStore.update(_:)` with a list), so a moved folder of 200 shots is one write instead of 200 (0.4–0.8 s of the main thread).
 
 ## Permissions
 
