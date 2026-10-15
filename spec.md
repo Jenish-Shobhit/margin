@@ -345,7 +345,7 @@ Write it at M0 and grow it with each milestone. It must cover at least these:
 
 ## Changes after 0.0.1 (user feedback, 14 Oct 2026)
 
-Each item ships as its own patch release (version bump, CHANGELOG entry, tag, GitHub release with the zip), numbered in the order it lands. The version column was the plan; shipped versions: ⌘V in terminals → 0.0.2, turn off macOS shortcuts → 0.0.3, nudge → 0.0.4, ⌥ discoverability (+ hint bar re-shows after hint changes) → 0.0.5, card buttons → 0.0.6, magnifier on demand → 0.0.7.
+Each item ships as its own patch release (version bump, CHANGELOG entry, tag, GitHub release with the zip), numbered in the order it lands. The version column was the plan; shipped versions: ⌘V in terminals → 0.0.2, turn off macOS shortcuts → 0.0.3, nudge → 0.0.4, ⌥ discoverability (+ hint bar re-shows after hint changes) → 0.0.5, card buttons → 0.0.6, magnifier on demand → 0.0.7. A bug pass followed in 0.0.8–0.0.15 (see CHANGELOG.md).
 
 | Version | Change |
 |---|---|

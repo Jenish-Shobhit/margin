@@ -2,7 +2,7 @@
 
 Margin is a menu bar app. Every capture is saved as a PNG, copied to the clipboard and put on a **shelf** of thumbnails (**cards**) at the right edge of the screen, where it waits until you drag it into another app or dismiss it.
 
-This guide covers Margin 0.0.7. Shortcuts are shown with their defaults; you can change them in [Settings](#settings).
+This guide covers Margin 0.0.15. Shortcuts are shown with their defaults; you can change them in [Settings](#settings).
 
 **Contents**
 

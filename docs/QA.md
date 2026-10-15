@@ -1,6 +1,6 @@
 # Margin QA checklist
 
-Manual checks for every release (spec §12), kept in step with Margin 0.0.7. Run them on the installed build (`scripts/build.sh --install --run`) unless a step says otherwise.
+Manual checks for every release (spec §12), kept in step with Margin 0.0.15. Run them on the installed build (`scripts/build.sh --install --run`) unless a step says otherwise.
 
 Debug builds can drive captures without a mouse: `scripts/debug.sh capture-area x y w h`, `capture-screen`, `toggle-shelf`, `clear` and `dump-state`. See [building.md](building.md#the-debug-hook).
 
@@ -306,7 +306,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] The shortcuts shown match Settings
 - [ ] With the menu open, ⇧⌘3 (or ⇧⌘4) does nothing, then or after the menu closes (Esc, or choosing Settings…); with a card's ••• menu open too. Pressed right after Esc or a choice (while the menu fades out), it works
 - [ ] After the shelf has had the keys once (⌘-click a card, then Esc), with TextEdit in front: open the menu bar menu and close it with Esc, or choose Restore Last Removed or Capture Screen: typing still goes to TextEdit (not the shelf; ⌫ removes no card). With the shelf holding the keys when the menu opens, it keeps them
-- [ ] About shows the icon, the current version and build (e.g. 0.0.7 (7)) and "© 2026 Jenish Shobhit · MIT License", in front of the app you were in (as Settings… does)
+- [ ] About shows the icon, the current version and build (e.g. 0.0.15 (15)) and "© 2026 Jenish Shobhit · MIT License", in front of the app you were in (as Settings… does)
 - [ ] Opening Margin again while it runs (Finder, Spotlight) opens Settings, or First run step 1 without permission
 - [ ] `open -n /Applications/Margin.app` while it runs: Settings opens in the running copy within a second, the second copy quits within about 5 s without a menu bar icon, and ⇧⌘3 still saves one file
 - [ ] `scripts/build.sh --install --run` and Relaunch Margin end with exactly one Margin running

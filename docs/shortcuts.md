@@ -1,6 +1,6 @@
 # Keyboard shortcuts
 
-Every shortcut in Margin 0.0.7. Modifiers are written in the macOS order ⌃⌥⇧⌘ (Control, Option, Shift, Command), as in System Settings: ⇧⌘4 is Shift-Command-4.
+Every shortcut in Margin 0.0.15. Modifiers are written in the macOS order ⌃⌥⇧⌘ (Control, Option, Shift, Command), as in System Settings: ⇧⌘4 is Shift-Command-4.
 
 ## Global
 

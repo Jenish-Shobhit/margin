@@ -5,7 +5,8 @@
 #
 # Expects a `## <version> — <date>` section at the top of CHANGELOG.md (written by hand). Then it:
 # bumps CFBundleShortVersionString and CFBundleVersion, builds, installs and zips the signed release app,
-# commits, tags v<version>, pushes main and the tag, and creates the GitHub release with the zip.
+# commits, tags v<version>, pushes main and the tag, and creates the GitHub release with the zip. The release
+# notes are every CHANGELOG section since the last tagged release, so versions never published get listed too.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -15,8 +16,16 @@ PLIST=Resources/Info.plist
 [[ "$(git branch --show-current)" == main ]] || { echo "error: not on main" >&2; exit 1; }
 git diff --quiet -- . ':!CHANGELOG.md' && git diff --cached --quiet || { echo "error: uncommitted changes besides CHANGELOG.md" >&2; exit 1; }
 git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null && { echo "error: tag v$VERSION exists" >&2; exit 1; }
-NOTES=$(awk -v v="$VERSION" '$0 ~ "^## "v" " {on=1; next} /^## / && on {exit} on' CHANGELOG.md)
-[[ -n "${NOTES//[[:space:]]/}" ]] || { echo "error: no '## $VERSION — <date>' section in CHANGELOG.md" >&2; exit 1; }
+grep -q "^## $VERSION " CHANGELOG.md || { echo "error: no '## $VERSION — <date>' section in CHANGELOG.md" >&2; exit 1; }
+LAST=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+# From this version's section down to the last released one (or to the end with no earlier tag).
+NOTES=$(awk -v v="$VERSION" -v last="${LAST#v}" '
+  $0 ~ "^## "v" " {on=1}
+  on && last != "" && $0 ~ "^## "last" " {exit}
+  on' CHANGELOG.md)
+# With only this version unreleased, its own heading is left out, as before.
+if [[ "$(grep -c '^## ' <<<"$NOTES")" == 1 ]]; then NOTES=$(sed '1d' <<<"$NOTES"); fi
+[[ -n "${NOTES//[[:space:]]/}" ]] || { echo "error: the $VERSION section in CHANGELOG.md is empty" >&2; exit 1; }
 
 BUILD=$(( $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST") + 1 ))
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $BUILD" "$PLIST"
