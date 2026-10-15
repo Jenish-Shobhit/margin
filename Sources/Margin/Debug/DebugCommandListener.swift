@@ -141,10 +141,11 @@ final class DebugCommandListener: NSObject {
         var state: [String: Any] = [
             "itemIDs": c.shelf.itemIDs.map(\.uuidString),
             "itemPaths": c.store.items.map(\.path),
-            // Oldest first, as the items: which cards are in the pile, and which hold a decoded thumbnail.
+            // Oldest first, as the items: which have a live card, which of those are in the pile, and which hold a
+            // decoded thumbnail.
             "cards": c.store.items.map { item -> [String: Any] in
-                let card = c.shelf.cards[item.id]
-                return ["inPile": card?.isInPile ?? NSNull(), "thumbnail": card.map { $0.thumbnail != nil } ?? NSNull()]
+                guard let card = c.shelf.cards[item.id] else { return ["live": false] }
+                return ["live": true, "inPile": card.isInPile, "thumbnail": card.thumbnail != nil]
             },
             "isTucked": c.shelf.isTucked,
             "markedItemID": c.shelf.markedItemID?.uuidString ?? NSNull(),

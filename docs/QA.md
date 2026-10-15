@@ -276,7 +276,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] Switching Spaces: the shelf stays on every Space
 - [ ] Sleep/wake: hotkeys, shelf and capture still work afterwards
 - [ ] A 50-item shelf stays responsive
-- [ ] A 200-item shelf (`scripts/bench.sh make-shelf`): launch is as quick as with an empty one; every visible card and the pile's fan have their images; dismissing cards one by one, ⌘A ⌫ on the visible ones, and ⌘Z bring pile cards out with their images; `dump-state`'s `cards` shows at most 11 thumbnails (plus selected cards)
+- [ ] A 200-item shelf (`scripts/bench.sh make-shelf`): launch is as quick as with an empty one; every visible card and the pile's fan have their images; dismissing cards one by one, ⌘A ⌫ on the visible ones, and ⌘Z bring pile cards out with their images; `dump-state`'s `cards` shows at most 11 live cards, all with a thumbnail (plus a selected or last-clicked one)
 
 **Revoking Screen Recording while running**
 

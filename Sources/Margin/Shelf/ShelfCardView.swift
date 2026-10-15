@@ -242,8 +242,7 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         updateMeta()
     }
 
-    /// nil gives the image back (a card deep in the pile: `ShelfController.updateThumbnails`).
-    func setThumbnail(_ image: CGImage?) {
+    func setThumbnail(_ image: CGImage) {
         imageLayer.contents = image
     }
 

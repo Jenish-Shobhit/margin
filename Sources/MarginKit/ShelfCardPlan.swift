@@ -1,20 +1,20 @@
-/// Which shelf thumbnails stay decoded, and when to decode them. Pure bookkeeping: the shelf does the decoding,
-/// off the main thread.
+/// Which shelf cards are live (a view and a decoded thumbnail), and when to decode thumbnails. Pure bookkeeping: the
+/// shelf makes the views and decodes, off the main thread.
 ///
 /// A decoded thumbnail is about 0.3 MB, and decoding one from its PNG takes 15–200 ms of CPU, so a big shelf can't
 /// decode every card at launch: 200 cards took 1.2–5.5 s of every core, held ScreenCaptureKit's prewarm back as long,
-/// and kept 130–180 MB. Only what can be seen, or soon could be, is decoded: the visible cards, the pile's fan, and
-/// the next few pile shots a removal would bring out. The rest wait in the pile without an image, and give theirs
-/// back when they fold deeper into it.
-public enum ShelfThumbnailPlan {
+/// and kept 130–180 MB. A card's view costs too (about 0.05 MB and 0.08 ms each, 200 of them hidden in the pile). So
+/// only what can be seen, or soon could be, is live: the visible cards, the pile's fan, and the next few pile shots a
+/// removal would bring out. The rest of the pile is just items, and a card goes when it folds deeper into it.
+public enum ShelfCardPlan {
     /// The newest pile shots the fan shows on hover (and a pile drag's stacked image).
     public static let fanCount = 3
-    /// How many pile shots beyond the fan stay decoded: enough for a whole row of visible cards removed at once
-    /// to be replaced by cards that already have their image.
+    /// How many pile shots beyond the fan stay live: enough for a whole row of visible cards removed at once to be
+    /// replaced by cards that already have their view and image, and slide out of the pile as before.
     public static let aheadCount = ShelfLayout.maxVisible
 
-    /// Indices (0 = oldest) of the items whose thumbnails stay decoded, by priority: the visible cards newest first,
-    /// then the fan, then the next `aheadCount` in the pile.
+    /// Indices (0 = oldest) of the items whose cards are live, by priority: the visible cards newest first, then the
+    /// fan, then the next `aheadCount` in the pile.
     public static func keptIndices(count: Int, pileCount: Int) -> [Int] {
         guard count > 0 else { return [] }
         let pile = min(max(pileCount, 0), count)
@@ -48,9 +48,9 @@ public struct ThumbnailLoads<ID: Hashable & Sendable>: Sendable {
 
     public var isIdle: Bool { inFlight.isEmpty }
 
-    /// The loads to start now, which count as in flight from here on: from `wanted` (by priority, at each item's
-    /// current path), the first without an image (`hasImage`), not loading and not failed at that path, while
-    /// fewer than `limit` are in flight.
+    /// The loads to start now, which count as in flight from here on: the first of `wanted` (by priority, at each
+    /// item's current path) that have no image (`hasImage`), aren't loading and didn't fail at that path, up to
+    /// `limit` in flight.
     public mutating func start(_ wanted: [Load], hasImage: (ID) -> Bool) -> [Load] {
         var started: [Load] = []
         for load in wanted where inFlight.count < limit {

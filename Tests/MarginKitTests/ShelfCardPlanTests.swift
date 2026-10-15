@@ -1,36 +1,36 @@
 import MarginKit
 import Testing
 
-@Suite struct ShelfThumbnailPlanTests {
+@Suite struct ShelfCardPlanTests {
     @Test func emptyShelfKeepsNothing() {
-        #expect(ShelfThumbnailPlan.keptIndices(count: 0, pileCount: 0).isEmpty)
+        #expect(ShelfCardPlan.keptIndices(count: 0, pileCount: 0).isEmpty)
     }
 
     @Test func withoutAPileEveryCardIsKeptNewestFirst() {
-        #expect(ShelfThumbnailPlan.keptIndices(count: 3, pileCount: 0) == [2, 1, 0])
+        #expect(ShelfCardPlan.keptIndices(count: 3, pileCount: 0) == [2, 1, 0])
     }
 
     @Test func aBigShelfKeepsTheVisibleCardsTheFanAndTheNextFew() {
         // 200 cards, 4 visible: those, the fan's 3 and 4 more, whatever the shelf's size.
-        let kept = ShelfThumbnailPlan.keptIndices(count: 200, pileCount: 196)
+        let kept = ShelfCardPlan.keptIndices(count: 200, pileCount: 196)
         #expect(kept == Array((189...199).reversed()))
-        #expect(kept.count == 4 + ShelfThumbnailPlan.fanCount + ShelfThumbnailPlan.aheadCount)
+        #expect(kept.count == 4 + ShelfCardPlan.fanCount + ShelfCardPlan.aheadCount)
         #expect(kept.first == 199)
-        #expect(ShelfThumbnailPlan.keptIndices(count: 2000, pileCount: 1996).count == kept.count)
+        #expect(ShelfCardPlan.keptIndices(count: 2000, pileCount: 1996).count == kept.count)
     }
 
     @Test func aShortScreenShowsFewerCardsAndKeepsAsManyBeyondThem() {
         // One visible card (a short display): it, then the pile's newest 7.
-        #expect(ShelfThumbnailPlan.keptIndices(count: 50, pileCount: 49) == Array((42...49).reversed()))
+        #expect(ShelfCardPlan.keptIndices(count: 50, pileCount: 49) == Array((42...49).reversed()))
     }
 
     @Test func aSmallPileIsKeptWhole() {
-        #expect(ShelfThumbnailPlan.keptIndices(count: 6, pileCount: 2) == [5, 4, 3, 2, 1, 0])
+        #expect(ShelfCardPlan.keptIndices(count: 6, pileCount: 2) == [5, 4, 3, 2, 1, 0])
     }
 
     @Test func outOfRangePileCountsAreClamped() {
-        #expect(ShelfThumbnailPlan.keptIndices(count: 3, pileCount: -1) == [2, 1, 0])
-        #expect(ShelfThumbnailPlan.keptIndices(count: 3, pileCount: 9) == [2, 1, 0])
+        #expect(ShelfCardPlan.keptIndices(count: 3, pileCount: -1) == [2, 1, 0])
+        #expect(ShelfCardPlan.keptIndices(count: 3, pileCount: 9) == [2, 1, 0])
     }
 }
 

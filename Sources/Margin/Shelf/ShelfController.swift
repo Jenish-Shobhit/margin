@@ -32,6 +32,7 @@ final class ShelfController: ShelfControlling {
     let toast = ShelfToastView()
     let tab = ShelfTabView()
 
+    /// The live cards: the ones in view, or soon could be (`ShelfController+Cards.swift`). Items deep in the pile have none.
     var cards: [UUID: ShelfCardView] = [:]
     var selection: Set<UUID> = []
     var focusedID: UUID?
@@ -55,7 +56,7 @@ final class ShelfController: ShelfControlling {
     var fileRefreshQueued = false
     /// Bumped by every copy and Copy Path; a slower read that finishes after a newer copy started doesn't write.
     var copyGeneration = 0
-    /// Thumbnails decoding from their files, a few at a time (`ShelfController+Thumbnails.swift`).
+    /// Thumbnails decoding from their files, a few at a time.
     var thumbnailLoads = ThumbnailLoads<UUID>(limit: ShelfController.thumbnailLoadLimit)
     /// Since `restore`, until the thumbnails it asked for are in (for the timing log).
     var restoreThumbnailsClock: Stopwatch?
@@ -152,8 +153,7 @@ final class ShelfController: ShelfControlling {
         cards = [:]
         selection = []
         restoreThumbnailsClock = store.items.isEmpty ? nil : clock
-        // Every card, but only the ones in view (or nearly) decode their thumbnails: the layout starts them.
-        for item in store.items { makeCard(item) }
+        // The layout makes the cards in view (or nearly), and starts decoding their thumbnails.
         relayout(animated: false)
         updateVisibility()
         recoverLeftoverSavesThenRefresh(quietWithin: 0.5)
@@ -314,11 +314,13 @@ final class ShelfController: ShelfControlling {
 
     // MARK: - Cards
 
+    /// A card for an item, below the cards of newer items (so a newer card's shadow falls on an older one).
     @discardableResult
     func makeCard(_ item: ShelfItem) -> ShelfCardView {
         let card = ShelfCardView(item: item)
         card.controller = self
-        container.addSubview(card, positioned: .below, relativeTo: pile.fan)
+        let newer = store.items.drop { $0.id != item.id }.dropFirst().lazy.compactMap { self.cards[$0.id] }.first
+        container.addSubview(card, positioned: .below, relativeTo: newer ?? pile.fan)
         cards[item.id] = card
         card.setMarked(item.id == markedItemID, animated: false)
         return card
@@ -356,12 +358,14 @@ final class ShelfController: ShelfControlling {
         return CGRect(x: vf.maxX - stageSize.width, y: vf.minY, width: stageSize.width, height: stageSize.height)
     }
 
-    /// Recomputes the layout and panel geometry, and moves every card. Springs when `animated`.
-    func relayout(animated: Bool) {
+    /// Recomputes the layout and panel geometry, makes the cards that came forward (with `thumbnails`, an undo
+    /// step's, where it has them) and moves every card. Springs when `animated`.
+    func relayout(animated: Bool, thumbnails: [UUID: CGImage] = [:]) {
         let items = store.items
         let vf = screen?.visibleFrame ?? .zero
         let heights = items.map { ShelfLayout.cardHeight(forPixelSize: $0.pixelSize) }
         layout = ShelfLayout.layout(heights: heights, availableHeight: vf.height - ShelfStyle.headroom)
+        makeLiveCards(thumbnails: thumbnails)
         let minH = ShelfStyle.tabBottom + ShelfStyle.tabHeight + 46
         stageSize = CGSize(width: stageWidth, height: min(max(layout.contentHeight + ShelfStyle.headroom, minH), max(vf.height, minH)))
         applyGeometry(deferShrink: animated)
@@ -385,7 +389,7 @@ final class ShelfController: ShelfControlling {
         positionToast(animated: animated)
         updateVisibility()
         retargetFlights()
-        updateThumbnails()
+        dropHiddenCards()
         NSAccessibility.post(element: panel, notification: .layoutChanged)
     }
 

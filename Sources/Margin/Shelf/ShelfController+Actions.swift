@@ -561,12 +561,8 @@ extension ShelfController {
         }
         store.restore(removals)
         repend(removals.map(\.item))
-        // A card without its thumbnail in the step decodes it with the layout, if it comes back in view.
-        for r in removals where cards[r.item.id] == nil {
-            let card = makeCard(r.item)
-            if let thumb = thumbnails[r.item.id] { card.setThumbnail(thumb) }
-        }
-        relayout(animated: true)
+        // The layout makes the cards that come back in view, with the step's thumbnails (the rest decode).
+        relayout(animated: true, thumbnails: thumbnails)
         for r in removals {
             if let card = cards[r.item.id], !card.isInPile { card.appear() }
         }
