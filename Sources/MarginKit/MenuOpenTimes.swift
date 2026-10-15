@@ -30,9 +30,15 @@ public struct MenuOpenTimes: Sendable {
 
     /// Whether a key pressed at `time` was pressed while the last menu was open. Only once that menu has closed: a
     /// hotkey that arrives while one is still open wasn't held back by it, so it goes through, and a close that never
-    /// came can't swallow every shortcut.
+    /// came can't swallow every shortcut. Nor in the menu's last `closing` seconds: AppKit ends a menu's tracking (and
+    /// posts the close) only once it has blinked the chosen item and faded out, about 0.25 s after Esc or a click
+    /// elsewhere and 0.35 s after a choice. A key pressed then was most likely pressed after the menu was dismissed, and
+    /// isn't held back long, so it goes through.
     public func held(_ time: TimeInterval) -> Bool {
         guard let openedAt, let closedAt else { return false }
-        return openedAt <= time && time <= closedAt
+        return openedAt <= time && time <= closedAt - Self.closing
     }
+
+    /// How long before a menu's close is reported a key press counts as made after the menu was dismissed.
+    public static let closing: TimeInterval = 0.5
 }

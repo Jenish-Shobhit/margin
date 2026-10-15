@@ -304,7 +304,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] The template icon follows the menu bar's appearance
 - [ ] Items: Capture Area, Capture Window, Capture Screen, Repeat Last Area, Tuck Shelf (Show Shelf while tucked), Restore Last Removed, Open Screenshots Folder, Show Unsaved Shots (only while the Unsaved folder holds shots), Settings… (⌘,), About Margin <version>, Quit Margin (⌘Q)
 - [ ] The shortcuts shown match Settings
-- [ ] With the menu open, ⇧⌘3 (or ⇧⌘4) does nothing, then or after the menu closes (Esc, or choosing Settings…); with a card's ••• menu open too
+- [ ] With the menu open, ⇧⌘3 (or ⇧⌘4) does nothing, then or after the menu closes (Esc, or choosing Settings…); with a card's ••• menu open too. Pressed right after Esc or a choice (while the menu fades out), it works
 - [ ] After the shelf has had the keys once (⌘-click a card, then Esc), with TextEdit in front: open the menu bar menu and close it with Esc, or choose Restore Last Removed or Capture Screen: typing still goes to TextEdit (not the shelf; ⌫ removes no card). With the shelf holding the keys when the menu opens, it keeps them
 - [ ] About shows the icon, the current version and build (e.g. 0.0.7 (7)) and "© 2026 Jenish Shobhit · MIT License", in front of the app you were in (as Settings… does)
 - [ ] Opening Margin again while it runs (Finder, Spotlight) opens Settings, or First run step 1 without permission

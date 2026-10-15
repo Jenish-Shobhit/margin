@@ -219,7 +219,7 @@ The shelf never steals focus. A click (copy) or double-click (open) leaves the k
   - About Margin (current version)
   - Quit Margin
 - If Screen Recording permission is missing, the icon gets a warning dot and the first item becomes "Allow Screen Recording…", which opens First run step 1. While permission is revoked, "Relaunch Margin" is offered; a failed hotkey registration adds a warning item that opens Settings.
-- The shortcuts shown are for when the menu is closed. While any menu of Margin's is open, AppKit holds hotkeys back and delivers them when it closes; a press made while it was open (its event time between the menu opening and closing) is dropped, so it does nothing instead of capturing late.
+- The shortcuts shown are for when the menu is closed. While any menu of Margin's is open, AppKit holds hotkeys back and delivers them when it closes; a press made while it was open (its event time between the menu opening and closing) is dropped, so it does nothing instead of capturing late. Not one in the last 0.5 s before AppKit reports the close: the menu is fading out then (about 0.25 s after Esc, 0.35 s after a choice), so a shortcut pressed right after dismissing the menu still works.
 - Key order in all UI and docs follows macOS (⌃⌥⇧⌘, e.g. ⇧⌘4); older sections of this spec write ⌘⇧4, which means the same keys.
 - Opening Margin again while it runs opens Settings (or First run step 1 without permission). One copy runs at a time: a second copy (another path, `open -n`) asks the running one to do that and quits before registering a shortcut, restoring the shelf or touching ScreenCaptureKit. A copy that's still quitting (a relaunch, at most the 3 s quit wait) is waited for instead.
 
