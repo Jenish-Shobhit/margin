@@ -133,6 +133,7 @@ final class CaptureController: CaptureControlling {
         // Margin listed in SCShareableContent (needed to exclude it).
         pool.sync()
         pool.warmUp()
+        hotkeys.prepare()
         do {
             try await cache.refresh()
             let main = CGMainDisplayID()
@@ -161,14 +162,22 @@ final class CaptureController: CaptureControlling {
     private func begin(in mode: OverlaySession.Mode) {
         guard session == nil else { return }
         let clock = Stopwatch()
+        // The overlay can be key only with the first frame; until then its keys would reach the frontmost app (Space
+        // typed into a document, Esc taking a full-screen app out of full screen). They're caught as hotkeys instead,
+        // Esc and Space before anything else: once the captures have started, the window server is slow to take them.
+        hotkeys.registerFirst()
         let signpost = CaptureLog.signposter.beginInterval("freeze")
         guard hasPermission() else {
+            hotkeys.unregister()
             CaptureLog.signposter.endInterval("freeze", signpost)
             onPermissionMissing?()
             return
         }
         let displays = Displays.all
-        guard !displays.isEmpty else { return }
+        guard !displays.isEmpty else {
+            hotkeys.unregister()
+            return
+        }
 
         // Start the captures first: they run off the main thread while the panels go up. A display that
         // ScreenCaptureKit didn't list at the last refresh (Sidecar, AirPlay, DisplayLink…) just fails in the
@@ -176,10 +185,6 @@ final class CaptureController: CaptureControlling {
         // freeze down the cold path.
         let grab = Self.frameGrabber()
         let early = cache.needsRefresh(for: displays) ? nil : Self.captureAll(jobs(for: displays), grab: grab)
-        // The overlay can be key only with the first frame; until then its keys would reach the frontmost app (Space
-        // typed into a document, Esc taking a full-screen app out of full screen). Caught as hotkeys instead, from
-        // before the panels go up: the sooner, the better.
-        hotkeys.register()
 
         pool.sync()
         let session = OverlaySession(panels: pool.panels(for: displays), cache: cache, mode: mode,
@@ -198,6 +203,8 @@ final class CaptureController: CaptureControlling {
         becameActiveDuringSession = false
         session.show()
         timings.record("hotkeyToOverlay", clock.ms)
+        // The other overlay keys, now that it's on screen (they'd hold it back by 2–10 ms).
+        hotkeys.register()
 
         Task { [weak self] in
             await self?.freeze(session, displays: displays, early: early, grab: grab, clock: clock)

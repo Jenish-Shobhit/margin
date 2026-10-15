@@ -71,7 +71,7 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 **Cancelling**
 
 - [ ] Esc cancels: no file, no sound, clipboard unchanged
-- [ ] Space or Esc pressed right after ⇧⌘4, before the screen freezes, reach the overlay, not the app in front (no space typed in a text editor; a full-screen video doesn't pause or leave full screen)
+- [ ] Space or Esc pressed right after ⇧⌘4, before the screen freezes, reach the overlay, not the app in front (no space typed in a text editor; a full-screen video doesn't pause or leave full screen). Also on the first capture after launch. Only a key within about 15 ms of ⇧⌘4 may still reach the app (macOS hands Margin the hotkey that late)
 - [ ] After a capture or Esc, the app in front gets its focus back with the caret where it was, even for an Esc pressed the instant the screen freezes
 - [ ] The crosshair shows as soon as the screen freezes, without moving the mouse
 - [ ] Right-click cancels the same way

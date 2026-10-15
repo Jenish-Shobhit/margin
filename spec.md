@@ -62,7 +62,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 
 ### Freeze (area mode)
 1. On the hotkey, **immediately** show a transparent full-screen overlay on every display and switch the cursor to a crosshair. The overlay is one borderless `NSPanel` per display at level `.screenSaver + 1`, on all Spaces, `.fullScreenAuxiliary`.
-   - The overlay's keys work from the hotkey on, never reaching the app in front: until the first frame is frozen they're caught as Carbon hotkeys (Esc, Space, ↩, ⌤, Z, arrows, with any of ⇧ ⌥ ⌃). Only then does the overlay become key and Margin activate (the crosshair needs it): sooner, the frontmost window would lose its focused look in the frozen frame. When the capture ends, that app gets its focus back as it was.
+   - The overlay's keys work from the hotkey on, never reaching the app in front: until the first frame is frozen they're caught as Carbon hotkeys (Esc, Space, ↩, ⌤, Z, arrows, with any of ⇧ ⌥ ⌃), plain Esc and Space before anything else on the hotkey path. A key pressed before macOS hands Margin the hotkey (15–30 ms after it) can't be caught. Only then does the overlay become key and Margin activate (the crosshair needs it): sooner, the frontmost window would lose its focused look in the frozen frame. When the capture ends, that app gets its focus back as it was.
 2. In parallel (a `TaskGroup`), capture every display with `SCScreenshotManager.captureImage(contentFilter:configuration:)`.
    - Filter: `SCContentFilter(display:excludingApplications:[Margin]…)`.
    - Configuration: full pixel size via `SCShareableContent.info(for:).pointPixelScale`, `showsCursor = false`, best resolution.

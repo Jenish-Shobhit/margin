@@ -11,7 +11,13 @@ import os
 /// Until then a key would reach the frontmost app instead: Space typed into a document, Esc taking a full-screen app
 /// out of full screen. So Esc, Space, ↩, ⌤, Z and the arrows, alone or with any of ⇧ ⌥ ⌃, are registered when the
 /// capture starts: Carbon hotkeys need no permission and keep the key from the frontmost app. Each press (and
-/// release) is handed on as a key event. Registering the 72 combos takes 2–4 ms.
+/// release) is handed on as a key event.
+///
+/// Plain Esc and Space go first, before anything else on the hotkey path (`registerFirst`): about 0.1 ms. The other
+/// 70 combos (2–4 ms) follow once the overlay is up (`register`). Registered after the captures had started, as they
+/// were, the first one could wait 5–7 ms on the window server, which is busy starting them, and a key pressed 10–15
+/// ms after ⇧⌘4 still reached the frontmost app. Keys pressed before Margin even gets ⇧⌘4 (the window server hands
+/// it over 15–30 ms after the press) can't be caught at all.
 ///
 /// Unregistering a hotkey drops a press of it that's still waiting in the event queue, so only the arrows go when
 /// the overlay becomes key (they need key repeat, which hotkeys don't have; there's no selection to nudge yet then).
@@ -40,14 +46,16 @@ final class OverlayHotkeys {
         self.onKey = onKey
     }
 
-    /// The keys, with the characters they type (Z where the keyboard layout has it).
+    /// The keys, with the characters they type (Z where the keyboard layout has it). Esc and Space come first
+    /// (`registerFirst`).
     private static func keys() -> [(UInt16, String)] {
         let z = UInt16(KeyCombo.keyCode(forCharacter: "Z", layout: .current) ?? UInt32(kVK_ANSI_Z))
-        return [
-            (UInt16(kVK_Escape), "\u{1B}"), (UInt16(kVK_Space), " "), (UInt16(kVK_Return), "\r"),
-            (UInt16(kVK_ANSI_KeypadEnter), "\u{3}"), (z, "z"),
+        return firstKeys + [
+            (UInt16(kVK_Return), "\r"), (UInt16(kVK_ANSI_KeypadEnter), "\u{3}"), (z, "z"),
         ] + arrows.map { ($0, String(Character(UnicodeScalar(UInt16(arrowCharacters[$0]!))!))) }
     }
+
+    private static let firstKeys = [(UInt16(kVK_Escape), "\u{1B}"), (UInt16(kVK_Space), " ")]
 
     private static let arrows = [UInt16(kVK_LeftArrow), UInt16(kVK_RightArrow), UInt16(kVK_DownArrow), UInt16(kVK_UpArrow)]
     private static let arrowCharacters: [UInt16: Int] = [
@@ -60,23 +68,44 @@ final class OverlayHotkeys {
         (i & 1 != 0 ? KeyCombo.shift : 0) | (i & 2 != 0 ? KeyCombo.option : 0) | (i & 4 != 0 ? KeyCombo.control : 0)
     }
 
-    /// When the capture starts.
-    func register() {
-        guard combos.isEmpty else { return }
+    /// At launch (`CaptureController.prewarm`): the Carbon handler, so the first capture doesn't install it.
+    func prepare() {
+        Self.installHandler()
+    }
+
+    /// First thing when the capture starts: plain Esc and Space, the keys most likely pressed straight after ⇧⌘4.
+    func registerFirst() {
         Self.installHandler()
         Self.active = self
-        var id: UInt32 = 0
-        for (keyCode, characters) in Self.keys() {
-            for modifiers in Self.modifierSets {
-                id += 1
-                var ref: EventHotKeyRef?
-                // A combo another app or one of Margin's own shortcuts already has just isn't caught here.
-                let status = RegisterEventHotKey(UInt32(keyCode), modifiers, EventHotKeyID(signature: Self.signature, id: id),
-                                                 GetApplicationEventTarget(), 0, &ref)
-                guard status == noErr, let ref else { continue }
-                combos[id] = Combo(keyCode: keyCode, modifiers: modifiers, characters: characters, ref: ref)
+        for (index, (keyCode, characters)) in Self.firstKeys.enumerated() {
+            add(keyCode, modifiers: 0, characters: characters, id: Self.id(key: index, modifiers: 0))
+        }
+    }
+
+    /// Once the overlay is up: the rest.
+    func register() {
+        Self.installHandler()
+        Self.active = self
+        for (index, (keyCode, characters)) in Self.keys().enumerated() {
+            for (set, modifiers) in Self.modifierSets.enumerated() {
+                add(keyCode, modifiers: modifiers, characters: characters, id: Self.id(key: index, modifiers: set))
             }
         }
+    }
+
+    /// The same combo always has the same ID, so `register` skips what `registerFirst` did.
+    private static func id(key: Int, modifiers set: Int) -> UInt32 {
+        UInt32(key * modifierSets.count + set + 1)
+    }
+
+    private func add(_ keyCode: UInt16, modifiers: UInt32, characters: String, id: UInt32) {
+        guard combos[id] == nil else { return }
+        var ref: EventHotKeyRef?
+        // A combo another app or one of Margin's own shortcuts already has just isn't caught here.
+        let status = RegisterEventHotKey(UInt32(keyCode), modifiers, EventHotKeyID(signature: Self.signature, id: id),
+                                         GetApplicationEventTarget(), 0, &ref)
+        guard status == noErr, let ref else { return }
+        combos[id] = Combo(keyCode: keyCode, modifiers: modifiers, characters: characters, ref: ref)
     }
 
     /// When the overlay becomes key: the arrows go to it as ordinary keys from now on, with key repeat.
