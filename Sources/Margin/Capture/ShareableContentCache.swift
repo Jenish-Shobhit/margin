@@ -196,7 +196,8 @@ final class ShareableContentCache {
     }
 
     /// Whether nothing in front of `window` overlaps it: no other window, nor the Dock or the menu bar. The screen then
-    /// shows all of it, and nothing else in its frame.
+    /// shows all of it and, but for what's behind its rounded corners and what the stack leaves out (other windows'
+    /// shadows, menus and tooltips, windows under 24 points), nothing else in its frame.
     func isUncovered(_ window: CapturableWindow) -> Bool {
         guard let i = stack.firstIndex(where: { $0.window?.id == window.id }) else { return false }
         return WindowPicking.isUncovered(window.frame, inFront: stack[..<i].map(\.frame))
