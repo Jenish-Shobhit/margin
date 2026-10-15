@@ -19,7 +19,7 @@ import os
 /// 52 combos (2–3 ms) follow once the overlay is up (`register`). Registered after the captures had started, as they
 /// were, the first one could wait 5–7 ms on the window server, which is busy starting them, and a key pressed 10–15
 /// ms after ⇧⌘4 still reached the frontmost app. Keys pressed before Margin even gets ⇧⌘4 (the window server hands
-/// it over 15–30 ms after the press) can't be caught at all.
+/// it over 15–30 ms after the press, the first one after launch 4–12 ms later still) can't be caught at all.
 ///
 /// Unregistering a hotkey drops a press of it that's still waiting in the event queue, so only the arrows go when
 /// the overlay becomes key (they need key repeat, which hotkeys don't have; there's no selection to nudge yet then).
