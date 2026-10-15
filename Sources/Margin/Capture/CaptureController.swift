@@ -408,10 +408,9 @@ final class CaptureController: CaptureControlling {
         // The crop and the thumbnail start at once, off the main thread, while the overlay comes down here.
         let source = SendableImage(image: image)
         let prepared = Task.detached(priority: .userInitiated) { await Self.timedCrop(source, to: pixelRect, scale: scale) }
-        // Overlay first: the shelf's fly-in starts from the selection, over the live screen. Its keys stay hotkeys until
-        // the thumbnail is committed (`finishRelease`).
+        // Overlay first: the shelf's fly-in starts from the selection, over the live screen.
         let previous = owesFocus ? previousApp : nil
-        endSession(restoreFocus: false, keepingHotkeys: true)
+        endSession(restoreFocus: false)
         timings.record("release.endSession", clock.ms)
         Task {
             var area: LastArea?
@@ -430,22 +429,14 @@ final class CaptureController: CaptureControlling {
         }
     }
 
-    /// The rest of a release, once this run-loop turn's Core Animation commit has put the thumbnail on screen: the
-    /// overlay's hotkeys go, then the last area (its write posts Preferences.didChange) and focus back to `previous`.
-    /// Unregistering the hotkeys takes 1–1.4 ms (3–5 ms at times), AppKit's deactivation work holds the main actor for
-    /// ~15 ms, and done in the same turn as the hand-off to the shelf, any of them would delay the commit. Meanwhile a
-    /// key still reaches no app, as while the overlay was up (Margin is still active, with no key window), and
-    /// `previous` waits as `pendingFocusReturn`, so a capture started before then takes it over (`begin`), hotkeys
-    /// included: its own end unregisters them.
+    /// The rest of a release, once this run-loop turn's Core Animation commit has put the thumbnail on screen: the last
+    /// area (its write posts Preferences.didChange), then focus back to `previous`. AppKit's deactivation work holds the
+    /// main actor for ~15 ms, and done in the same turn as the hand-off to the shelf, either would delay the commit.
+    /// `previous` waits as `pendingFocusReturn` meanwhile, so a capture started before then takes it over (`begin`).
     private func finishRelease(lastArea area: LastArea?, focusTo previous: NSRunningApplication?) {
         if let previous { pendingFocusReturn = previous }
         FrameTiming.afterCommit { [weak self] in
             guard let self else { return }
-            if session == nil {
-                let clock = Stopwatch()
-                hotkeys.unregister()
-                timings.record("release.hotkeys", clock.ms)
-            }
             if let area {
                 let write = Stopwatch()
                 Preferences.shared.lastArea = area
@@ -671,15 +662,12 @@ final class CaptureController: CaptureControlling {
     }
 
     /// Takes the overlay down and hands focus back to the app that had it.
-    /// `keepingHotkeys`: the caller unregisters them later (`finishRelease`).
-    private func endSession(restoreFocus: Bool = true, keepingHotkeys: Bool = false) {
+    private func endSession(restoreFocus: Bool = true) {
         guard let s = session else { return }
         session = nil
-        if !keepingHotkeys {
-            let clock = Stopwatch()
-            hotkeys.unregister()
-            timings.record("endSession.hotkeys", clock.ms)
-        }
+        let clock = Stopwatch()
+        hotkeys.unregister()
+        timings.record("endSession.hotkeys", clock.ms)
         let close = Stopwatch()
         s.close()
         timings.record("endSession.close", close.ms)
