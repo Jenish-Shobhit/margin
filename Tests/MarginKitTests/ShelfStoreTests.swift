@@ -33,17 +33,107 @@ import Testing
         #expect(reloaded.items[2].bookmark == nil)
     }
 
-    @Test func loadMissingOrCorruptFileIsEmpty() throws {
+    @Test func loadMissingFileIsEmpty() throws {
         let dir = try TempDir()
         defer { dir.remove() }
         let store = makeStore(dir)
         store.load()
         #expect(store.items.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: store.fileURL.path))
+        #expect(stateFiles(dir).isEmpty)
+    }
 
+    /// The files next to shelf.json.
+    func stateFiles(_ dir: TempDir) -> [String] {
+        (try? FileManager.default.contentsOfDirectory(atPath: dir.url.appendingPathComponent("state").path))?.sorted() ?? []
+    }
+
+    func stateFile(_ dir: TempDir, _ name: String) throws -> Data {
+        try Data(contentsOf: dir.url.appendingPathComponent("state/\(name)"))
+    }
+
+    @Test func corruptFileIsSetAsideNeverOverwritten() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let store = makeStore(dir)
         store.append(ShelfItem(url: try dir.file("a.png"), createdAt: .now, pixelSize: CGSize(width: 1, height: 1)))
-        try Data("{ not json".utf8).write(to: store.fileURL)
+        let first = Data("{ not json".utf8)
+        try first.write(to: store.fileURL)
         store.load()
         #expect(store.items.isEmpty)
+        #expect(stateFiles(dir) == ["shelf.json.bad"])
+        #expect(try stateFile(dir, "shelf.json.bad") == first)
+
+        // The next change starts a new shelf.json; the one set aside stays as it was.
+        let b = ShelfItem(url: try dir.file("b.png"), createdAt: .now, pixelSize: CGSize(width: 1, height: 1))
+        store.append(b)
+        #expect(stateFiles(dir) == ["shelf.json", "shelf.json.bad"])
+        #expect(try stateFile(dir, "shelf.json.bad") == first)
+
+        // A second bad file doesn't replace the first.
+        let second = Data([0xFF, 0xFE, 0x00])
+        try second.write(to: store.fileURL)
+        store.load()
+        #expect(store.items.isEmpty)
+        #expect(stateFiles(dir) == ["shelf.json.bad", "shelf.json.bad 2"])
+        #expect(try stateFile(dir, "shelf.json.bad") == first)
+        #expect(try stateFile(dir, "shelf.json.bad 2") == second)
+    }
+
+    @Test func fileThatIsNotAListIsSetAside() throws {
+        // A newer Margin could wrap the list in an object.
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let store = makeStore(dir)
+        try FileManager.default.createDirectory(at: store.fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let json = Data(#"{"version": 2, "items": []}"#.utf8)
+        try json.write(to: store.fileURL)
+        store.load()
+        #expect(store.items.isEmpty)
+        #expect(stateFiles(dir) == ["shelf.json.bad"])
+        #expect(try stateFile(dir, "shelf.json.bad") == json)
+    }
+
+    @Test func unreadableItemsAreSkippedAndTheRestKept() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let store = makeStore(dir)
+        let date = Date(timeIntervalSince1970: 1_791_999_737)
+        let a = ShelfItem(url: try dir.file("a.png"), createdAt: date, pixelSize: CGSize(width: 30, height: 20))
+        let b = ShelfItem(url: try dir.file("b.png"), createdAt: date, pixelSize: CGSize(width: 40, height: 10))
+        store.append(a)
+        store.append(b)
+        // Between them: an item with a field of the wrong type (as a newer Margin might write it), and one that isn't
+        // an object at all.
+        var list = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: store.fileURL)) as? [Any])
+        var changed = try #require(list[0] as? [String: Any])
+        changed["pixelWidth"] = "30 px"
+        list.insert(changed, at: 1)
+        list.insert(42, at: 2)
+        let mixed = try JSONSerialization.data(withJSONObject: list)
+        try mixed.write(to: store.fileURL)
+
+        store.load()
+        #expect(store.items == [a, b])
+        // Everything as it was is set aside, and what could be read is saved in its place.
+        #expect(stateFiles(dir) == ["shelf.json", "shelf.json.bad"])
+        #expect(try stateFile(dir, "shelf.json.bad") == mixed)
+        let reloaded = makeStore(dir)
+        reloaded.load()
+        #expect(reloaded.items == [a, b])
+        #expect(stateFiles(dir) == ["shelf.json", "shelf.json.bad"])
+    }
+
+    @Test func noReadableItemLeavesNoShelfFile() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let store = makeStore(dir)
+        try FileManager.default.createDirectory(at: store.fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let json = Data(#"[{"id": "not a uuid", "path": "/a.png"}]"#.utf8)
+        try json.write(to: store.fileURL)
+        store.load()
+        #expect(store.items.isEmpty)
+        #expect(stateFiles(dir) == ["shelf.json.bad"])
     }
 
     @Test func updateReplacesByID() throws {

@@ -28,6 +28,29 @@ extension ShelfController {
         }
     }
 
+    /// At launch, before the first check: a save cut off between its temp file and the rename (a crash, a forced quit,
+    /// the quit timeout) left its PNG hidden in the folder, and its card waiting for a file that never appeared.
+    /// `LeftoverSaves` puts each back, under its card's name when one is waiting (so the card stays), in the Unsaved
+    /// folder and any folder a waiting card points into. The check waits for it.
+    func recoverLeftoverSavesThenRefresh(quietWithin: TimeInterval) {
+        let items = store.items
+        // Not the save folder as such: on the Desktop, looking into it at launch raises the Desktop folder's privacy
+        // prompt if it hasn't been answered yet. A cut-off save always leaves its card waiting (the card is stored before
+        // the PNG is written), and its folder is one Margin was writing to.
+        let folders = [Preferences.fallbackSaveFolder] + items.filter { $0.bookmark == nil }.map { $0.url.deletingLastPathComponent() }
+        // Nothing this copy writes can be older: saves start only once the shelf is restored.
+        let launch = Date()
+        fileRefreshRunning = true
+        Task { [weak self] in
+            let outcomes = await ShelfFiles.recoverLeftovers(in: folders, items: items, writtenBefore: launch)
+            guard let self else { return }
+            self.fileRefreshRunning = false
+            self.fileRefreshQueued = false
+            if !outcomes.isEmpty { self.onLeftoversRecovered?() }
+            self.refreshFiles(quietWithin: quietWithin)
+        }
+    }
+
     /// Applies a background check: a moved file's new path and bookmark go to the store, and a file that's
     /// definitely gone takes its card off the shelf (not undoable). Items that changed since the check
     /// started, pending items and cards being dragged are left alone. Returns the results for items still

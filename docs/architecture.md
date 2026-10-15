@@ -44,14 +44,17 @@ flowchart LR
 |---|---|
 | `FileNamer.swift` | `Screenshot yyyy-MM-dd at HH.mm.ss.png` (en_US_POSIX, 24-hour, ASCII spaces) and ` (2)` collisions |
 | `Geometry.swift` | AppKit ↔ CG coordinate flips, point → pixel rects, snapping to window edges |
+| `WindowPicking.swift` | Which on-screen windows window mode picks, by layer and size: normal and floating windows, system UI that covers, overlays and menus it skips |
 | `ShelfLayout.swift` | Card sizes, slots, how many cards fit and the `+N older` pile |
 | `ShelfStore.swift` | `ShelfItem` (path, bookmark, date, pixel size; whether its volume is mounted) and the ordered, JSON-persisted list |
 | `PNGWriter.swift` | One ImageIO encode (no filtering, colour profile, DPI) and the atomic write: temp file, then an exclusive rename |
+| `LeftoverSaves.swift` | At launch, the temp files of saves cut off before their rename: a complete PNG back under its card's name, or a new one; the rest deleted |
 | `ClipboardMark.swift` | The ⌘V mark's change-count bookkeeping, and `ClipboardWriter` (PNG + file URL per item; Copy Path's plain text) |
 | `Preferences.swift` | `KeyCombo`, `ShortcutAction` (defaults, ⌃ twins, conflicts), `LastArea` and the `Preferences` store |
 | `KeyCombo+Display.swift` | `⇧⌘4`-style strings in ⌃⌥⇧⌘ order, key names and Carbon ↔ AppKit modifiers |
 | `KeyboardLayout.swift` | What the character keys type on the user's keyboard layout (`UCKeyTranslate`), so shortcuts read as the keys are labelled: with ⌘ held for a combo with ⌘, as menus name it ("Dvorak – QWERTY ⌘" types QWERTY then). A snapshot taken on the main thread at launch and on every input source change |
 | `RuntimeStatus.swift` | Live state shared across the app: hotkey failures, revoked Screen Recording |
+| `RunningCopies.swift` | Which of two running copies of Margin gives way: the one launched later |
 | `SystemShortcuts.swift` | Reading the macOS screenshot shortcuts (IDs 28–31) |
 | `SystemShortcuts+Write.swift` | Turning them off or on: the pure dictionary rewrite, `activateSettings -u`, and the check that it stuck |
 | `LoginItem.swift` | `SMAppService.mainApp` state and registration |
@@ -63,7 +66,7 @@ flowchart LR
 
 | Folder | Responsibility |
 |---|---|
-| `App/` | `main.swift` (accessory app), `AppDelegate`, `AppCoordinator` (wires everything, permission state, ⌘V mark), `AppCoordinator+Save` (the save pipeline), `Contracts.swift`, and `MainMenu` (a hidden main menu that gives text fields and windows their standard key equivalents) |
+| `App/` | `main.swift` (accessory app), `AppDelegate`, `LaunchGuard` (one copy at a time), `AppCoordinator` (wires everything, permission state, ⌘V mark), `AppCoordinator+Save` (the save pipeline), `Contracts.swift`, and `MainMenu` (a hidden main menu that gives text fields and windows their standard key equivalents) |
 | `Capture/` | `CaptureController` (area, window, screen, repeat area), `ScreenGrabber` (ScreenCaptureKit calls and cropping), `ShareableContentCache`, `Displays`, logging and timings, and `CaptureSimulation` (DEBUG-only fakes) |
 | `Overlay/` | The frozen-screen overlay: `OverlayPanel` and its pool, `OverlaySession` (selection state machine and keys), `OverlayView` (layers), `OverlayChrome` (hint bar, magnifier, pills), `SelectionMath` and `AreaFlash` |
 | `Shelf/` | `ShelfController` (layout, tuck, peek, toasts) and its extensions: `+Actions` (every interaction, undo, drag-out) and `+Files` (disk checks). Also the views (`ShelfCardView`, `ShelfPileView`, `ShelfChrome`), `ShelfAccessibility` (what VoiceOver sees: the cards, pile and tab as buttons with actions, and toasts as announcements), `ShelfDrag`, `ShelfFlyIn`, `ShelfFiles` (all disk access), `ShelfThumbnails` and `ShelfStyle` |
@@ -133,7 +136,7 @@ At launch, once Screen Recording is confirmed, `CaptureController.prewarm()` get
 - It fetches `SCShareableContent` into `ShareableContentCache`. That builds a capture target per display, with a filter that excludes Margin's own windows.
 - It runs one 16 × 16 capture to warm up ScreenCaptureKit.
 
-After that, the cache refreshes on display, app and Space changes (debounced 150 ms), never on the hotkey path. A fetch that fails, or whose targets don't match the displays yet, is retried up to three times (0.5, 1 and 2 s apart). The cache remembers each display's pixel size at the last fetch: a display that's new, or has changed size or scale since (a refresh still pending or failed), isn't trusted, and its capture fetches first (the cold path).
+After that, the cache refreshes on display, app and Space changes (debounced 150 ms), never on the hotkey path. A fetch that fails, or whose targets don't match the displays yet, is retried up to three times (0.5, 1 and 2 s apart). One that fails for lack of Screen Recording permission (revoked while running) isn't: the cache stops observing until a capture works again, since any further call could raise the system prompt at a random moment. The cache remembers each display's pixel size at the last fetch: a display that's new, or has changed size or scale since (a refresh still pending or failed), isn't trusted, and its capture fetches first (the cold path).
 
 ### The freeze (⇧⌘4)
 
@@ -163,7 +166,7 @@ Selections are pixel-aligned and limited to the display where they started. Mous
 
 The other kinds:
 
-- **Window mode** closes the overlay and waits for the previous app to be active again, so the window is shot with its own focused look. It then captures with `SCContentFilter(desktopIndependentWindow:)`: no shadow unless ⌥ was held.
+- **Window mode** picks the first window under the pointer in `ShareableContentCache`'s front-to-back stack, which `WindowPicking` builds from `CGWindowList`: windows up to layer 19 (normal, floating panels, Picture in Picture) are picked if ScreenCaptureKit lists them, the Dock, banners and the menu bar (layers 20–100) cover what's behind them and pick nothing, and menus and up, and see-through overlays above layer 0 (bigger than their display, or covering it), are skipped. Clicking closes the overlay and waits for the previous app to be active again, so the window is shot with its own focused look. It then captures with `SCContentFilter(desktopIndependentWindow:)`: no shadow unless ⌥ was held.
 - **⇧⌘3** captures the display under the pointer with the cached target.
 - **⇧⌘2** captures the last area's display, crops it and flashes the outline. `LastArea` keeps the rect relative to its display, with the display's size in points, so it's rebuilt on the display's current frame; at another size it falls back to ⇧⌘4.
 
@@ -193,6 +196,8 @@ If saving fails completely, the card goes with "Couldn't save the screenshot". T
 
 Quitting while saves are in flight answers `.terminateLater`. Margin waits for them, at most 3 s, on a run-loop timer that also fires during the termination modal loop.
 
+A save cut off between the temp file and the rename (a crash, a forced quit, that timeout) leaves its PNG hidden in the folder and its card in `shelf.json` without a bookmark. At the next launch, before the shelf's first file check and off the main thread, `LeftoverSaves` goes through the `.margin-<uuid>.tmp` files last written before the launch (only one copy of Margin runs, so nothing else is writing them) in the Unsaved folder and the folder of any card still waiting for its file. Not the save folder as such: on the Desktop, looking into it at launch would raise the Desktop folder's privacy prompt if it hasn't been answered; a cut-off save always leaves its card waiting, since the card is stored before the PNG is written. A complete PNG (it ends with its `IEND` chunk and ImageIO reads it whole) goes back under its card's name when a waiting card has its pixel size and was captured up to 2 minutes before it was written, so the card stays; otherwise it gets a `FileNamer` name from its own date. Anything else is deleted.
+
 ### On the shelf
 
 - `ShelfFlight` animates the thumbnail from the selection to its slot in about 0.45 s, in a temporary click-through panel. It re-aims if the slot moves (another capture, a tuck, a peek), lands in the tab or the pile when that's where the card is, and then hands off to the real card. The card's accent ring lasts 1.5 s.
@@ -204,6 +209,7 @@ Quitting while saves are in flight answers `.terminateLater`. Margin waits for t
 - **UI and app state are `@MainActor`.** That covers AppKit and SwiftUI, `Preferences`, `ShelfStore` and `RuntimeStatus`. The package uses the Swift 6 language mode with strict concurrency.
 - **The main thread never touches the save folder.** The first access to `~/Desktop` can block on the Desktop-folder privacy prompt, and the save folder could be on a slow volume. So these all run in detached tasks:
   - writing PNGs and checking whether shelf files exist (`ShelfFiles`);
+  - putting back the leftovers of saves cut off, at launch (`LeftoverSaves`);
   - reading a file to copy it, renaming, trashing and untrashing;
   - loading thumbnails from disk;
   - creating the folder for **Open Screenshots Folder**, and checking whether the Unsaved folder holds shots (**Show Unsaved Shots**: the menu is built synchronously, so it reads a flag this check keeps current, at launch and on each menu open);
@@ -226,7 +232,7 @@ Quitting while saves are in flight answers `.terminateLater`. Margin waits for t
 
 All of them join every Space and float over full-screen apps.
 
-**Focus.** The shelf becomes key (`focusShelf`) only on a mouse-up whose next step is a shelf key: ⌘-click, ✕, the pile, Rename…, Move to Trash, Clear shelf. Never on a plain click (copy) or a double-click (open), so ⌘V right after a click reaches the user's app; never on a press that turns into a drag; and never by activating Margin. Its keys (⌘C, ⌘Z, ⌘A, Space, ⌫, Esc) then work while the menu bar still belongs to the other app. `releaseKeys` gives the keyboard back on Esc, after every copy (click, ⌘C, Copy Path), when the shelf goes out of sight (a tuck, which saves a rename in progress first, or the end of a peek, which waits while a rename is open), when a rename ends because a new shot folded its card into the pile (what was typed is saved), and when a card's or the pile's menu closes without a choice, unless the shelf had the keys when it opened (`ShelfMenu`: once the shelf has had them, AppKit makes it key again whenever a menu of Margin's closes): `NSApp.deactivate()` makes the other app's window key again, unless Margin itself is frontmost. Not once another app has taken the keys from the shelf and handed them back (Spotlight opened and closed with ⌘Space): deactivating then leaves the keyboard with no window at all. So the shelf notes where its keys go (`shelfResignedKey`, `shelfBecameKey`), and after such a hand-back `releaseKeys` activates Margin and hands activation to the user's app instead (`handKeysBack`), as at the end of a capture.
+**Focus.** The shelf becomes key (`focusShelf`) only on a mouse-up whose next step is a shelf key: ⌘-click, ✕, the pile, Rename…, Move to Trash, Clear shelf. Never on a plain click (copy) or a double-click (open), so ⌘V right after a click reaches the user's app; never on a press that turns into a drag; and never by activating Margin. Its keys (⌘C, ⌘Z, ⌘A, Space, ⌫, Esc) then work while the menu bar still belongs to the other app. `releaseKeys` gives the keyboard back on Esc, after every copy (click, ⌘C, Copy Path), when the shelf goes out of sight (a tuck, which saves a rename in progress first, or the end of a peek, which waits while a rename is open), when a rename ends because a new shot folded its card into the pile (what was typed is saved), when a card's or the pile's menu closes without a choice, and when the menu bar menu closes at all (none of its items needs the shelf's keys; `StatusMenuController.menuDidClose`, after the chosen item's action), unless the shelf had the keys when the menu opened (`menuOpening`: once the shelf has had them, AppKit makes it key again whenever a menu of Margin's closes): `NSApp.deactivate()` makes the other app's window key again, unless Margin itself is frontmost. Not once another app has taken the keys from the shelf and handed them back (Spotlight opened and closed with ⌘Space): deactivating then leaves the keyboard with no window at all. So the shelf notes where its keys go (`shelfResignedKey`, `shelfBecameKey`), and after such a hand-back `releaseKeys` activates Margin and hands activation to the user's app instead (`handKeysBack`), as at the end of a capture.
 
 **Quick Look** is made a non-activating panel too (`ShelfRootView.showQuickLook` adds `.nonactivatingPanel` to `QLPreviewPanel`'s style mask before it's shown). As a regular panel it became key in Margin while the keyboard went back to the user's app, so Space and Esc went there and it stayed open. Now it handles its own keys (Space, Esc, arrows). When it closes, the shelf is key again and `endPreviewPanelControl` calls `quickLookDidClose`, which calls `releaseKeys`. Its full-screen button activates Margin (macOS makes a full-screen window's app active), and an active Margin can't hand the keyboard back by deactivating, so then activation goes back to the app that was frontmost when Quick Look opened (`quickLookReturnApp`), unless one of Margin's own windows has the keys. `releaseKeys` with Quick Look open only closes it and lets that hand the keyboard back: deactivating while it animates away leaves the shelf key once it's gone, and a second `orderOut` during that animation cancels the close (`quickLookClosing` prevents one). If neither it nor the shelf has the keyboard any more (a click in another app), it closes (`keyWindowChanged`).
 
@@ -239,7 +245,7 @@ All of them join every Space and float over full-screen apps.
 | Store | Where | Contents |
 |---|---|---|
 | `Preferences` | `UserDefaults`, domain `io.github.jenish-shobhit.margin` | `saveFolder`, `copyEachCapture`, `shutterSound`, `launchAtLogin`, `shortcut.<action>` (JSON `KeyCombo`), `lastArea` (JSON: rect relative to its display, display ID, display size), `firstRunDone`, `completedCaptures`, `showsCaptureHints`, `loginItemConfigured`. `hintCaptures.r<n>` (0.0.5–0.0.7) is removed at launch |
-| `ShelfStore` | `~/Library/Application Support/Margin/shelf.json` | The shelf, oldest first: `id`, `path`, `bookmark`, `createdAt`, `pixelWidth`, `pixelHeight`. Rewritten atomically on every change; an unreadable file means an empty shelf |
+| `ShelfStore` | `~/Library/Application Support/Margin/shelf.json` | The shelf, oldest first: `id`, `path`, `bookmark`, `createdAt`, `pixelWidth`, `pixelHeight`. Rewritten atomically on every change. Read item by item: one that can't be read (damaged, or from a newer Margin) is skipped. A file with anything unreadable in it, or that isn't a list at all, is first moved to `shelf.json.bad` (`shelf.json.bad 2`… beside an earlier one), so no save overwrites it |
 | Fallback saves | `~/Library/Application Support/Margin/Unsaved/` | PNGs that couldn't go to the save folder |
 | Undo | Memory | Up to 20 steps. Thumbnails are kept for the newest 5. Steps restore one at a time (`UndoSequencer`), since each goes back to the indices it had, which holds only once newer steps are back |
 | `RuntimeStatus` | Memory | Hotkey failures and revoked Screen Recording |
@@ -257,8 +263,9 @@ More on how these behave:
 - **Screen Recording.**
   - **At launch:** `CGPreflightScreenCaptureAccess` only. `CGRequestScreenCaptureAccess` runs only when the user clicks **Allow…**.
   - **Without permission:** a capture shortcut opens first run at step 1 instead of touching ScreenCaptureKit.
-  - **Revocation:** preflight is cached per process, so a revocation while running shows up as a capture error (`SCStreamError.userDeclined`). That sets `RuntimeStatus.screenRecordingRevoked`, which keeps the warning up until a capture succeeds or Margin relaunches.
+  - **Revocation:** preflight is cached per process, so a revocation while running shows up as a capture error (`SCStreamError.userDeclined`). That sets `RuntimeStatus.screenRecordingRevoked`, which keeps the warning up until ScreenCaptureKit works again (a capture, or just its freeze, when Esc cancels it) or Margin relaunches. The menu bar's dot follows each change of it (`StatusMenuController` observes `RuntimeStatus.didChange`).
   - **Relaunch Margin** starts `/bin/sh`, which waits for this process to exit and then `open`s the bundle. It deliberately doesn't use `open -n`, so there's never a second copy.
+- **One copy at a time.** Two copies would both register the shortcuts (one ⇧⌘3, two files) and each keep its own `shelf.json`. So `applicationDidFinishLaunching` asks `LaunchGuard` first: when an older copy with the same bundle ID runs (`RunningCopies`: launch date, then process ID, so two copies starting together agree), this one does nothing else. After 0.5 s it reopens the older one with `NSWorkspace.openApplication(at:)`, as Finder would (its `applicationShouldHandleReopen` shows Settings), and it quits if that copy still runs after `terminationTimeout` + 2 s; if it goes first (it was quitting for a relaunch), this one starts after all.
 - **Files.** The default save folder is in `~/Desktop`, so macOS shows its Desktop-folder prompt on first write, with the reason from `NSDesktopFolderUsageDescription` (`Info.plist` also has the Documents, Downloads, removable and network volume strings, for a folder chosen in Settings). That's the reason for the off-main rule. A denied write falls back to Unsaved, and the menu offers **Show Unsaved Shots** while that folder holds shots.
 - **Launch at login** uses `SMAppService.mainApp`. It's registered once, on the first launch from `/Applications` (never from a dev copy elsewhere). Settings shows `SMAppService`'s real status, including "requires approval".
 - **No Accessibility or Input Monitoring.** Carbon hotkeys don't need them.
@@ -271,6 +278,7 @@ More on how these behave:
 - **When it re-registers:** whenever the shortcuts change.
 - **While recording:** everything is unregistered while a Settings recorder is listening (`Preferences.isRecordingShortcut`), so pressing the current shortcut records it instead of firing it. The recorder is a local event monitor, so it sees every key Margin's windows get, a sheet's too: it stops when the Settings window resigns key, a sheet or alert included, and when **Choose…** opens the folder panel (⇧⌘G there is the panel's Go to Folder).
 - **Failures:** two actions on one combo, Carbon's `eventHotKeyExistsErr`, or any other `OSStatus`. They go to `RuntimeStatus.hotkeyFailures`. The menu bar shows a warning dot and an item that opens Settings, and Settings shows a message under the shortcut.
+- **With a menu open:** AppKit's menu tracking holds Carbon hotkey events back until the menu closes, so a shortcut pressed there would fire late (⇧⌘3 in the open menu, then a capture as Settings… opened). `HotkeyCenter` notes when any of Margin's menus begins and ends tracking (`NSMenu` notifications, `GetCurrentEventTime`), and drops a hotkey whose event time (`GetEventTime`) falls in that span (`MenuOpenTimes`), except its last 0.5 s: AppKit posts the end of tracking only once the menu has blinked the chosen item and faded out (about 0.25 s after Esc, 0.35 s after a choice), so a shortcut pressed right after the menu was dismissed still works, at most that late. One delivered while a menu is still open wasn't held back, and goes through.
 - **macOS's own shortcuts:** while the macOS screenshot shortcuts are on, macOS takes ⇧⌘3 and ⇧⌘4 first, but registration still succeeds. That's why that clash is detected separately (below).
 
 ## The macOS screenshot shortcuts

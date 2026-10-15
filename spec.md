@@ -90,6 +90,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 ### Window mode
 - Space (from area mode) toggles it.
 - Hovering highlights the window under the pointer and shows the pill `App · W × H`.
+  - Windows are taken front to back from `CGWindowList`. Normal windows and the ones floating above them below the Dock's level (floating panels, Picture in Picture, always-on-top windows: layers 1–19) can be picked, so a floating window is picked over the one behind it. System UI from the Dock's level to below menus (the Dock, banners, the menu bar) isn't picked but hides what's behind it. Menus and up (Margin's capture UI among them) are ignored, and so is a window above layer 0 that's bigger than its display or covers all of it: an overlay, usually see-through. Snapping uses the windows that can be picked.
 - Clicking captures that window with `SCContentFilter(desktopIndependentWindow:)`. That gives just the window, even if it's partly covered, with rounded corners and a transparent background.
 - There is **no shadow** (`ignoreShadowsSingleWindow = true`). Holding ⌥ while clicking keeps the shadow.
 
@@ -119,6 +120,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - Set DPI to 72 × scale (144 on Retina), as macOS does.
   - Tag the file the way `screencapture` does: the `kMDItemIsScreenCapture`, `kMDItemScreenCaptureType` (selection, window, display) and `kMDItemScreenCaptureGlobalRect` extended attributes, set on the temp file before it's renamed into place.
   - Write to a hidden temp file in the same folder, then `rename(2)`, so no app sees a half-written file.
+  - A temp file left by a save that was cut off (a crash, a forced quit) is dealt with at the next launch, off the main thread, in the folder its card is waiting in (the card is stored before the PNG is written) and in Unsaved: a complete PNG gets its screenshot name back (its card's, so the card stays on the shelf) and anything else is deleted. Margin doesn't look into the save folder at launch otherwise: on the Desktop that could raise the privacy prompt before anything is captured.
 - **Clipboard** (on by default; Settings › Copy each capture). `clearContents()`, then write the PNG data (the same bytes as the file).
   - Before finalising, run `screencapture -c` once on the dev machine, list `NSPasteboard.general.types`, and write the same *image* types macOS writes. **Since 0.0.2** each item also carries `public.file-url` of the saved file (see "Changes after 0.0.1"), so ⌘V in a terminal pastes the path.
   - Record `changeCount` for the ⌘V mark (§5).
@@ -169,12 +171,13 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - `~/Library/Application Support/Margin/shelf.json`.
   - Store items in order with **bookmark data**, so moved files are followed, plus the date and pixel size.
   - Items survive quit and reboot.
+  - Read item by item: an item that can't be read (a damaged file, or one written by a newer version) is skipped, not the whole shelf. A file with anything unreadable in it is kept as `shelf.json.bad` (never replacing an earlier one) before anything saves over it.
   - Drop any item whose file no longer resolves. Check at launch, whenever the shelf appears, and when a drag starts.
   - A file on a volume that isn't mounted (an unplugged disk, a disconnected share) hasn't gone: keep its card.
 
 ## 5. Shelf interactions
 
-The shelf never steals focus. A click (copy) or double-click (open) leaves the keyboard with the app you're in, so ⌘V right after a click pastes there. The shelf takes the keys (the panel becomes key without activating Margin) only when they're needed next: ⌘-click, ✕ (so ⌘Z brings the card back), Rename…, Move to Trash, Clear shelf, or a click on the pile. Esc, a copy (click, ⌘C, Copy Path), tucking, a rename that ends because a new shot pushed its card into the pile, or a click elsewhere gives them back, and so does a card's or the pile's menu closed without a choice (Esc, a click elsewhere), unless the shelf had them when it opened.
+The shelf never steals focus. A click (copy) or double-click (open) leaves the keyboard with the app you're in, so ⌘V right after a click pastes there. The shelf takes the keys (the panel becomes key without activating Margin) only when they're needed next: ⌘-click, ✕ (so ⌘Z brings the card back), Rename…, Move to Trash, Clear shelf, or a click on the pile. Esc, a copy (click, ⌘C, Copy Path), tucking, a rename that ends because a new shot pushed its card into the pile, or a click elsewhere gives them back, and so does a card's or the pile's menu closed without a choice (Esc, a click elsewhere), unless the shelf had them when it opened. So does the menu bar menu, however it closes (none of its items needs the shelf's keys), unless the shelf had them when it opened.
 
 | Input | Result |
 |---|---|
@@ -216,7 +219,9 @@ The shelf never steals focus. A click (copy) or double-click (open) leaves the k
   - About Margin (current version)
   - Quit Margin
 - If Screen Recording permission is missing, the icon gets a warning dot and the first item becomes "Allow Screen Recording…", which opens First run step 1. While permission is revoked, "Relaunch Margin" is offered; a failed hotkey registration adds a warning item that opens Settings.
+- The shortcuts shown are for when the menu is closed. While any menu of Margin's is open, AppKit holds hotkeys back and delivers them when it closes; a press made while it was open (its event time between the menu opening and closing) is dropped, so it does nothing instead of capturing late. Not one in the last 0.5 s before AppKit reports the close: the menu is fading out then (about 0.25 s after Esc, 0.35 s after a choice), so a shortcut pressed right after dismissing the menu still works.
 - Key order in all UI and docs follows macOS (⌃⌥⇧⌘, e.g. ⇧⌘4); older sections of this spec write ⌘⇧4, which means the same keys.
+- Opening Margin again while it runs opens Settings (or First run step 1 without permission). One copy runs at a time: a second copy (another path, `open -n`) asks the running one to do that and quits before registering a shortcut, restoring the shelf or touching ScreenCaptureKit. A copy that's still quitting (a relaunch, at most the 3 s quit wait) is waited for instead.
 
 ## 7. First run
 

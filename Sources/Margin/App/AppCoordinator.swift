@@ -60,6 +60,8 @@ final class AppCoordinator {
     private(set) var hasUnsavedShots = false
     /// Bumped by every check and fallback save: only the latest one sets `hasUnsavedShots`.
     private var unsavedShotsGeneration = 0
+    /// AppKit's About panel, once it has made one.
+    private weak var aboutPanel: NSWindow?
 
     init() {
         store = ShelfStore(fileURL: ShelfStore.defaultFileURL)
@@ -73,6 +75,8 @@ final class AppCoordinator {
         // Before anything names a shortcut: the keys are named as the user's keyboard layout labels them.
         KeyboardLayout.current.startObserving()
         Preferences.shared.removeObsoleteKeys()
+        // A leftover save put back into Unsaved shows in the menu (Show Unsaved Shots).
+        shelf.onLeftoversRecovered = { [weak self] in self?.refreshUnsavedShots() }
         shelf.restore()
 
         capture.onCapture = { [weak self] result in self?.handleCapture(result) }
@@ -128,7 +132,8 @@ final class AppCoordinator {
     }
 
     /// `applicationShouldTerminate`: a capture whose PNG is still being written would be lost (or left as a
-    /// hidden temp file), so wait for in-flight saves, at most `terminationTimeout`, then let the quit go on.
+    /// hidden temp file, for the next launch to put back), so wait for in-flight saves, at most `terminationTimeout`,
+    /// then let the quit go on.
     func shouldTerminate() -> NSApplication.TerminateReply {
         guard savesInFlight > 0 else { return .terminateNow }
         guard !isTerminating else { return .terminateLater } // asked again while already waiting
@@ -283,7 +288,12 @@ final class AppCoordinator {
 
     func showAbout() {
         NSApp.activate()
+        let before = Set(NSApp.windows.map(ObjectIdentifier.init))
         NSApp.orderFrontStandardAboutPanel(nil)
+        // As in Settings and First run: macOS can refuse a menu bar app activation (cooperative activation), which
+        // would leave the panel behind the frontmost app. It's the window that call made, now or the last time.
+        if let panel = NSApp.windows.first(where: { !before.contains(ObjectIdentifier($0)) }) { aboutPanel = panel }
+        aboutPanel?.orderFrontRegardless()
     }
 
     func showPermissionStep() {
@@ -346,13 +356,14 @@ final class AppCoordinator {
         permissionMissing()
     }
 
-    /// Called for every successful capture: Screen Recording evidently works.
+    /// Called for every successful capture: Screen Recording evidently works. (The capture has usually cleared the
+    /// revoked flag already, and the menu has followed: `StatusMenuController.runtimeStatusChanged`.)
     func screenRecordingWorked() {
+        if let menuBar, menuBar.showsWarning { menuBar.setWarning(false) }
         guard needsPermission else { return }
         Self.log.notice("Capture succeeded: Screen Recording permission works")
         permissionGranted = true
         RuntimeStatus.shared.screenRecordingRevoked = false
-        menuBar?.setWarning(false)
     }
 
     // MARK: - ⌘V mark

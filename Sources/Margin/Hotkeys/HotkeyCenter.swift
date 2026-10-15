@@ -1,5 +1,5 @@
+import AppKit
 import Carbon.HIToolbox
-import Foundation
 import MarginKit
 import os
 
@@ -10,7 +10,8 @@ import os
 /// Settings shortcut recorder is listening (`Preferences.isRecordingShortcut`), otherwise Carbon would
 /// swallow the keys before the recorder sees them. While macOS's own ⌘⇧3/⌘⇧4 are still enabled, the
 /// system gets those keys first; registration still succeeds. After every (re)registration the failures
-/// (e.g. a combo another app already registered) go to `RuntimeStatus.hotkeyFailures`.
+/// (e.g. a combo another app already registered) go to `RuntimeStatus.hotkeyFailures`. A press made while one of
+/// Margin's menus was open does nothing (`MenuOpenTimes`): the menu holds it back until it closes.
 @MainActor
 final class HotkeyCenter {
     struct Binding: Equatable {
@@ -41,6 +42,7 @@ final class HotkeyCenter {
     private var observers: [NSObjectProtocol] = []
     /// True while hotkeys are paused because a shortcut recorder is listening.
     private(set) var isSuspended = false
+    private var menuTimes = MenuOpenTimes()
 
     /// For the DEBUG state dump: each binding and the OSStatus of its registration.
     var registrationSummary: [(binding: Binding, status: OSStatus)] {
@@ -87,6 +89,13 @@ final class HotkeyCenter {
                     guard let self else { return }
                     self.setSuspended(self.prefs.isRecordingShortcut)
                 }
+            },
+            // Any menu of Margin's: the menu bar icon's, a card's or the pile's.
+            center.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.menuTimes.menuOpened(at: GetCurrentEventTime()) }
+            },
+            center.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.menuTimes.menuClosed(at: GetCurrentEventTime()) }
             },
         ]
     }
@@ -180,10 +189,16 @@ final class HotkeyCenter {
         }
     }
 
-    fileprivate static func dispatch(_ hotKeyID: EventHotKeyID) -> Bool {
+    /// `time`: when the key was pressed (`GetEventTime`).
+    fileprivate static func dispatch(_ hotKeyID: EventHotKeyID, time: EventTime) -> Bool {
         guard hotKeyID.signature == signature, let center = active,
               let registration = center.registrations[hotKeyID.id], !center.isSuspended
         else { return false }
+        // Pressed with a menu open and delivered now that it has closed: firing it now would be a surprise.
+        if center.menuTimes.held(time) {
+            Self.log.notice("\(registration.binding.combo.displayString, privacy: .public) was pressed while a menu was open; dropped")
+            return true
+        }
         center.onAction(registration.binding.action)
         return true
     }
@@ -199,6 +214,7 @@ private func hotKeyEventHandler(
         event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
         MemoryLayout<EventHotKeyID>.size, nil, &hotKeyID)
     guard status == noErr else { return status }
-    let handled = MainActor.assumeIsolated { HotkeyCenter.dispatch(hotKeyID) }
+    let time = GetEventTime(event)
+    let handled = MainActor.assumeIsolated { HotkeyCenter.dispatch(hotKeyID, time: time) }
     return handled ? noErr : OSStatus(eventNotHandledErr)
 }

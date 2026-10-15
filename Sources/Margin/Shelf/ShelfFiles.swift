@@ -44,6 +44,16 @@ enum ShelfFiles {
         }.value
     }
 
+    /// `LeftoverSaves.recover` in each folder, once each, off the main thread.
+    static func recoverLeftovers(in folders: [URL], items: [ShelfItem], writtenBefore: Date) async -> [LeftoverSaves.Outcome] {
+        await Task.detached(priority: .userInitiated) {
+            var seen = Set<String>()
+            return folders.filter { seen.insert($0.standardizedFileURL.path).inserted }.flatMap {
+                LeftoverSaves.recover(in: $0, items: items, writtenBefore: writtenBefore)
+            }
+        }.value
+    }
+
     /// Statuses only (prune, existence checks).
     static func statuses(_ items: [ShelfItem]) async -> [Result<Bool>] {
         await check(items) { _ in true }

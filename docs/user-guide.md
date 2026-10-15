@@ -36,7 +36,7 @@ Margin has no Dock icon. Everything is in its menu bar icon, a small rectangle w
 | About Margin | Version and copyright |
 | Quit Margin | Quit |
 
-Captures started from the menu wait for the menu to close, so the menu is never in the shot.
+Captures started from the menu wait for the menu to close, so the menu is never in the shot. The shortcuts next to the items work while the menu is closed: pressed with a Margin menu open, they do nothing (rather than firing as it closes).
 
 **When something needs attention**, an orange dot appears on the icon and the menu gains an item at the top:
 
@@ -45,7 +45,7 @@ Captures started from the menu wait for the menu to close, so the menu is never 
 
 A quieter item, with no dot, sits above Settings… while macOS still owns one of Margin's shortcuts: **macOS still uses ⇧⌘4 — Fix…**. It opens first run at step 2.
 
-Opening Margin again from Finder or Spotlight while it's running opens Settings, or the permission step if permission is missing.
+Opening Margin again from Finder or Spotlight while it's running opens Settings, or the permission step if permission is missing. That holds for another copy of Margin too (a newer download still in Downloads, say): only one runs at a time, so the second hands over to the first and quits.
 
 ## First run
 
@@ -110,7 +110,7 @@ A display that macOS can't capture (some Sidecar, AirPlay or DisplayLink setups)
 
 Press **Space** during an area capture (before you start dragging), or choose **Capture Window** from the menu bar.
 
-- The window under the pointer is highlighted, with a pill such as `Safari · 2880 × 1800` (pixels).
+- The window under the pointer is highlighted, with a pill such as `Safari · 2880 × 1800` (pixels). A window floating above the others (a tool palette, Picture in Picture, an always-on-top window) is picked over the one behind it. The Dock and the menu bar aren't picked, and nothing behind them is either.
 - **Click** to capture just that window, even if other windows partly cover it. The shot has transparent rounded corners and no shadow.
 - **⌥-click** to keep the window's shadow. While ⌥ is held, "Keep shadow" lights up in the hint bar and the pill adds "· shadow".
 - **Space** goes back to area mode. **Esc** or a right-click cancels.
@@ -157,7 +157,7 @@ The shelf sits at the bottom-right of the display you last captured on, clear of
 - **Toasts.** Short messages appear above the top card for about a second: "Copied", "Path copied", "Restored", "Shelf tucked · ⇧⌘1" and errors. They're never system notifications.
 - **Tucking.** **⇧⌘1** slides the shelf off the edge, leaving a narrow **tab** with the number of shots. Hover the tab to peek at the shelf, and click it (or press ⇧⌘1 again) to bring the shelf back. New shots fly into the tab while it's tucked, and the count goes up. An empty shelf can't be tucked.
 
-The shelf never takes focus from the app you're working in. Clicking a card copies it and leaves the keyboard where it was, so ⌘V right after the click pastes the shot. The shelf's own keys (⌘Z, ⌫, Space, ⌘C, ⌘A) work after you ⌘-click a card, click ✕ or the pile, or choose Rename…, Move to Trash or Clear shelf. Esc, copying, tucking the shelf, or clicking anywhere else hands the keys back; a card's menu closed without a choice leaves them where they were.
+The shelf never takes focus from the app you're working in. Clicking a card copies it and leaves the keyboard where it was, so ⌘V right after the click pastes the shot. The shelf's own keys (⌘Z, ⌫, Space, ⌘C, ⌘A) work after you ⌘-click a card, click ✕ or the pile, or choose Rename…, Move to Trash or Clear shelf. Esc, copying, tucking the shelf, or clicking anywhere else hands the keys back; a card's menu closed without a choice, or Margin's menu bar menu, leaves them where they were.
 
 The shelf survives quitting and restarting.
 

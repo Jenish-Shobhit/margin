@@ -42,30 +42,44 @@ public enum PNGWriter {
         _ data: Data, in folder: URL, date: Date, timeZone: TimeZone = .current, metadata: ScreenshotMetadata? = nil
     ) throws -> URL {
         let tmp = try writeTemp(data, in: folder, metadata: metadata)
-        var taken = Set<URL>()
         do {
-            for _ in 0..<1000 {
-                let url = FileNamer.uniqueURL(in: folder, for: date, timeZone: timeZone) {
-                    taken.contains($0) || FileManager.default.fileExists(atPath: $0.path)
-                }
-                do {
-                    try moveExclusively(from: tmp, to: url)
-                    return url
-                } catch let error as POSIXError where error.code == .EEXIST {
-                    taken.insert(url)
-                }
-            }
-            throw POSIXError(.EEXIST)
+            return try moveUnique(from: tmp, in: folder, date: date, timeZone: timeZone)
         } catch {
             unlink(tmp.path)
             throw error
         }
     }
 
+    /// Renames `src` to the first free `FileNamer` name in `folder`, moving on to ` (2)`, ` (3)`, … if another writer
+    /// takes a name between the check and the rename. Returns the final URL.
+    static func moveUnique(from src: URL, in folder: URL, date: Date, timeZone: TimeZone = .current) throws -> URL {
+        var taken = Set<URL>()
+        for _ in 0..<1000 {
+            let url = FileNamer.uniqueURL(in: folder, for: date, timeZone: timeZone) {
+                taken.contains($0) || FileManager.default.fileExists(atPath: $0.path)
+            }
+            do {
+                try moveExclusively(from: src, to: url)
+                return url
+            } catch let error as POSIXError where error.code == .EEXIST {
+                taken.insert(url)
+            }
+        }
+        throw POSIXError(.EEXIST)
+    }
+
+    /// Temp files are `.margin-<UUID>.tmp`: hidden, and recognisably Margin's (`LeftoverSaves`).
+    static func tempName() -> String { ".margin-\(UUID().uuidString).tmp" }
+
+    static func isTempName(_ name: String) -> Bool {
+        guard name.hasPrefix(".margin-"), name.hasSuffix(".tmp") else { return false }
+        return UUID(uuidString: String(name.dropFirst(".margin-".count).dropLast(".tmp".count))) != nil
+    }
+
     /// Writes `data` to a new hidden temp file in `folder` (created if missing). On failure nothing is left behind.
     static func writeTemp(_ data: Data, in folder: URL, metadata: ScreenshotMetadata? = nil) throws -> URL {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let tmp = folder.appendingPathComponent(".margin-\(UUID().uuidString).tmp")
+        let tmp = folder.appendingPathComponent(tempName())
         do {
             try data.write(to: tmp, options: .withoutOverwriting)
         } catch {

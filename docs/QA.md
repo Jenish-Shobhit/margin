@@ -88,6 +88,8 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 ## Capture: window mode (§2)
 
 - [ ] Hovering highlights the window under the pointer with the pill `App · W × H`
+- [ ] A floating window (a utility panel at `.floating`, Picture in Picture) over a normal one is highlighted and captured itself, not the window behind; selections snap to its edges
+- [ ] Over the Dock or the menu bar nothing is highlighted (never the window behind), and an invisible overlay window above the others (bigger than the screen) doesn't stop windows under it from being picked
 - [ ] The hint bar reads Click to capture · ⌥ Keep shadow · Space Area · Esc Cancel
 - [ ] Clicking captures just that window, even when partly covered
 - [ ] Window shots have rounded, transparent corners and no shadow
@@ -102,6 +104,8 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] Two captures in the same second get ` (2)`, ` (3)` names
 - [ ] The PNG keeps the display's colour profile and has DPI 144 on Retina (`sips -g dpiWidth`)
 - [ ] No app ever sees a half-written file (no `.margin-*.tmp` left behind)
+- [ ] A leftover from a save that was cut off is put back at launch. With Margin quit, add a card waiting for its file to `shelf.json` (an item without `bookmark`, its `path` in the save folder), copy a PNG of its pixel size into that folder as `.margin-<any UUID>.tmp` dated just after the card's `createdAt`, another PNG as a second temp file, and a few bytes as a third: after a launch the card stays, with the first as its file; the second is a `Screenshot …png` named from its date; the third is gone. The same in `~/Library/Application Support/Margin/Unsaved/`, without a card
+- [ ] With no card waiting in it, the save folder isn't looked into at launch: after `tccutil reset SystemPolicyDesktopFolder io.github.jenish-shobhit.margin` and an empty shelf, launching raises no Desktop prompt (the first capture does)
 - [ ] Quitting right after a capture waits for the save: ⇧⌘3, then Quit at once (or `osascript -e 'quit app "Margin"'`)
   - [ ] the PNG is in the folder and the card is back after relaunch
   - [ ] the quit never takes more than about 3 s
@@ -236,6 +240,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] A file moved in Finder is followed (bookmark) and still drags
 - [ ] Renamed or moved while Margin was quit: after a relaunch the card shows its shot (not a grey box), and so do the pile fan and the drag image
 - [ ] A file moved to the Trash drops off the shelf
+- [ ] A `shelf.json` with one damaged item (edit a `pixelWidth` into a string, with Margin quit) loads every other card, and the original is kept as `shelf.json.bad`; one that isn't JSON at all starts an empty shelf and is kept the same way (`shelf.json.bad 2` beside an earlier one)
 - [ ] Shots saved to an external disk (or a disk image) stay on the shelf while it's ejected, through clicks and a relaunch, and work again once it's back (`MARGIN_DISK_IMAGE_TESTS=1 scripts/test.sh` covers the check itself)
 
 ## Paste into apps (⌘V after a capture)
@@ -299,8 +304,12 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] The template icon follows the menu bar's appearance
 - [ ] Items: Capture Area, Capture Window, Capture Screen, Repeat Last Area, Tuck Shelf (Show Shelf while tucked), Restore Last Removed, Open Screenshots Folder, Show Unsaved Shots (only while the Unsaved folder holds shots), Settings… (⌘,), About Margin <version>, Quit Margin (⌘Q)
 - [ ] The shortcuts shown match Settings
-- [ ] About shows the icon, the current version and build (e.g. 0.0.7 (7)) and "© 2026 Jenish Shobhit · MIT License"
+- [ ] With the menu open, ⇧⌘3 (or ⇧⌘4) does nothing, then or after the menu closes (Esc, or choosing Settings…); with a card's ••• menu open too. Pressed right after Esc or a choice (while the menu fades out), it works
+- [ ] After the shelf has had the keys once (⌘-click a card, then Esc), with TextEdit in front: open the menu bar menu and close it with Esc, or choose Restore Last Removed or Capture Screen: typing still goes to TextEdit (not the shelf; ⌫ removes no card). With the shelf holding the keys when the menu opens, it keeps them
+- [ ] About shows the icon, the current version and build (e.g. 0.0.7 (7)) and "© 2026 Jenish Shobhit · MIT License", in front of the app you were in (as Settings… does)
 - [ ] Opening Margin again while it runs (Finder, Spotlight) opens Settings, or First run step 1 without permission
+- [ ] `open -n /Applications/Margin.app` while it runs: Settings opens in the running copy within a second, the second copy quits within about 5 s without a menu bar icon, and ⇧⌘3 still saves one file
+- [ ] `scripts/build.sh --install --run` and Relaunch Margin end with exactly one Margin running
 
 **Actions**
 
