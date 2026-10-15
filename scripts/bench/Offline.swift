@@ -133,12 +133,16 @@ enum Offline {
         pb.releaseGlobally()
     }
 
-    /// `count` cards on one busy 2940×1912 PNG (APFS clones), with real bookmarks, in `dir`/shelf.json.
+    /// `count` cards on one PNG (APFS clones), with real bookmarks, in `dir`/shelf.json: `source`, or a busy
+    /// photo-like 2940×1912 one.
     @MainActor
-    static func makeShelf(dir: URL, count: Int) {
+    static func makeShelf(dir: URL, count: Int, source: URL? = nil) {
         let shots = dir.appendingPathComponent("shots", isDirectory: true)
         try? FileManager.default.createDirectory(at: shots, withIntermediateDirectories: true)
         let master = shots.appendingPathComponent("master.png")
+        if let source, !FileManager.default.fileExists(atPath: master.path) {
+            try? FileManager.default.copyItem(at: source, to: master)
+        }
         if !FileManager.default.fileExists(atPath: master.path) {
             let image = makePhoto(width: 2940, height: 1912)
             guard let data = try? PNGWriter.encode(image, scale: 2) else { fail("encode failed") }
@@ -152,7 +156,10 @@ enum Offline {
             if !FileManager.default.fileExists(atPath: url.path), clonefile(master.path, url.path, 0) != 0 {
                 try? FileManager.default.copyItem(at: master, to: url)
             }
-            store.append(ShelfItem(url: url, createdAt: base.addingTimeInterval(Double(i) * 60), pixelSize: CGSize(width: 2940, height: 1912)))
+            let size = CGImageSourceCreateWithURL(master as CFURL, nil)
+                .flatMap { CGImageSourceCopyPropertiesAtIndex($0, 0, nil) as? [CFString: Any] }
+                .map { CGSize(width: $0[kCGImagePropertyPixelWidth] as? Int ?? 2940, height: $0[kCGImagePropertyPixelHeight] as? Int ?? 1912) }
+            store.append(ShelfItem(url: url, createdAt: base.addingTimeInterval(Double(i) * 60), pixelSize: size ?? CGSize(width: 2940, height: 1912)))
         }
         print("\(store.fileURL.path): \(count) cards")
     }

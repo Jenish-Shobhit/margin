@@ -20,7 +20,9 @@ usage: bench <command> [options]
   report <file>…         the table again from results files (two files, or two builds in one: A/B)
   encode <png>…          PNG encode options on real captures, offline (time, size, thumbnail decode)
   micro                  offline timings of small steps on the main thread (names, prefs, shelf.json…)
-  make-shelf <dir> <n>   <dir>/shelf.json with n cards (APFS clones of one busy 2940×1912 PNG) for launch --shelf
+  make-shelf <dir> <n> [<png>]
+                         <dir>/shelf.json with n cards (APFS clones of <png>, or of a busy 2940×1912 one) for
+                         launch --shelf
 
 options for run / ab / launch:
   --app <path>           install this bench build first (run, launch)
@@ -689,9 +691,10 @@ case "micro":
     MainActor.assumeIsolated { Offline.micro() }
     exit(0)
 case "make-shelf":
-    guard options.positional.count == 2, let count = Int(options.positional[1]) else { fail("make-shelf <dir> <count>") }
+    guard (2...3).contains(options.positional.count), let count = Int(options.positional[1]) else { fail("make-shelf <dir> <count> [<png>]") }
     MainActor.assumeIsolated {
-        Offline.makeShelf(dir: URL(fileURLWithPath: options.positional[0]).standardizedFileURL, count: count)
+        Offline.makeShelf(dir: URL(fileURLWithPath: options.positional[0]).standardizedFileURL, count: count,
+                          source: options.positional.count == 3 ? URL(fileURLWithPath: options.positional[2]).standardizedFileURL : nil)
     }
     exit(0)
 case "run", "ab", "launch":

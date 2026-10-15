@@ -249,7 +249,7 @@ scripts/bench.sh build main               # or of any ref (built in a temporary 
 scripts/bench.sh run --app <app> --n 30   # 30 of each: ⇧⌘4 small / medium / full display, ⇧⌘3, ⇧⌘2, window mode
 scripts/bench.sh ab <A.app> <B.app>       # two builds interleaved in blocks of 5, with the change and a p-value
 scripts/bench.sh launch --shelf empty     # launch → ready, and memory (--shelf <file> for a full shelf)
-scripts/bench.sh make-shelf <dir> 200     # a shelf.json of 200 cards for that
+scripts/bench.sh make-shelf <dir> 200 [<png>]  # a shelf.json of 200 cards for that (clones of <png>)
 scripts/bench.sh encode <png>…            # PNG filter options on real captures: time, size, thumbnail decode
 scripts/bench.sh micro                    # small main-thread steps in isolation
 scripts/bench.sh report <results.jsonl>   # the table again; two files side by side
