@@ -40,11 +40,12 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.delegate = self
         menu.autoenablesItems = false
         statusItem.menu = menu
-        // Hotkey failures can change while the menu is closed (Settings re-registers them).
+        // Hotkey failures can change while the menu is closed (Settings re-registers them), and so can a revoked
+        // permission: a freeze or prewarm that works clears it, even when no capture completes (Esc).
         observers.append(NotificationCenter.default.addObserver(
             forName: RuntimeStatus.didChange, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refresh() }
+            MainActor.assumeIsolated { self?.runtimeStatusChanged() }
         })
         refresh()
     }
@@ -52,6 +53,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     /// Screen Recording missing: a dot on the icon, and the first item becomes "Allow Screen Recording…".
     func setWarning(_ on: Bool) {
         showsWarning = on
+        refresh()
+    }
+
+    private func runtimeStatusChanged() {
+        if let coordinator { showsWarning = coordinator.needsPermission }
         refresh()
     }
 

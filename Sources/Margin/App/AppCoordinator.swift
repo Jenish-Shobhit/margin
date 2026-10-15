@@ -349,13 +349,14 @@ final class AppCoordinator {
         permissionMissing()
     }
 
-    /// Called for every successful capture: Screen Recording evidently works.
+    /// Called for every successful capture: Screen Recording evidently works. (The capture has usually cleared the
+    /// revoked flag already, and the menu has followed: `StatusMenuController.runtimeStatusChanged`.)
     func screenRecordingWorked() {
+        if let menuBar, menuBar.showsWarning { menuBar.setWarning(false) }
         guard needsPermission else { return }
         Self.log.notice("Capture succeeded: Screen Recording permission works")
         permissionGranted = true
         RuntimeStatus.shared.screenRecordingRevoked = false
-        menuBar?.setWarning(false)
     }
 
     // MARK: - ⌘V mark
