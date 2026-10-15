@@ -35,6 +35,11 @@ final class CaptureTimings {
         CaptureLog.timing.info("\(name, privacy: .public): \(ms, format: .fixed(precision: 1), privacy: .public) ms")
     }
 
+    /// Only the log line, from any thread (off the main actor there's no `values` to keep).
+    nonisolated static func log(_ name: String, _ ms: Double) {
+        CaptureLog.timing.info("\(name, privacy: .public): \(ms, format: .fixed(precision: 1), privacy: .public) ms")
+    }
+
     /// A size, logged as `name: 123.4 KB`.
     func recordSize(_ name: String, bytes: Int) {
         CaptureLog.timing.info("\(name, privacy: .public): \(Double(bytes) / 1024, format: .fixed(precision: 1), privacy: .public) KB")

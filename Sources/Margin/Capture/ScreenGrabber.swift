@@ -66,9 +66,11 @@ enum ScreenGrabber {
     static func captureWindow(_ target: WindowTarget, keepShadow: Bool) async throws -> (SendableImage, CGFloat) {
         let state = CaptureLog.signposter.beginInterval("captureWindow")
         defer { CaptureLog.signposter.endInterval("captureWindow", state) }
+        let setup = Stopwatch()
         let filter = SCContentFilter(desktopIndependentWindow: target.window)
         let info = SCShareableContent.info(for: filter)
         let scale = CGFloat(info.pointPixelScale)
+        CaptureTimings.log("windowCapture.filter", setup.ms)
         if keepShadow {
             let config = SCScreenshotConfiguration()
             config.showsCursor = false
@@ -88,7 +90,9 @@ enum ScreenGrabber {
         config.ignoreShadowsSingleWindow = true
         config.ignoreGlobalClipSingleWindow = true
         config.shouldBeOpaque = false
+        let sck = Stopwatch()
         let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+        CaptureTimings.log("windowCapture.sck", sck.ms)
         return (SendableImage(image: image), scale)
     }
 
