@@ -36,9 +36,9 @@ extension AppCoordinator {
     static let fallbackToastDuration: TimeInterval = 4
 }
 
-/// The moment of release (spec §3): sound, name, thumbnail on the shelf, then one PNG encode off the
-/// main actor that feeds both the file and the clipboard. The main actor never touches the save
-/// folder: the first access to ~/Desktop can block on the Desktop-folder privacy prompt.
+/// The moment of release (spec §3): sound, name, thumbnail on the shelf, then the write of the one PNG encode
+/// (started off the main actor with the capture) that feeds both the file and the clipboard. The main actor never
+/// touches the save folder: the first access to ~/Desktop can block on the Desktop-folder privacy prompt.
 extension AppCoordinator {
     func handleCapture(_ result: CaptureResult) {
         let signpost = Self.signposter.beginInterval("thumbnail")
@@ -93,17 +93,15 @@ extension AppCoordinator {
 
         t.record("release.main", mainClock.ms)
 
-        // 4. Encode + write off the main actor; the clipboard gets the same bytes once the file is in place.
+        // 4. The write, off the main actor, once the PNG is encoded (that started with the capture, alongside the
+        // thumbnail); the clipboard gets the same bytes once the file is in place.
         Task.detached(priority: .userInitiated) { [weak self] in
             let saveSignpost = Self.signposter.beginInterval("save")
             var outcome = SaveOutcome()
-            let encodeStart = ContinuousClock.now
-            do {
-                outcome.data = try PNGWriter.encode(result.image, scale: result.scale)
-            } catch {
-                outcome.error = "PNG encode failed"
-            }
-            outcome.encodeMs = Self.milliseconds(since: encodeStart)
+            let png = await result.png.value
+            outcome.data = png.data
+            if png.data == nil { outcome.error = "PNG encode failed" }
+            outcome.encodeMs = png.ms
 
             if let data = outcome.data {
                 let writeStart = ContinuousClock.now

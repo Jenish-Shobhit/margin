@@ -20,21 +20,39 @@ struct DisplayTarget: @unchecked Sendable {
     let pixelSize: CGSize
 }
 
-/// A shot on its way to the shelf: the image and its card thumbnail, both made off the main thread.
+/// A PNG encoded off the main thread (`PNGWriter.encode`): its bytes, nil if the encode failed, and how long it took.
+struct EncodedPNG: Sendable {
+    let data: Data?
+    let ms: Double
+}
+
+/// A shot on its way to the shelf: the image, its card thumbnail and its PNG, all made off the main thread and started
+/// together as soon as the image is ready.
 struct Shot: @unchecked Sendable {
     let image: CGImage
+    /// Pixels per point: the PNG's DPI.
+    let scale: CGFloat
     let thumbnail: CGImage
+    /// The one encode that feeds both the file and the clipboard, running alongside the thumbnail.
+    let png: Task<EncodedPNG, Never>
     /// When the image was ready, before the thumbnail: a shot without the overlay starts its release clock here.
     let date: Date
     let ready: ContinuousClock.Instant
     /// How long the thumbnail took.
     let thumbnailMs: Double
 
-    /// Makes the thumbnail: never on the main thread (a full display takes about 19 ms).
-    init(_ image: CGImage) {
+    /// Starts the encode, then makes the thumbnail: never on the main thread (a full display takes about 19 ms).
+    init(_ image: CGImage, scale: CGFloat) {
         self.image = image
+        self.scale = scale
         date = Date()
         ready = .now
+        let source = SendableImage(image: image)
+        png = Task.detached(priority: .userInitiated) {
+            let clock = Stopwatch()
+            let data = try? PNGWriter.encode(source.image, scale: scale)
+            return EncodedPNG(data: data, ms: clock.ms)
+        }
         let clock = Stopwatch()
         thumbnail = ScreenGrabber.thumbnail(of: image)
         thumbnailMs = clock.ms

@@ -14,7 +14,10 @@ struct CaptureResult: @unchecked Sendable {
     /// `image` downsampled for the shelf card (`ScreenGrabber.thumbnail`), made off the main thread with the capture,
     /// so the release's main-thread work is only putting it on the shelf.
     let thumbnail: CGImage
-    /// Pixels per point, for the PNG's DPI.
+    /// `image` as a PNG (`PNGWriter.encode`), started off the main thread alongside the thumbnail: the one encode that
+    /// feeds both the file and the clipboard.
+    let png: Task<EncodedPNG, Never>
+    /// Pixels per point: the PNG's DPI.
     let scale: CGFloat
     /// Where the shot was on screen, in AppKit global points. The shelf's fly-in starts here.
     let sourceRect: CGRect

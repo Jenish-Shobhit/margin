@@ -84,6 +84,7 @@ flowchart LR
 
 - `image`: full resolution, in the display's colour space, with transparent corners for windows. An area's shares the frozen display's pixels (`CGImage.cropping(to:)`, no copy), so nothing keeps it past the save: the shelf keeps only the thumbnail;
 - `thumbnail`: `image` downsampled for the shelf card, made off the main thread right after the capture or crop;
+- `png`: the one PNG encode of `image`, for both the file and the clipboard, started off the main thread alongside the thumbnail;
 - `scale`: pixels per point, used for the DPI;
 - `sourceRect`: the on-screen rect in AppKit global points, where the fly-in starts;
 - `displayID`, `kind` (`.area`, `.window` or `.screen`) and `date`.
@@ -121,9 +122,10 @@ sequenceDiagram
     CC->>CC: capture every display in parallel
     CC->>OS: show overlays, draw each frozen frame
     OS->>CC: onArea (mouse up)
+    CC->>BG: encode PNG (while the thumbnail is made)
     CC->>AC: onCapture(CaptureResult)
     AC->>SC: add(pending item, thumbnail) and fly-in
-    AC->>BG: encode PNG, write temp file, rename
+    AC->>BG: once encoded: write temp file, rename
     BG-->>AC: finishSave(outcome)
     AC->>AC: clipboard (PNG + file URL) and ⌘V mark
     AC->>SC: itemDidSave(item)
@@ -181,7 +183,7 @@ On the main actor, in this order:
 
 Then, in a detached task:
 
-1. One `PNGWriter.encode` produces the bytes for both the file and the clipboard.
+1. It waits for the result's PNG: one `PNGWriter.encode`, for both the file and the clipboard, which `CaptureController` started alongside the thumbnail, as soon as the image was ready.
 2. `writeAtomically` writes a hidden temp file (`.margin-<uuid>.tmp`) in the save folder, then `renamex_np(RENAME_EXCL)` moves it into place.
    - If the name is taken on disk, it moves on to the next free one.
    - If the folder can't be written, it falls back to `~/Library/Application Support/Margin/Unsaved/`.
