@@ -117,31 +117,27 @@ enum ScreenGrabber {
         return (SendableImage(image: image), scale)
     }
 
-    /// Copies `pixelRect` (origin top-left) out of `image` into its own buffer, so the result
-    /// doesn't keep the whole frozen display alive. Keeps the color space and alpha layout.
+    /// `pixelRect` (origin top-left) of `image`, sharing its pixels (and so its color space and alpha layout).
+    /// Copying them out took 8 ms for a medium area, on the way to the thumbnail. The crop keeps the whole frozen
+    /// display alive, but only until its PNG is written: the shelf keeps just the thumbnail, always a bitmap of its own.
     static func crop(_ image: CGImage, to pixelRect: CGRect) -> CGImage? {
         let state = CaptureLog.signposter.beginInterval("crop")
         defer { CaptureLog.signposter.endInterval("crop", state) }
         let r = pixelRect.integral.intersection(CGRect(x: 0, y: 0, width: image.width, height: image.height))
-        guard !r.isNull, r.width >= 1, r.height >= 1, let sub = image.cropping(to: r) else { return nil }
+        guard !r.isNull, r.width >= 1, r.height >= 1 else { return nil }
         if r.width == CGFloat(image.width), r.height == CGFloat(image.height) { return image }
-        let space = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
-        let info = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        guard let ctx = CGContext(data: nil, width: Int(r.width), height: Int(r.height), bitsPerComponent: 8,
-                                  bytesPerRow: 0, space: space, bitmapInfo: info) else { return sub }
-        ctx.interpolationQuality = .none
-        ctx.setBlendMode(.copy)
-        ctx.draw(sub, in: CGRect(x: 0, y: 0, width: r.width, height: r.height))
-        return ctx.makeImage() ?? sub
+        return image.cropping(to: r)
     }
 
-    /// Downsampled to cover the shelf card at 2× (aspect-fill), for the shelf's thumbnail and fly-in.
+    /// Downsampled to cover the shelf card at 2× (aspect-fill), for the shelf's thumbnail and fly-in. Always a bitmap of
+    /// its own, even when `image` is small enough as it is: a crop shares the whole frozen display's pixels (`crop`),
+    /// and the card keeps its thumbnail.
     static func thumbnail(of image: CGImage) -> CGImage {
         let w = CGFloat(image.width), h = CGFloat(image.height)
         guard w > 0, h > 0 else { return image }
         let cardHeight = ShelfLayout.cardHeight(forPixelSize: CGSize(width: w, height: h))
-        let scale = min(1, max(ShelfLayout.cardWidth * 2 / w, cardHeight * 2 / h))
-        guard scale < 0.9 else { return image }
+        var scale = min(1, max(ShelfLayout.cardWidth * 2 / w, cardHeight * 2 / h))
+        if scale >= 0.9 { scale = 1 }
         let tw = max(1, Int((w * scale).rounded())), th = max(1, Int((h * scale).rounded()))
 
         var space = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!

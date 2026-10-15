@@ -8,7 +8,8 @@ import MarginKit
 struct CaptureResult: @unchecked Sendable {
     enum Kind: Sendable { case area, window, screen }
 
-    /// Full-resolution pixels in the display's color space (window shots have transparent corners).
+    /// Full-resolution pixels in the display's color space (window shots have transparent corners). An area's image
+    /// shares the whole frozen display's pixels (`ScreenGrabber.crop`), so nothing keeps it past the save.
     let image: CGImage
     /// `image` downsampled for the shelf card (`ScreenGrabber.thumbnail`), made off the main thread with the capture,
     /// so the release's main-thread work is only putting it on the shelf.

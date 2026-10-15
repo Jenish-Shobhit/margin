@@ -82,7 +82,7 @@ flowchart LR
 
 **`CaptureResult`** is one finished capture:
 
-- `image`: full resolution, in the display's colour space, with transparent corners for windows;
+- `image`: full resolution, in the display's colour space, with transparent corners for windows. An area's shares the frozen display's pixels (`CGImage.cropping(to:)`, no copy), so nothing keeps it past the save: the shelf keeps only the thumbnail;
 - `thumbnail`: `image` downsampled for the shelf card, made off the main thread right after the capture or crop;
 - `scale`: pixels per point, used for the DPI;
 - `sourceRect`: the on-screen rect in AppKit global points, where the fly-in starts;
