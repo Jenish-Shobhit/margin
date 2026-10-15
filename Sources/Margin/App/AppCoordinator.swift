@@ -64,7 +64,7 @@ final class AppCoordinator {
     private weak var aboutPanel: NSWindow?
 
     init() {
-        store = ShelfStore(fileURL: ShelfStore.defaultFileURL)
+        store = ShelfStore(fileURL: ShelfStore.defaultFileURL, writesInBackground: true)
         shelf = ShelfController(store: store)
         capture = CaptureController()
     }
@@ -77,8 +77,9 @@ final class AppCoordinator {
         Preferences.shared.removeObsoleteKeys()
         // A leftover save put back into Unsaved shows in the menu (Show Unsaved Shots).
         shelf.onLeftoversRecovered = { [weak self] in self?.refreshUnsavedShots() }
-        store.didSave = { ms, bytes in
-            CaptureTimings.shared.record("shelfSave", ms)
+        store.didSave = { ms in CaptureTimings.shared.record("shelfSave", ms) }
+        store.didWrite = { ms, bytes in
+            CaptureTimings.shared.record("shelfWrite", ms)
             CaptureTimings.shared.recordSize("shelfJSON", bytes: bytes)
         }
         shelf.restore()
@@ -134,6 +135,8 @@ final class AppCoordinator {
         hotkeys?.stop()
         pasteboardTimer?.invalidate()
         pasteboardTimer = nil
+        // shelf.json is written in the background: whatever is on its way lands before the process ends.
+        store.flush()
     }
 
     /// `applicationShouldTerminate`: a capture whose PNG is still being written would be lost (or left as a

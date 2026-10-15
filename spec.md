@@ -170,6 +170,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - Toasts are posted as announcements (`announcementRequested`, high priority). The panel stays non-activating, and VoiceOver's cursor never makes it key (focusing an element, or raising the window: `accessibilityPerformRaise` only orders it front).
 - **Persistence.**
   - `~/Library/Application Support/Margin/shelf.json`.
+  - Since 0.0.16 it's written off the main thread, on a serial queue that always ends with the newest list. A capture's card is in the file before its PNG is written (§3), and quitting waits for writes still on their way.
   - Store items in order with **bookmark data**, so moved files are followed, plus the date and pixel size.
   - Items survive quit and reboot.
   - Read item by item: an item that can't be read (a damaged file, or one written by a newer version) is skipped, not the whole shelf. A file with anything unreadable in it is kept as `shelf.json.bad` (never replacing an earlier one) before anything saves over it.

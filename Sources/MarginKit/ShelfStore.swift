@@ -117,7 +117,8 @@ private struct Lenient<Value: Decodable>: Decodable {
     }
 }
 
-/// Ordered shelf contents (oldest → newest), persisted as JSON.
+/// Ordered shelf contents (oldest → newest), persisted as JSON. The list lives on the main actor; the file is written
+/// there too, or, with `writesInBackground`, on a serial queue that always ends with the newest list (`ShelfFileWriter`).
 @MainActor
 public final class ShelfStore {
     public struct Removal: Equatable, Sendable {
@@ -130,7 +131,7 @@ public final class ShelfStore {
         }
     }
 
-    private static let log = Logger(subsystem: "io.github.jenish-shobhit.margin", category: "ShelfStore")
+    private nonisolated static let log = Logger(subsystem: "io.github.jenish-shobhit.margin", category: "ShelfStore")
 
     public static var defaultFileURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -139,9 +140,14 @@ public final class ShelfStore {
 
     public let fileURL: URL
     public private(set) var items: [ShelfItem] = []
+    /// Set when saves are written in the background.
+    private let writer: ShelfFileWriter?
 
-    public init(fileURL: URL) {
+    /// With `writesInBackground`, a save hands the list to a serial queue and returns: the main actor never waits on
+    /// encoding or the disk. `flush()` and `waitForWrites()` wait for what was handed over.
+    public init(fileURL: URL, writesInBackground: Bool = false) {
         self.fileURL = fileURL
+        writer = writesInBackground ? ShelfFileWriter(fileURL: fileURL) : nil
     }
 
     /// Replaces `items` with the file's contents (empty if the file is missing). Items are read one by one: one
@@ -149,6 +155,7 @@ public final class ShelfStore {
     /// unreadable part is first set aside (`setAside`) with everything in it, so the next save can't overwrite
     /// it, and what could be read is saved in its place.
     public func load() {
+        flush()   // a write still on its way would land after this read
         items = []
         let data: Data
         do {
@@ -202,22 +209,53 @@ public final class ShelfStore {
         return false
     }
 
-    /// Called after every save with how long it took (ms) and the file's size, for the timing log.
-    public var didSave: ((_ milliseconds: Double, _ bytes: Int) -> Void)?
+    /// For the timing log, after every save: how long it kept the main actor (ms). In the background that's only
+    /// handing the list over.
+    public var didSave: ((_ milliseconds: Double) -> Void)?
+    /// For the timing log, after every write of the file: how long encoding and writing took (ms), and the file's
+    /// size. On the main actor, after the write in the background.
+    public var didWrite: ((_ milliseconds: Double, _ bytes: Int) -> Void)?
 
     public func save() {
+        let start = ContinuousClock.now
+        if let writer {
+            writer.write(items) { [weak self] ms, bytes in
+                Task { @MainActor in self?.didWrite?(ms, bytes) }
+            }
+        } else if let bytes = Self.write(items, to: fileURL) {
+            didWrite?(Self.milliseconds(since: start), bytes)
+        }
+        didSave?(Self.milliseconds(since: start))
+    }
+
+    /// Blocks until every save so far is on disk (at quit, before reading the file). Without `writesInBackground`
+    /// they always are.
+    public func flush() {
+        writer?.flush()
+    }
+
+    /// Returns once every save made before the call is on disk. The save pipeline waits for this before writing a
+    /// capture's PNG: its card must be in shelf.json first (`LeftoverSaves` finds a cut-off save through it).
+    public nonisolated func waitForWrites() async {
+        await writer?.written()
+    }
+
+    /// Encodes and writes the list atomically. Returns the file's size, or nil (logged) if it couldn't be written.
+    nonisolated static func write(_ items: [ShelfItem], to fileURL: URL) -> Int? {
         do {
-            let start = ContinuousClock.now
             try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             let data = try JSONEncoder().encode(items)
             try data.write(to: fileURL, options: .atomic)
-            if let didSave {
-                let d = ContinuousClock.now - start
-                didSave(Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15, data.count)
-            }
+            return data.count
         } catch {
-            Self.log.error("shelf.json not saved: \(error.localizedDescription, privacy: .public)")
+            log.error("shelf.json not saved: \(error.localizedDescription, privacy: .public)")
+            return nil
         }
+    }
+
+    nonisolated static func milliseconds(since start: ContinuousClock.Instant) -> Double {
+        let d = ContinuousClock.now - start
+        return Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15
     }
 
     public func append(_ item: ShelfItem) {

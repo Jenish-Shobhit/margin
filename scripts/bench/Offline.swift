@@ -118,9 +118,19 @@ enum Offline {
                 store.append(ShelfItem(url: shot, createdAt: Date().addingTimeInterval(Double(i)), pixelSize: CGSize(width: 2940, height: 1912)))
             }
             var bytes = 0
-            store.didSave = { _, b in bytes = b }
+            store.didWrite = { _, b in bytes = b }
             let r = timed(50) { store.save() }
             row("ShelfStore.save, \(count) cards (\(bytes / 1024) KB)", r)
+            // As the app saves: the list handed to a background queue, the main actor's part only.
+            let background = ShelfStore(fileURL: dir.appendingPathComponent("shelf-bg-\(count).json"), writesInBackground: true)
+            for item in store.items { background.append(item) }
+            background.flush()
+            row("  … in the background: handed over, waited for", timed(50) {
+                background.save()
+                background.flush()
+            })
+            row("  … in the background: handed over (the main actor's part)", timed(50) { background.save() })
+            background.flush()
             row("ShelfStore.load, \(count) cards", timed(20) { store.load() })
             // A file check after the shelf's folder moved: every card has a new path.
             let moved = store.items.map { item -> ShelfItem in
