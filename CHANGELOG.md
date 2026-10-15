@@ -2,6 +2,18 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.13 — 2026-10-15
+
+### Fixed
+
+- Copy Path on a card didn't count as a copy from the shelf, so a shot still being saved replaced the copied path on the clipboard when it landed. The path now stays, and the "⌘V" mark leaves the previous card at once.
+- While a shortcut was being recorded in Settings, opening Choose… kept the recorder listening: ⇧⌘G (Go to Folder) typed in the folder sheet became the shortcut. Recording now stops when the sheet opens.
+- On keyboard layouts that change while ⌘ is held, such as "Dvorak – QWERTY ⌘", shortcuts with ⌘ were named, and refused, by what the key types without ⌘. They now follow what it types with ⌘, the way menus name them: ⇧⌘ on the QWERTY Z key reads ⇧⌘Z and is refused as Redo.
+
+### Changed
+
+- At launch, Margin removes the hint-bar counts that 0.0.5–0.0.7 stored and nothing reads any more.
+
 ## 0.0.12 — 2026-10-15
 
 ### Fixed
