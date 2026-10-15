@@ -64,7 +64,7 @@ The tests cover `MarginKit`, the app's pure logic:
 - shelf layout and the pile;
 - the order ⌘Z restores steps in;
 - `shelf.json` round trips, bookmarks, pruning and unmounted volumes, and damaged or newer files;
-- PNG encoding, DPI and atomic writes;
+- PNG encoding, DPI and atomic writes, and putting back the temp files of saves cut off;
 - the clipboard items, including emulated Ghostty pastes;
 - key-combo display and conflicts;
 - preferences and the hint counter;

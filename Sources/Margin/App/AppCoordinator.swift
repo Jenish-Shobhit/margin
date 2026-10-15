@@ -73,6 +73,8 @@ final class AppCoordinator {
         // Before anything names a shortcut: the keys are named as the user's keyboard layout labels them.
         KeyboardLayout.current.startObserving()
         Preferences.shared.removeObsoleteKeys()
+        // A leftover save put back into Unsaved shows in the menu (Show Unsaved Shots).
+        shelf.onLeftoversRecovered = { [weak self] in self?.refreshUnsavedShots() }
         shelf.restore()
 
         capture.onCapture = { [weak self] result in self?.handleCapture(result) }
@@ -128,7 +130,8 @@ final class AppCoordinator {
     }
 
     /// `applicationShouldTerminate`: a capture whose PNG is still being written would be lost (or left as a
-    /// hidden temp file), so wait for in-flight saves, at most `terminationTimeout`, then let the quit go on.
+    /// hidden temp file, for the next launch to put back), so wait for in-flight saves, at most `terminationTimeout`,
+    /// then let the quit go on.
     func shouldTerminate() -> NSApplication.TerminateReply {
         guard savesInFlight > 0 else { return .terminateNow }
         guard !isTerminating else { return .terminateLater } // asked again while already waiting

@@ -119,6 +119,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - Set DPI to 72 × scale (144 on Retina), as macOS does.
   - Tag the file the way `screencapture` does: the `kMDItemIsScreenCapture`, `kMDItemScreenCaptureType` (selection, window, display) and `kMDItemScreenCaptureGlobalRect` extended attributes, set on the temp file before it's renamed into place.
   - Write to a hidden temp file in the same folder, then `rename(2)`, so no app sees a half-written file.
+  - A temp file left by a save that was cut off (a crash, a forced quit) is dealt with at the next launch, off the main thread: a complete PNG gets its screenshot name back (its card's, so the card stays on the shelf) and anything else is deleted.
 - **Clipboard** (on by default; Settings › Copy each capture). `clearContents()`, then write the PNG data (the same bytes as the file).
   - Before finalising, run `screencapture -c` once on the dev machine, list `NSPasteboard.general.types`, and write the same *image* types macOS writes. **Since 0.0.2** each item also carries `public.file-url` of the saved file (see "Changes after 0.0.1"), so ⌘V in a terminal pastes the path.
   - Record `changeCount` for the ⌘V mark (§5).

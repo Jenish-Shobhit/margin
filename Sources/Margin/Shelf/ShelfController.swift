@@ -15,6 +15,9 @@ final class ShelfController: ShelfControlling {
     /// Not in the ShelfControlling contract: Copy Path wrote the clipboard. A copy from the shelf like `onCopied`,
     /// but of paths, not an image, so no card gets the ⌘V mark.
     var onCopiedPaths: (() -> Void)?
+    /// Not in the ShelfControlling contract: the launch put leftover saves back (`recoverLeftoverSavesThenRefresh`),
+    /// perhaps in the Unsaved folder.
+    var onLeftoversRecovered: (() -> Void)?
     private(set) var isTucked = false
     var markedItemID: UUID?
     var itemIDs: [UUID] { store.items.map(\.id) }
@@ -151,7 +154,7 @@ final class ShelfController: ShelfControlling {
         }
         relayout(animated: false)
         updateVisibility()
-        refreshFiles(quietWithin: 0.5)
+        recoverLeftoverSavesThenRefresh(quietWithin: 0.5)
     }
 
     func add(_ item: ShelfItem, thumbnail: CGImage, flyInFrom sourceRect: CGRect, displayID: CGDirectDisplayID) {
