@@ -2,6 +2,25 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.12 — 2026-10-15
+
+### Fixed
+
+- Quick Look opened from the shelf couldn't be closed with Space or Esc: the keys went to the app you were in, and Quick Look stayed open. Space, Esc and its close button now close it and give the keyboard back to your app. With several shots selected, ← and → step through them.
+- A rename that ended because a new shot pushed its card into the pile kept the keyboard on the shelf. The keyboard now goes back to your app.
+- Dragging a brand-new card before its file was saved did nothing. The drag now starts as soon as the file is written, if you're still holding the mouse.
+- When the save folder couldn't be written, shots went to a hidden "Unsaved" folder and the brief message didn't say how to find them. The message now says where they went and stays longer, and long messages wrap instead of being cut off.
+
+### Added
+
+- **Show Unsaved Shots** in the menu bar menu, shown while shots are waiting in the Unsaved folder. Open Screenshots Folder opens Unsaved when the save folder can't be opened.
+- VoiceOver can read and use the shelf: each card says when it was taken and its size, with actions to copy, open, Quick Look, rename, remove or move to Trash; the pile and the tucked tab are buttons; messages like "Copied" are spoken.
+- macOS's prompt for access to your Desktop, Documents, Downloads or an external disk now says why Margin asks: to save your screenshots there.
+
+### Changed
+
+- After you drag a shot out of the shelf, ⌘Z belongs to the app you dropped it into; use **Restore Last Removed** in the menu to bring the card back. The docs now say so.
+
 ## 0.0.11 — 2026-10-15
 
 ### Fixed
