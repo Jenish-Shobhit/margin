@@ -47,7 +47,7 @@ flowchart LR
 | `WindowPicking.swift` | Which on-screen windows window mode picks, by layer and size: normal and floating windows, system UI that covers, overlays and menus it skips |
 | `ShelfLayout.swift` | Card sizes, slots, how many cards fit and the `+N older` pile |
 | `ShelfStore.swift` | `ShelfItem` (path, bookmark, date, pixel size; whether its volume is mounted) and the ordered, JSON-persisted list |
-| `PNGWriter.swift` | One ImageIO encode (no filtering, colour profile, DPI) and the atomic write: temp file, then an exclusive rename |
+| `PNGWriter.swift` | One ImageIO encode (Up filter, colour profile, DPI) and the atomic write: temp file, then an exclusive rename |
 | `LeftoverSaves.swift` | At launch, the temp files of saves cut off before their rename: a complete PNG back under its card's name, or a new one; the rest deleted |
 | `ClipboardMark.swift` | The ⌘V mark's change-count bookkeeping, and `ClipboardWriter` (PNG + file URL per item; Copy Path's plain text) |
 | `Preferences.swift` | `KeyCombo`, `ShortcutAction` (defaults, ⌃ twins, conflicts), `LastArea` and the `Preferences` store |

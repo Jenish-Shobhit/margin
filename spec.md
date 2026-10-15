@@ -115,7 +115,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - Use the `en_US_POSIX` locale and the local time zone, 24-hour time and plain ASCII spaces.
   - On a collision, add ` (2)`, ` (3)` and so on before `.png`.
 - **PNG.**
-  - Use ImageIO with `kCGImagePropertyPNGDictionary: [kCGImagePropertyPNGCompressionFilter: IMAGEIO_PNG_FILTER_NONE]`.
+  - Use ImageIO with `kCGImagePropertyPNGDictionary: [kCGImagePropertyPNGCompressionFilter: IMAGEIO_PNG_FILTER_UP]` (since 0.0.16; 0.0.15 and earlier used `IMAGEIO_PNG_FILTER_NONE`). Up is as fast as no filter on UI and about 45% faster on photo-like content, with smaller files.
   - Keep the display's color profile.
   - Set DPI to 72 × scale (144 on Retina), as macOS does.
   - Tag the file the way `screencapture` does: the `kMDItemIsScreenCapture`, `kMDItemScreenCaptureType` (selection, window, display) and `kMDItemScreenCaptureGlobalRect` extended attributes, set on the temp file before it's renamed into place.
