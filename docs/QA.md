@@ -104,8 +104,8 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] Two captures in the same second get ` (2)`, ` (3)` names
 - [ ] The PNG keeps the display's colour profile and has DPI 144 on Retina (`sips -g dpiWidth`)
 - [ ] No app ever sees a half-written file (no `.margin-*.tmp` left behind)
-- [ ] A leftover from a save that was cut off is put back at launch. With Margin quit, copy a PNG into the save folder as `.margin-<any UUID>.tmp`, and a few bytes as another: after a launch the first is a `Screenshot …png` named from its date and the second is gone
-  - [ ] with the first named for a card waiting for its file (a `shelf.json` item without `bookmark`, same pixel size, captured just before), the card stays on the shelf with that file
+- [ ] A leftover from a save that was cut off is put back at launch. With Margin quit, add a card waiting for its file to `shelf.json` (an item without `bookmark`, its `path` in the save folder), copy a PNG of its pixel size into that folder as `.margin-<any UUID>.tmp` dated just after the card's `createdAt`, another PNG as a second temp file, and a few bytes as a third: after a launch the card stays, with the first as its file; the second is a `Screenshot …png` named from its date; the third is gone. The same in `~/Library/Application Support/Margin/Unsaved/`, without a card
+- [ ] With no card waiting in it, the save folder isn't looked into at launch: after `tccutil reset SystemPolicyDesktopFolder io.github.jenish-shobhit.margin` and an empty shelf, launching raises no Desktop prompt (the first capture does)
 - [ ] Quitting right after a capture waits for the save: ⇧⌘3, then Quit at once (or `osascript -e 'quit app "Margin"'`)
   - [ ] the PNG is in the folder and the card is back after relaunch
   - [ ] the quit never takes more than about 3 s
