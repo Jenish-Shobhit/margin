@@ -2,6 +2,20 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.15 — 2026-10-15
+
+### Fixed
+
+- Two copies of Margin could run at once (opened from two places, or with `open -n`): every shortcut saved each shot twice, and one of the two cards was gone after a restart. Opening Margin while it's running now shows Settings in the copy already running, and the new copy quits.
+- One unreadable entry in the shelf's saved list (`shelf.json`), or a list written by a newer version, emptied the whole shelf, and the next capture saved over it. Unreadable entries are now skipped, and the original file is kept as `shelf.json.bad`.
+- A shot whose save was cut off (a crash, a forced quit) was left as a hidden temporary file and lost. It's now recovered at the next launch, and its card stays on the shelf.
+- A shortcut pressed while one of Margin's menus was open did nothing, then captured when the menu closed (while Settings was opening, say). It now does nothing at all; one pressed just after the menu closes works.
+- Window mode skipped floating windows (tool palettes, Picture in Picture, always-on-top windows) and picked the window behind them. They're now picked; over the Dock or the menu bar nothing is.
+- Closing the menu bar menu without choosing anything could leave the shelf holding the keyboard, so ⌫ removed a card instead of deleting text in your app. The keyboard now goes back to your app.
+- The orange warning dot could stay after Screen Recording worked again. It now goes as soon as a capture or a check succeeds.
+- With Screen Recording turned off while Margin ran, Margin kept asking ScreenCaptureKit for windows in the background, which could raise the system prompt at a random moment. It now waits for the next capture.
+- About Margin could open behind the app in front. It now comes to the front.
+
 ## 0.0.14 — 2026-10-15
 
 ### Fixed
