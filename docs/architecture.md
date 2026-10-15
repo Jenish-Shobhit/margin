@@ -46,6 +46,7 @@ flowchart LR
 | `Geometry.swift` | AppKit ↔ CG coordinate flips, point → pixel rects, snapping to window edges |
 | `WindowPicking.swift` | Which on-screen windows window mode picks, by layer and size: normal and floating windows, system UI that covers, overlays and menus it skips |
 | `ShelfLayout.swift` | Card sizes, slots, how many cards fit and the `+N older` pile |
+| `ShelfThumbnailPlan.swift` | Which cards keep a decoded thumbnail (the visible ones, the pile's fan and the next few in the pile), and `ThumbnailLoads`: a few decodes at a time, in that order, without retrying a file that couldn't be read |
 | `ShelfStore.swift` | `ShelfItem` (path, bookmark, date, pixel size; whether its volume is mounted) and the ordered, JSON-persisted list |
 | `PNGWriter.swift` | One ImageIO encode (Up filter, colour profile, DPI) and the atomic write: temp file, then an exclusive rename |
 | `LeftoverSaves.swift` | At launch, the temp files of saves cut off before their rename: a complete PNG back under its card's name, or a new one; the rest deleted |
@@ -69,7 +70,7 @@ flowchart LR
 | `App/` | `main.swift` (accessory app), `AppDelegate`, `LaunchGuard` (one copy at a time), `AppCoordinator` (wires everything, permission state, ⌘V mark), `AppCoordinator+Save` (the save pipeline), `Contracts.swift`, and `MainMenu` (a hidden main menu that gives text fields and windows their standard key equivalents) |
 | `Capture/` | `CaptureController` (area, window, screen, repeat area), `ScreenGrabber` (ScreenCaptureKit calls and cropping), `ShareableContentCache`, `Displays`, logging and timings, and `CaptureSimulation` (DEBUG-only fakes) |
 | `Overlay/` | The frozen-screen overlay: `OverlayPanel` and its pool, `OverlaySession` (selection state machine and keys), `OverlayView` (layers), `OverlayChrome` (hint bar, magnifier, pills), `SelectionMath` and `AreaFlash` |
-| `Shelf/` | `ShelfController` (layout, tuck, peek, toasts) and its extensions: `+Actions` (every interaction, undo, drag-out) and `+Files` (disk checks). Also the views (`ShelfCardView`, `ShelfPileView`, `ShelfChrome`), `ShelfAccessibility` (what VoiceOver sees: the cards, pile and tab as buttons with actions, and toasts as announcements), `ShelfDrag`, `ShelfFlyIn`, `ShelfFiles` (all disk access), `ShelfThumbnails` and `ShelfStyle` |
+| `Shelf/` | `ShelfController` (layout, tuck, peek, toasts) and its extensions: `+Actions` (every interaction, undo, drag-out), `+Files` (disk checks) and `+Thumbnails` (which cards hold a decoded thumbnail). Also the views (`ShelfCardView`, `ShelfPileView`, `ShelfChrome`), `ShelfAccessibility` (what VoiceOver sees: the cards, pile and tab as buttons with actions, and toasts as announcements), `ShelfDrag`, `ShelfFlyIn`, `ShelfFiles` (all disk access), `ShelfThumbnails` and `ShelfStyle` |
 | `Hotkeys/` | `HotkeyCenter`: Carbon registration. `OverlayHotkeys`: the overlay's keys as hotkeys while a capture is up, before the overlay can be key |
 | `MenuBar/` | `StatusMenuController` (icon, warning dot, menu rebuilt on open) and `MenuKeyEquivalent` |
 | `Onboarding/` | The first-run window: `FirstRunModel` (polled state), `FirstRunView` (SwiftUI) and its window controller |
@@ -200,6 +201,7 @@ A save cut off between the temp file and the rename (a crash, a forced quit, tha
 
 ### On the shelf
 
+- **Thumbnails on demand.** Every card exists from launch, but only the ones that can be seen or soon could be hold a decoded thumbnail (`ShelfThumbnailPlan`): the visible cards, the pile's fan (3), the next 4 in the pile (so a whole row removed is replaced by cards that already have theirs) and any selected card (a drag of the selection shows it). After every layout, `updateThumbnails` lets go of the thumbnails of cards that folded deeper into the pile and decodes the ones that came forward, 2 at a time, most important first. Decoding every card at launch took 1.2–5.5 s of every core for 200 cards, held back ScreenCaptureKit's prewarm as long, and kept 130–180 MB. An undo step keeps only the thumbnails its cards had.
 - `ShelfFlight` animates the thumbnail from the selection to its slot in about 0.45 s, in a temporary click-through panel. It re-aims if the slot moves (another capture, a tuck, a peek), lands in the tab or the pile when that's where the card is, and then hands off to the real card. The card's accent ring lasts 1.5 s.
 - A one-second timer compares the pasteboard's `changeCount` with the one recorded after Margin's last write. When they differ, the ⌘V mark clears. Copy Path clears it at once, since the clipboard then holds paths, not an image. Margin never reads the clipboard's contents.
 - Drag-out writes a plain `NSURL` per item and offers `.copy` only. A non-empty drop operation without ⌥ removes the cards, as one undo step. The drag never makes the shelf key, so ⌘Z after a drop belongs to the app that took it; the menu's **Restore Last Removed** (`undo(fromMenu:)`) is the way back.
@@ -211,7 +213,7 @@ A save cut off between the temp file and the rename (a crash, a forced quit, tha
   - writing PNGs and checking whether shelf files exist (`ShelfFiles`);
   - putting back the leftovers of saves cut off, at launch (`LeftoverSaves`);
   - reading a file to copy it, renaming, trashing and untrashing;
-  - loading thumbnails from disk;
+  - loading thumbnails from disk (only the cards in view or nearly, two at a time);
   - creating the folder for **Open Screenshots Folder**, and checking whether the Unsaved folder holds shots (**Show Unsaved Shots**: the menu is built synchronously, so it reads a flag this check keeps current, at launch and on each menu open);
   - Settings' folder icon.
 
@@ -247,7 +249,7 @@ All of them join every Space and float over full-screen apps.
 | `Preferences` | `UserDefaults`, domain `io.github.jenish-shobhit.margin` | `saveFolder`, `copyEachCapture`, `shutterSound`, `launchAtLogin`, `shortcut.<action>` (JSON `KeyCombo`), `lastArea` (JSON: rect relative to its display, display ID, display size), `firstRunDone`, `completedCaptures`, `showsCaptureHints`, `loginItemConfigured`. `hintCaptures.r<n>` (0.0.5–0.0.7) is removed at launch |
 | `ShelfStore` | `~/Library/Application Support/Margin/shelf.json` | The shelf, oldest first: `id`, `path`, `bookmark`, `createdAt`, `pixelWidth`, `pixelHeight`. Rewritten atomically on every change. Read item by item: one that can't be read (damaged, or from a newer Margin) is skipped. A file with anything unreadable in it, or that isn't a list at all, is first moved to `shelf.json.bad` (`shelf.json.bad 2`… beside an earlier one), so no save overwrites it |
 | Fallback saves | `~/Library/Application Support/Margin/Unsaved/` | PNGs that couldn't go to the save folder |
-| Undo | Memory | Up to 20 steps. Thumbnails are kept for the newest 5. Steps restore one at a time (`UndoSequencer`), since each goes back to the indices it had, which holds only once newer steps are back |
+| Undo | Memory | Up to 20 steps. Thumbnails (those the cards had decoded) are kept for the newest 5. Steps restore one at a time (`UndoSequencer`), since each goes back to the indices it had, which holds only once newer steps are back |
 | `RuntimeStatus` | Memory | Hotkey failures and revoked Screen Recording |
 
 More on how these behave:

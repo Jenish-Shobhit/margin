@@ -229,7 +229,7 @@ The info lines read `name: 12.3 ms` (sizes: `name: 45.6 KB`). The ones that say 
 | `screenCapture`, `areaCapture`, `windowCapture` | The shortcut or click | The image, before the release clock starts |
 | `release.*`, `finishSave.*` | | Main-thread steps of the release (`release.main` is all of `handleCapture`) and of the save's return |
 | `launchToStarted`, `launchToPrewarmed` | The process start | Everything wired up; the first capture ready |
-| `shelfRestore`, `shelfRestoreThumbnails`, `shelfSave` | | The shelf at launch, its thumbnails loaded, each `shelf.json` write |
+| `shelfRestore`, `shelfRestoreThumbnails`, `shelfSave` | | The shelf at launch, the thumbnails of the cards in view (or nearly) loaded, each `shelf.json` write |
 
 The targets are:
 

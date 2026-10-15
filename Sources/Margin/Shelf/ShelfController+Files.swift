@@ -73,8 +73,8 @@ extension ShelfController {
                     cards[id]?.update(item: fresh)
                 }
                 // A card still without its shot (the file was renamed or moved before the thumbnail loaded from
-                // the old path, or was unreadable until now) loads it from where the file is.
-                if unchanged, let card = cards[id], card.thumbnail == nil { loadThumbnail(for: fresh) }
+                // the old path, or was unreadable until now) loads it from where the file is, if it's in view.
+                if unchanged, let card = cards[id], card.thumbnail == nil { thumbnailLoads.retry(id) }
                 live.append(r)
             case .gone:
                 if unchanged, !dragging.contains(id) { gone.append(id) } else { live.append(r) }
@@ -86,6 +86,7 @@ extension ShelfController {
             store.remove(ids: Set(gone))
             detach(gone, exit: .fade, animated: !quiet)
         }
+        loadThumbnails()
         return live
     }
 }

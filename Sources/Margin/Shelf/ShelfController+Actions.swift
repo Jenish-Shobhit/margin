@@ -449,6 +449,7 @@ extension ShelfController {
             // Off the shelf it isn't pending any more (⌘Z re-checks), and a queued click-copy is moot.
             pending.remove(id)
             if queuedCopy == id { queuedCopy = nil }
+            thumbnailLoads.forget(id)
             selection.remove(id)
             if focusedID == id { focusedID = nil }
             if hoveredID == id { hoveredID = nil }
@@ -560,9 +561,10 @@ extension ShelfController {
         }
         store.restore(removals)
         repend(removals.map(\.item))
+        // A card without its thumbnail in the step decodes it with the layout, if it comes back in view.
         for r in removals where cards[r.item.id] == nil {
             let card = makeCard(r.item)
-            if let thumb = thumbnails[r.item.id] { card.setThumbnail(thumb) } else { loadThumbnail(for: r.item) }
+            if let thumb = thumbnails[r.item.id] { card.setThumbnail(thumb) }
         }
         relayout(animated: true)
         for r in removals {

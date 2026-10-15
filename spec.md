@@ -147,6 +147,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - 10 pt gap, 14 pt from the screen edge and the bottom of the visible frame.
   - Corner radius 10, a subtle 1 px border and a soft shadow.
   - Thumbnails are downsampled to 2× the card size (`CGImageSourceCreateThumbnailAtIndex` for persisted items; the in-memory image for new ones).
+  - Since 0.0.16, only the cards that can be seen or soon could be hold a decoded thumbnail: the visible cards, the pile's fan (3) and the next 4 in the pile, plus any selected card. The rest of the pile decodes when it comes forward (a removal, ⌘Z), at most 2 at a time and newest first, and lets go of its thumbnail when it folds deeper again. Launch and memory then stay the same however big the shelf is.
 - **Order.** The newest is at the bottom, and older cards slide up with a spring.
 - **Pile.** Show at most **4** cards, or fewer if they don't fit vertically. Older items fold into a pile above them labelled `+N older`.
   - Hovering the pile fans it out.

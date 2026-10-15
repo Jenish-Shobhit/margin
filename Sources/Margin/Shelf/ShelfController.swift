@@ -55,8 +55,10 @@ final class ShelfController: ShelfControlling {
     var fileRefreshQueued = false
     /// Bumped by every copy and Copy Path; a slower read that finishes after a newer copy started doesn't write.
     var copyGeneration = 0
-    /// The path each card's thumbnail is loading from. Only the latest load for a card lands.
-    var thumbnailLoads: [UUID: String] = [:]
+    /// Thumbnails decoding from their files, a few at a time (`ShelfController+Thumbnails.swift`).
+    var thumbnailLoads = ThumbnailLoads<UUID>(limit: ShelfController.thumbnailLoadLimit)
+    /// Since `restore`, until the thumbnails it asked for are in (for the timing log).
+    var restoreThumbnailsClock: Stopwatch?
     /// Where the shelf's keys went, for `releaseKeys`. `keysWentElsewhere`: another app's window took them while the
     /// shelf had them (Spotlight, a launcher, a click there). `keysCameBack`: that app then handed them back to the
     /// shelf. `releasingKeys`: the shelf's next resign is `releaseKeys` giving them away.
@@ -71,7 +73,8 @@ final class ShelfController: ShelfControlling {
     private var containerOffset: CGFloat = 0
     private var holdFull = 0
     private var pendingTabArrivals = 0
-    private var fanIDs: [UUID] = []
+    /// The pile shots the fan shows, newest first.
+    private(set) var fanIDs: [UUID] = []
     private var shrinkTask: Task<Void, Never>?
     private var peekTask: Task<Void, Never>?
     private var peekPoll: Task<Void, Never>?
@@ -80,8 +83,6 @@ final class ShelfController: ShelfControlling {
     private var flights: [UUID: ShelfFlight] = [:]
     /// After the user empties the shelf, the (invisible) panel stays a moment so ⌘Z can still reach it.
     var lingerUntil = Date.distantPast
-    /// The thumbnails `restore` is still loading, and since when (for the timing log).
-    private var restoreLoads: (ids: Set<UUID>, clock: Stopwatch)?
     private var observers: [NSObjectProtocol] = []
 
     init(store: ShelfStore) {
@@ -149,13 +150,10 @@ final class ShelfController: ShelfControlling {
         store.load()
         for card in cards.values { card.removeFromSuperview() }
         cards = [:]
-        thumbnailLoads = [:]
         selection = []
-        restoreLoads = store.items.isEmpty ? nil : (ids: Set(store.items.map(\.id)), clock: clock)
-        for item in store.items {
-            makeCard(item)
-            loadThumbnail(for: item)
-        }
+        restoreThumbnailsClock = store.items.isEmpty ? nil : clock
+        // Every card, but only the ones in view (or nearly) decode their thumbnails: the layout starts them.
+        for item in store.items { makeCard(item) }
         relayout(animated: false)
         updateVisibility()
         recoverLeftoverSavesThenRefresh(quietWithin: 0.5)
@@ -284,6 +282,11 @@ final class ShelfController: ShelfControlling {
             if item(for: id) != nil { copy([id]) }
         }
         cards[id]?.fileDidLand()
+        // A card brought back by ⌘Z before its file existed, without its thumbnail: it can decode now.
+        if let card = cards[id], card.thumbnail == nil {
+            thumbnailLoads.retry(id)
+            loadThumbnails()
+        }
     }
 
     /// Saving failed: the card goes (no undo) and the message shows as a toast.
@@ -319,29 +322,6 @@ final class ShelfController: ShelfControlling {
         cards[item.id] = card
         card.setMarked(item.id == markedItemID, animated: false)
         return card
-    }
-
-    /// Loads a card's thumbnail from its file (off the main thread). Asking again for the same path while it
-    /// loads does nothing; a newer path (the file was found elsewhere) wins over an older load.
-    func loadThumbnail(for item: ShelfItem) {
-        guard thumbnailLoads[item.id] != item.path else { return }
-        thumbnailLoads[item.id] = item.path
-        Task { [weak self] in
-            let box = await ShelfThumbnails.load(url: item.url, pixelSize: item.pixelSize)
-            self?.restoreLoadFinished(item.id)
-            guard let self, self.thumbnailLoads[item.id] == item.path else { return }
-            self.thumbnailLoads[item.id] = nil
-            guard let box else { return }
-            self.cards[item.id]?.setThumbnail(box.image)
-            self.refreshFan(force: true)
-        }
-    }
-
-    /// Times the thumbnails `restore` loads: logged once the last one is in.
-    private func restoreLoadFinished(_ id: UUID) {
-        guard var loads = restoreLoads, loads.ids.remove(id) != nil else { return }
-        restoreLoads = loads.ids.isEmpty ? nil : loads
-        if loads.ids.isEmpty { CaptureTimings.shared.record("shelfRestoreThumbnails", loads.clock.ms) }
     }
 
     func item(for id: UUID) -> ShelfItem? { store.items.first { $0.id == id } }
@@ -405,6 +385,7 @@ final class ShelfController: ShelfControlling {
         positionToast(animated: animated)
         updateVisibility()
         retargetFlights()
+        updateThumbnails()
         NSAccessibility.post(element: panel, notification: .layoutChanged)
     }
 
