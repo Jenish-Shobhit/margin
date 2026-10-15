@@ -186,12 +186,14 @@ scripts/debug.sh capture-area 100 100 400 300   # x y w h in AppKit global point
 scripts/debug.sh capture-screen                 # the display under the pointer
 scripts/debug.sh toggle-shelf                   # tuck / show
 scripts/debug.sh clear                          # empty the shelf (undoable)
+scripts/debug.sh dismiss 4                      # the 4 newest cards off the shelf (undoable)
+scripts/debug.sh restore-last                   # Restore Last Removed
 scripts/debug.sh dump-state                     # print the state as JSON
 ```
 
 - AppKit global points have their origin at the bottom-left of the main display, with y going up.
 - `dump-state` makes the app write `/tmp/margin-state.json`, which the script prints. It includes:
-  - the shelf's items and paths, the tuck state, the ⌘V mark and the pasteboard change count;
+  - the shelf's items and paths, which have a live card (`cards`: in the pile or not, with a decoded thumbnail or not), the tuck state, the ⌘V mark and the pasteboard change count;
   - the permission state and the login item;
   - each hotkey registration and its `OSStatus`;
   - the overlay's mode while a capture is up (`overlay.mode`), and who has focus (`focus`: Margin's key window, whether it's active, the frontmost app);

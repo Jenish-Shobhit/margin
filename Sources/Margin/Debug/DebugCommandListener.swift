@@ -13,6 +13,8 @@ import os
 ///   capture-screen         the display under the pointer
 ///   toggle-shelf           tuck / show the shelf
 ///   clear                  remove every item from the shelf (undoable)
+///   dismiss [n]            remove the n newest cards (default 1) as one undo step, as ✕ does but keeping the keys
+///   restore-last           the menu's Restore Last Removed (the shelf's ⌘Z)
 ///   dump-state             write the state as JSON to /tmp/margin-state.json
 ///   hotkey <action>        what that shortcut does: captureArea, captureScreen, repeatArea, toggleShelf
 ///   capture-window         the menu's Capture Window (the overlay in window mode)
@@ -62,6 +64,11 @@ final class DebugCommandListener: NSObject {
             coordinator.toggleShelf()
         case "clear":
             coordinator.clearShelf()
+        case "dismiss":
+            let count = parts.count > 1 ? Int(parts[1]) ?? 1 : 1
+            coordinator.shelf.dismiss(coordinator.store.items.suffix(max(count, 0)).map(\.id), exit: .collapse)
+        case "restore-last":
+            coordinator.restoreLastRemoved()
         case "dump-state":
             dumpState(coordinator)
         case "hotkey":
