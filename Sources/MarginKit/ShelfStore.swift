@@ -108,6 +108,15 @@ extension ShelfItem {
     }
 }
 
+/// One element of a JSON array, decoded on its own: a bad element doesn't fail the whole array.
+private struct Lenient<Value: Decodable>: Decodable {
+    let result: Result<Value, Error>
+
+    init(from decoder: Decoder) throws {
+        result = Result { try decoder.singleValueContainer().decode(Value.self) }
+    }
+}
+
 /// Ordered shelf contents (oldest → newest), persisted as JSON.
 @MainActor
 public final class ShelfStore {
@@ -135,15 +144,62 @@ public final class ShelfStore {
         self.fileURL = fileURL
     }
 
-    /// Replaces `items` with the file's contents (empty if the file is missing or unreadable).
+    /// Replaces `items` with the file's contents (empty if the file is missing). Items are read one by one: one
+    /// that can't be (damaged, or written by a newer Margin) is skipped, not the whole shelf. A file with any
+    /// unreadable part is first set aside (`setAside`) with everything in it, so the next save can't overwrite
+    /// it, and what could be read is saved in its place.
     public func load() {
-        guard let data = try? Data(contentsOf: fileURL) else { items = []; return }
+        items = []
+        let data: Data
         do {
-            items = try JSONDecoder().decode([ShelfItem].self, from: data)
+            data = try Data(contentsOf: fileURL)
+        } catch CocoaError.fileReadNoSuchFile {
+            return
         } catch {
             Self.log.error("shelf.json unreadable, starting empty: \(error.localizedDescription, privacy: .public)")
-            items = []
+            setAside()
+            return
         }
+        let entries: [Lenient<ShelfItem>]
+        do {
+            entries = try JSONDecoder().decode([Lenient<ShelfItem>].self, from: data)
+        } catch {
+            Self.log.error("shelf.json isn't a list of items, starting empty: \(error.localizedDescription, privacy: .public)")
+            setAside()
+            return
+        }
+        var skipped = 0
+        for (index, entry) in entries.enumerated() {
+            switch entry.result {
+            case .success(let item):
+                items.append(item)
+            case .failure(let error):
+                skipped += 1
+                Self.log.error("shelf.json item \(index) skipped: \(String(describing: error), privacy: .public)")
+            }
+        }
+        if skipped > 0, setAside(), !items.isEmpty { save() }
+    }
+
+    /// Moves shelf.json out of the way, to `shelf.json.bad`, or `shelf.json.bad 2`, `3`… if an earlier one is
+    /// still there (never replacing it). Returns false if it couldn't be moved.
+    @discardableResult
+    private func setAside() -> Bool {
+        for n in 1...100 {
+            let name = fileURL.lastPathComponent + (n == 1 ? ".bad" : ".bad \(n)")
+            let url = fileURL.deletingLastPathComponent().appendingPathComponent(name)
+            do {
+                try PNGWriter.moveExclusively(from: fileURL, to: url)
+                Self.log.notice("shelf.json set aside as \(name, privacy: .public)")
+                return true
+            } catch let error as POSIXError where error.code == .EEXIST {
+                continue
+            } catch {
+                Self.log.error("shelf.json couldn't be set aside: \(error.localizedDescription, privacy: .public)")
+                return false
+            }
+        }
+        return false
     }
 
     public func save() {

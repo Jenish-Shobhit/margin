@@ -236,6 +236,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] A file moved in Finder is followed (bookmark) and still drags
 - [ ] Renamed or moved while Margin was quit: after a relaunch the card shows its shot (not a grey box), and so do the pile fan and the drag image
 - [ ] A file moved to the Trash drops off the shelf
+- [ ] A `shelf.json` with one damaged item (edit a `pixelWidth` into a string, with Margin quit) loads every other card, and the original is kept as `shelf.json.bad`; one that isn't JSON at all starts an empty shelf and is kept the same way (`shelf.json.bad 2` beside an earlier one)
 - [ ] Shots saved to an external disk (or a disk image) stay on the shelf while it's ejected, through clicks and a relaunch, and work again once it's back (`MARGIN_DISK_IMAGE_TESTS=1 scripts/test.sh` covers the check itself)
 
 ## Paste into apps (⌘V after a capture)

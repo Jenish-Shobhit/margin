@@ -169,6 +169,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - `~/Library/Application Support/Margin/shelf.json`.
   - Store items in order with **bookmark data**, so moved files are followed, plus the date and pixel size.
   - Items survive quit and reboot.
+  - Read item by item: an item that can't be read (a damaged file, or one written by a newer version) is skipped, not the whole shelf. A file with anything unreadable in it is kept as `shelf.json.bad` (never replacing an earlier one) before anything saves over it.
   - Drop any item whose file no longer resolves. Check at launch, whenever the shelf appears, and when a drag starts.
   - A file on a volume that isn't mounted (an unplugged disk, a disconnected share) hasn't gone: keep its card.
 
