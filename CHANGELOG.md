@@ -2,6 +2,18 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.17 — 2026-10-15
+
+### Changed
+
+- Shots reach the shelf faster. From letting go of the mouse to the thumbnail on screen takes about 19–33 ms instead of 38–50 ms, and files and the clipboard are ready 6–38% sooner. The crop, the thumbnail and the PNG encode now run in the background, start as soon as the image is captured, and the crop no longer copies pixels.
+- Repeat Last Area (⇧⌘2) shows its thumbnail about 70 ms after the shortcut instead of about 96 ms: the outline flash reuses one window, drawn with layer borders, instead of building a new one each time.
+- The fly-in that carries a shot to the shelf reuses its window, and much less work happens on the main thread during a capture (32–90% less).
+
+### Fixed
+
+- Pressing ⇧⌘4 again right as you let go of a selection could leave Margin in front with no window, so typing went nowhere until a click.
+
 ## 0.0.16 — 2026-10-15
 
 ### Changed
