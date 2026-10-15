@@ -67,9 +67,14 @@ public enum LeftoverSaves {
                 }
                 continue
             }
+            // A save is written after its capture: the nearest card captured before the file was written, if any.
+            let rank = { (item: ShelfItem) in
+                let offset = created.timeIntervalSince(item.createdAt)
+                return (offset < 0 ? 1 : 0, abs(offset))
+            }
             let card = waiting.enumerated()
                 .filter { $0.element.pixelSize == size && matchWindow.contains(created.timeIntervalSince($0.element.createdAt)) }
-                .min { abs(created.timeIntervalSince($0.element.createdAt)) < abs(created.timeIntervalSince($1.element.createdAt)) }
+                .min { rank($0.element) < rank($1.element) }
             do {
                 let url: URL
                 if let card {

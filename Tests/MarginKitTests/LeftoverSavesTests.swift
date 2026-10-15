@@ -80,6 +80,22 @@ import Testing
         #expect(outcomes == [.init(temp: temp, action: .recovered(near.url), itemID: near.id)])
     }
 
+    @Test func aSaveGoesToACardCapturedBeforeItWasWritten() throws {
+        // Two shots of the same size a second apart (⇧⌘2 twice), both cut off; each took 0.6 s to encode. The first
+        // shot's file is nearer the second card's time, but it was written before that capture.
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let first = waitingCard(dir, at: date)
+        let second = waitingCard(dir, at: date.addingTimeInterval(1))
+        let firstTemp = try leftover(dir, png, written: date.addingTimeInterval(0.6))
+        let secondTemp = try leftover(dir, png, written: date.addingTimeInterval(1.6))
+        let outcomes = recover(dir, items: [first, second])
+        #expect(outcomes == [
+            .init(temp: firstTemp, action: .recovered(first.url), itemID: first.id),
+            .init(temp: secondTemp, action: .recovered(second.url), itemID: second.id),
+        ])
+    }
+
     @Test func noCardOutsideTheWindowOrWithAFile() throws {
         let dir = try TempDir()
         defer { dir.remove() }
