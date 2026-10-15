@@ -3,8 +3,17 @@ import AppKit
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: AppCoordinator?
+    private var launchGuard: LaunchGuard?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Before anything else: a second copy of Margin gives way to the one running.
+        let launchGuard = LaunchGuard()
+        self.launchGuard = launchGuard
+        launchGuard.run { [weak self] in self?.start() }
+    }
+
+    private func start() {
+        launchGuard = nil
         MainMenu.install()
         let coordinator = AppCoordinator()
         self.coordinator = coordinator

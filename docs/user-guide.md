@@ -45,7 +45,7 @@ Captures started from the menu wait for the menu to close, so the menu is never 
 
 A quieter item, with no dot, sits above Settings… while macOS still owns one of Margin's shortcuts: **macOS still uses ⇧⌘4 — Fix…**. It opens first run at step 2.
 
-Opening Margin again from Finder or Spotlight while it's running opens Settings, or the permission step if permission is missing.
+Opening Margin again from Finder or Spotlight while it's running opens Settings, or the permission step if permission is missing. That holds for another copy of Margin too (a newer download still in Downloads, say): only one runs at a time, so the second hands over to the first and quits.
 
 ## First run
 

@@ -304,6 +304,8 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] The shortcuts shown match Settings
 - [ ] About shows the icon, the current version and build (e.g. 0.0.7 (7)) and "© 2026 Jenish Shobhit · MIT License"
 - [ ] Opening Margin again while it runs (Finder, Spotlight) opens Settings, or First run step 1 without permission
+- [ ] `open -n /Applications/Margin.app` while it runs: Settings opens in the running copy within a second, the second copy quits within about 5 s without a menu bar icon, and ⇧⌘3 still saves one file
+- [ ] `scripts/build.sh --install --run` and Relaunch Margin end with exactly one Margin running
 
 **Actions**
 
