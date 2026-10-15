@@ -265,6 +265,7 @@ scripts/bench.sh help                     # every option
 - Captures see the bench's own window, a flat app UI or, with `--content photo`, a busy photo-like image, so PNG times don't depend on what's on screen.
 - It backs up the installed app, Margin's preferences, `shelf.json` and the clipboard, and restores them at the end (or on Ctrl-C). Meanwhile shots go to its scratch folder, with **Copy each capture** and the sound off (`--sound` keeps it).
 - It acts only while its window or Margin is in front and nobody is using the keyboard or mouse: it takes the screen after 20 s without input (`--idle`) and pauses on any input or when another app comes forward.
+- It launches Margin at most every 30 s (`--relaunch-gap`), counting from the launch of the copy it quits: relaunched more often, Margin makes macOS ask the user whether it may bypass the system's private window picker. An `ab` of a single suite waits between blocks for that.
 - Profile the same runs with `sample Margin 10 -file out.txt` while it captures.
 
 ## The app icon

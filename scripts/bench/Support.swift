@@ -182,15 +182,31 @@ enum Margin {
         return data.range(of: Data("margin.debug".utf8)) != nil
     }
 
+    /// Launches closer together than this make macOS ask the user whether Margin may bypass the system's private window
+    /// picker, so `launch` waits out the rest (`--relaunch-gap`).
+    nonisolated(unsafe) static var relaunchGap = 30.0
+    /// The latest launch: this driver's, or that of a copy it quit.
+    nonisolated(unsafe) private static var lastLaunch = Date.distantPast
+
     static func quit() async {
+        for app in NSRunningApplication.runningApplications(withBundleIdentifier: marginBundleID) {
+            if let launched = app.launchDate { lastLaunch = max(lastLaunch, launched) }
+        }
         for app in NSRunningApplication.runningApplications(withBundleIdentifier: marginBundleID) { app.terminate() }
         for _ in 0..<50 where running != nil { await sleep(ms: 100) }
         for app in NSRunningApplication.runningApplications(withBundleIdentifier: marginBundleID) { app.forceTerminate() }
         for _ in 0..<20 where running != nil { await sleep(ms: 100) }
     }
 
-    /// Opens /Applications/Margin.app without activating it. Returns when it was asked to open.
+    /// Opens /Applications/Margin.app without activating it, at least `relaunchGap` after the last launch. Returns when
+    /// it was asked to open.
     static func launch() async throws -> Date {
+        let wait = relaunchGap - Date().timeIntervalSince(lastLaunch)
+        if wait > 0 {
+            say(String(format: "waiting %.0f s before launching Margin again (quick relaunches make macOS ask the user about it)", wait))
+            await sleep(ms: wait * 1000)
+        }
+        lastLaunch = Date()
         let config = NSWorkspace.OpenConfiguration()
         config.activates = false
         config.addsToRecentItems = false
