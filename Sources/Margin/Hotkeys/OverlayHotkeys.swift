@@ -9,12 +9,14 @@ import os
 /// frontmost window while ScreenCaptureKit is still grabbing the frame, and the shot would show that window
 /// unfocused: a grey selection, no caret (made key at once, 11 of 12 test frames caught the window unfocused).
 /// Until then a key would reach the frontmost app instead: Space typed into a document, Esc taking a full-screen app
-/// out of full screen. So Esc, Space, ↩, ⌤, Z and the arrows, alone or with any of ⇧ ⌥ ⌃, are registered when the
-/// capture starts: Carbon hotkeys need no permission and keep the key from the frontmost app. Each press (and
-/// release) is handed on as a key event.
+/// out of full screen. So ⌤, Z and the arrows, alone or with any of ⇧ ⌥ ⌃, and Esc, Space and ↩, alone or with ⇧,
+/// are registered when the capture starts: Carbon hotkeys need no permission and keep the key from the frontmost app.
+/// Each press (and release) is handed on as a key event. Not Esc, Space or ↩ with ⌥ or ⌃: those are other apps'
+/// global shortcuts (⌥Space opens launchers, ⌃Space switches input source), and a combo two apps register fires in
+/// both, so the launcher would open and the overlay would switch to window mode.
 ///
 /// Plain Esc and Space go first, before anything else on the hotkey path (`registerFirst`): about 0.1 ms. The other
-/// 70 combos (2–4 ms) follow once the overlay is up (`register`). Registered after the captures had started, as they
+/// 52 combos (2–3 ms) follow once the overlay is up (`register`). Registered after the captures had started, as they
 /// were, the first one could wait 5–7 ms on the window server, which is busy starting them, and a key pressed 10–15
 /// ms after ⇧⌘4 still reached the frontmost app. Keys pressed before Margin even gets ⇧⌘4 (the window server hands
 /// it over 15–30 ms after the press) can't be caught at all.
@@ -68,6 +70,9 @@ final class OverlayHotkeys {
         (i & 1 != 0 ? KeyCombo.shift : 0) | (i & 2 != 0 ? KeyCombo.option : 0) | (i & 4 != 0 ? KeyCombo.control : 0)
     }
 
+    /// Caught alone or with ⇧ only: with ⌥ or ⌃ they're other apps' shortcuts.
+    private static let shiftOnlyKeys: Set<UInt16> = [UInt16(kVK_Escape), UInt16(kVK_Space), UInt16(kVK_Return)]
+
     /// At launch (`CaptureController.prewarm`): the Carbon handler, so the first capture doesn't install it.
     func prepare() {
         Self.installHandler()
@@ -87,7 +92,8 @@ final class OverlayHotkeys {
         Self.installHandler()
         Self.active = self
         for (index, (keyCode, characters)) in Self.keys().enumerated() {
-            for (set, modifiers) in Self.modifierSets.enumerated() {
+            for (set, modifiers) in Self.modifierSets.enumerated()
+            where !Self.shiftOnlyKeys.contains(keyCode) || modifiers & ~KeyCombo.shift == 0 {
                 add(keyCode, modifiers: modifiers, characters: characters, id: Self.id(key: index, modifiers: set))
             }
         }
