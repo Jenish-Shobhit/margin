@@ -17,8 +17,8 @@ enum ShelfThumbnails {
     }
 
     /// ImageIO thumbnail of a file on disk (restored items).
-    nonisolated static func load(url: URL, pixelSize: CGSize, priority: TaskPriority = .userInitiated) async -> ShelfImageBox? {
-        await Task.detached(priority: priority) { () -> ShelfImageBox? in
+    nonisolated static func load(url: URL, pixelSize: CGSize) async -> ShelfImageBox? {
+        await Task.detached(priority: .userInitiated) { () -> ShelfImageBox? in
             guard let src = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
             var size = pixelSize
             if size.width <= 0 || size.height <= 0,
