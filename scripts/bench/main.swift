@@ -611,7 +611,10 @@ final class Bench {
         let n = options.n ?? 10
         await setUp(showCanvas: false)
         if let app = options.app { await install(app) }
-        let suite = "launch-" + (options.shelf.map { $0 == "empty" ? "empty" : URL(fileURLWithPath: $0).lastPathComponent } ?? "current")
+        // Named after the shelf's folder: every shelf file is called shelf.json.
+        let suite = "launch-" + (options.shelf.map { shelf in
+            shelf == "empty" ? "empty" : URL(fileURLWithPath: shelf).standardizedFileURL.deletingLastPathComponent().lastPathComponent
+        } ?? "current")
         for i in 0..<n where !stopRequested {
             await Margin.quit()
             await sleep(ms: 1000)
