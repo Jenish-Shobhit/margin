@@ -485,8 +485,10 @@ final class CaptureController: CaptureControlling {
         let clock = Stopwatch()
         let wasActive = owesFocus
         let previous = previousApp
-        // Cut while the overlay comes down (which lets go of the frozen frame), or captured before focus goes back.
-        let standIn = standIn(for: window, keepShadow: keepShadow) ?? Self.captureStandIn(of: window, keepShadow: keepShadow)
+        // Cut while the overlay comes down (which lets go of the frozen frame), or captured before focus goes back. The
+        // capture runs even when the cut stands in: the shot comes 9 ms sooner after it, and encodes 5 ms faster.
+        let captured = Self.captureStandIn(of: window, keepShadow: keepShadow)
+        let standIn = standIn(for: window, keepShadow: keepShadow) ?? captured
         endSession()
         let displayID = Displays.display(bestFor: window.frame)?.id ?? CGMainDisplayID()
         let shot = Task { () -> Result<Shot, any Error> in
@@ -544,6 +546,10 @@ final class CaptureController: CaptureControlling {
     /// captured right away, before its app has focus back. ScreenCaptureKit isn't held back yet then (about 30 ms), but
     /// the window may have its unfocused look, and with ⌥ the smaller shadow that goes with it: the shot puts that right.
     /// Nil if it fails; the shot then goes to the shelf as soon as it's in (or fails as it would have).
+    ///
+    /// It's made for every click, the frozen cut's too: after it, the shot is in about 9 ms sooner and its PNG encodes
+    /// 5 ms faster (measured; ScreenCaptureKit seems to keep that window's capture going). A 16 × 16 capture did that
+    /// only about half as well.
     private static func captureStandIn(of window: CapturableWindow, keepShadow: Bool) -> Task<StandIn?, Never> {
         let target = window.target
         return Task.detached(priority: .userInitiated) {

@@ -229,7 +229,7 @@ The info lines read `name: 12.3 ms` (sizes: `name: 45.6 KB`). The ones that say 
 | `releaseToThumbnailCommit`, `…Frame` | Mouse-up (or the capture, for ⇧⌘3, ⇧⌘2 and window mode; the click, for window mode's stand-in) | The main thread's Core Animation commit after the thumbnail went to the shelf, and the next refresh after that |
 | `releaseToFile` | The same | The PNG renamed into place |
 | `screenCapture`, `areaCapture`, `windowCapture` | The shortcut or click | The image, before the release clock starts (in window mode, the stand-in made at the click, when there is one) |
-| `windowShot`, `releaseToShotThumbnailCommit`, `…Frame` | The click; the release | Window mode's own capture, after a stand-in; its thumbnail in place of the stand-in's (the bench adds the two up as `e2e.toShotThumbnailFrame`) |
+| `windowShot`, `releaseToShotThumbnailCommit`, `…Frame` | The click; the release | Window mode's own capture, after a stand-in; its thumbnail in place of the stand-in's (the bench adds the two up as `e2e.toShotThumbnailFrame`). `windowStandIn.*` is the window's capture at the click, before focus goes back |
 | `release.*`, `finishSave.*` | | Main-thread steps of the release (`release.main` is all of `handleCapture`) and of the save's return |
 | `launchToStarted`, `launchToPrewarmed` | The process start | Everything wired up; the first capture ready |
 | `shelfRestore`, `shelfRestoreThumbnails` | | The shelf at launch, and the thumbnails of the cards in view (or nearly) loaded |
