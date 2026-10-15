@@ -3,13 +3,14 @@ import MarginKit
 
 /// A `KeyCombo` as an `NSMenuItem` key equivalent, so the menu draws shortcuts natively (⇧⌘4,
 /// right-aligned). Built from MarginKit's key names on the current keyboard layout, so it matches
-/// `KeyCombo.displayString` in Settings (⌃⌥⌘Z for key code 0x10 on a German layout).
+/// `KeyCombo.displayString` in Settings (⌃⌥⌘Z for key code 0x10 on a German layout; with ⌘, as the key types
+/// with ⌘ held).
 struct MenuKeyEquivalent {
     let key: String
     let modifiers: NSEvent.ModifierFlags
 
     init?(_ combo: KeyCombo) {
-        guard let name = KeyCombo.keyName(for: combo.keyCode) else { return nil }
+        guard let name = combo.keyName() else { return nil }
         if let special = Self.specialKeys[name] {
             key = String(UnicodeScalar(UInt16(special)).map(Character.init) ?? " ")
         } else if name.count == 1 {

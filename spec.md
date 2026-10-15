@@ -247,6 +247,7 @@ There are six settings, in one small SwiftUI window:
 - **Show key hints while capturing** (on): the hint bar at the top of the capture overlay.
 - **Launch at login** (on; `SMAppService.mainApp`).
 - **Shortcuts:** recorders for Area, Screen, Repeat area and Tuck shelf. A recorded combo needs ⌘ or ⌃, and is refused (with the reason, `ReservedShortcuts`) when it's ⌘ or ⌃ with one typing key, a combo macOS or most apps use (⇧⌘Z, ⇧⌘5, ⌃⌘Q, ⌥⌘⎋…), or an enabled system shortcut from `com.apple.symbolichotkeys`. Window mode is always Space from area mode, and the ⌃ twins follow automatically.
+  - Keys are named as the keyboard layout types them (`KeyboardLayout`), in Settings and the menu; a combo with ⌘ as its key types with ⌘ held, as menus name it. Menu shortcuts are refused by that name: Redo is ⇧⌘ on whichever key types Z with ⌘, which on "Dvorak – QWERTY ⌘" is where QWERTY has Z.
 
 ## 9. Not in 0.0.1
 

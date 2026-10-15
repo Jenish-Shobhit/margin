@@ -9,7 +9,12 @@ extension KeyCombo {
 
     /// `displayString`, with character keys named by `layout`.
     public func displayString(layout: KeyboardLayout) -> String {
-        Self.modifierSymbols(modifiers) + (Self.keyName(for: keyCode, layout: layout) ?? "#\(keyCode)")
+        Self.modifierSymbols(modifiers) + (keyName(layout: layout) ?? "#\(keyCode)")
+    }
+
+    /// This combo's key, as `keyName(for:command:layout:)` names it with the combo's ⌘.
+    public func keyName(layout: KeyboardLayout = .current) -> String? {
+        Self.keyName(for: keyCode, command: modifiers & Self.cmd != 0, layout: layout)
     }
 
     /// The modifier symbols in the macOS menu order ⌃⌥⇧⌘ (e.g. "⌃⇧⌘").
@@ -61,18 +66,20 @@ extension KeyCombo {
         keyName(for: keyCode, layout: .current)
     }
 
-    /// `keyName(for:)` on `layout`. Only the keys named here can be shortcuts: the layout changes what a character
-    /// key is called (key code 0x10 is Z on a German layout), never which keys have a name.
-    public static func keyName(for keyCode: UInt32, layout: KeyboardLayout) -> String? {
+    /// `keyName(for:)` on `layout`, as the key types with ⌘ held when `command` (in a combo with ⌘: on "Dvorak –
+    /// QWERTY ⌘", key code 0x06 is ; alone but Z with ⌘). Only the keys named here can be shortcuts: the layout
+    /// changes what a character key is called (key code 0x10 is Z on a German layout), never which keys have a name.
+    public static func keyName(for keyCode: UInt32, command: Bool = false, layout: KeyboardLayout) -> String? {
         guard let us = keyNames[keyCode] else { return nil }
         guard characterKeyNames[keyCode] != nil else { return us }
-        return layout.characterName(for: keyCode) ?? us
+        return layout.characterName(for: keyCode, command: command) ?? us
     }
 
-    /// The character key named `name` on `layout` ("Z" is key code 0x10 on a German layout), or its US key code.
+    /// The character key named `name` on `layout` without ⌘ ("Z" is key code 0x10 on a German layout), or its US
+    /// key code.
     public static func keyCode(forCharacter name: String, layout: KeyboardLayout) -> UInt32? {
         let name = name.uppercased()
-        return characterKeyNames.keys.sorted().first { layout.characterName(for: $0) == name } ?? keyCode(for: name)
+        return characterKeyNames.keys.sorted().first { layout.characterName(for: $0, command: false) == name } ?? keyCode(for: name)
     }
 
     /// The Carbon key code for a key's US name (what `keyName(for:)` says before the app reads the keyboard layout).

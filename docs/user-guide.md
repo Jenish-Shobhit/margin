@@ -228,7 +228,7 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 - The ⌃ twins follow automatically.
 - Window capture is always Space after the area shortcut.
 - If a shortcut can't be registered (another app has it), a warning shows under it.
-- Shortcuts are shown with the letters of your keyboard layout: on a German keyboard the key right of T reads Z. Switch input source and Settings and the menu follow.
+- Shortcuts are shown with the letters of your keyboard layout: on a German keyboard the key right of T reads Z. A shortcut with ⌘ reads as its key types with ⌘ held, as menus show it: on "Dvorak – QWERTY ⌘" that's the QWERTY letter. Switch input source and Settings and the menu follow.
 
 ## Displays, Spaces and accessibility
 

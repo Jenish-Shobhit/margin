@@ -29,7 +29,7 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] ⌃⇧⌘4, ⌃⇧⌘3 and ⌃⇧⌘2 do the same as without ⌃
 - [ ] ⇧⌘1 tucks and shows the shelf
 - [ ] Shortcuts changed in Settings take effect immediately, ⌃ twins included; the old ones stop working
-- [ ] With a German (QWERTZ) input source, a shortcut recorded on the key right of T reads Z in Settings and the menu; with French (AZERTY), the key right of Tab reads A and ⇧⌘4 still reads ⇧⌘4. Switching input source with Settings open renames them
+- [ ] With a German (QWERTZ) input source, a shortcut recorded on the key right of T reads Z in Settings and the menu; with French (AZERTY), the key right of Tab reads A and ⇧⌘4 still reads ⇧⌘4; with "Dvorak – QWERTY ⌘", ⇧⌘ on the key QWERTY calls Z reads ⇧⌘Z and is refused as Redo, and ⌃⌥ on it reads ⌃⌥;. Switching input source with Settings open renames them
 
 ## Capture: freeze and selection (§2)
 

@@ -29,9 +29,21 @@ import Testing
             == "⇧⌘Z is Redo. Choose another.")
         #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x06, modifiers: cmd | shift), layout: qwertz) == nil)
         // System shortcuts stay on their keys: ⌥⌘D is the Dock on key code 0x02 whatever it's labelled.
-        let everythingIsX = KeyboardLayout { _, _ in "x" }
+        let everythingIsX = KeyboardLayout { _, _, _ in "x" }
         #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x02, modifiers: cmd | option), layout: everythingIsX) != nil)
         #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x0C, modifiers: cmd | control), layout: everythingIsX) == nil)
+    }
+
+    /// …as the key types with ⌘ held: on "Dvorak – QWERTY ⌘", Redo is ⇧⌘ on key code 0x06, where QWERTY has Z.
+    @Test func menuShortcutsAreMatchedAsTheKeyTypesWithCommand() {
+        let layout = KeyboardLayoutTests.dvorakQwertyCommand
+        #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x06, modifiers: cmd | shift), layout: layout)
+            == "⇧⌘Z is Redo. Choose another.")
+        #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x2C, modifiers: cmd | shift), layout: layout)
+            == "⇧⌘/ is the Help menu. Choose another.")
+        #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x0C, modifiers: cmd | control), layout: layout)
+            == "⌃⌘Q is Lock Screen. Choose another.")
+        #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x0C, modifiers: cmd | option | shift), layout: layout) == nil)
     }
 
     @Test func marginDefaultsAndOrdinaryCombosAreAllowed() {

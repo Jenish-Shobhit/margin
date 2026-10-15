@@ -50,7 +50,7 @@ flowchart LR
 | `ClipboardMark.swift` | The ⌘V mark's change-count bookkeeping, and `ClipboardWriter` (PNG + file URL per item; Copy Path's plain text) |
 | `Preferences.swift` | `KeyCombo`, `ShortcutAction` (defaults, ⌃ twins, conflicts), `LastArea` and the `Preferences` store |
 | `KeyCombo+Display.swift` | `⇧⌘4`-style strings in ⌃⌥⇧⌘ order, key names and Carbon ↔ AppKit modifiers |
-| `KeyboardLayout.swift` | What the character keys type on the user's keyboard layout (`UCKeyTranslate`), so shortcuts read as the keys are labelled. A snapshot taken on the main thread at launch and on every input source change |
+| `KeyboardLayout.swift` | What the character keys type on the user's keyboard layout (`UCKeyTranslate`), so shortcuts read as the keys are labelled: with ⌘ held for a combo with ⌘, as menus name it ("Dvorak – QWERTY ⌘" types QWERTY then). A snapshot taken on the main thread at launch and on every input source change |
 | `RuntimeStatus.swift` | Live state shared across the app: hotkey failures, revoked Screen Recording |
 | `SystemShortcuts.swift` | Reading the macOS screenshot shortcuts (IDs 28–31) |
 | `SystemShortcuts+Write.swift` | Turning them off or on: the pure dictionary rewrite, `activateSettings -u`, and the check that it stuck |

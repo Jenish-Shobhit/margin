@@ -5,7 +5,7 @@ import Testing
     let cmd = KeyCombo.cmd, shift = KeyCombo.shift, option = KeyCombo.option, control = KeyCombo.control
 
     /// A few keys of a German (QWERTZ) layout: Y and Z swapped, ß and ´ where US has - and =.
-    static let qwertz = KeyboardLayout(id: "qwertz") { code, shift in
+    static let qwertz = KeyboardLayout(id: "qwertz") { code, shift, _ in
         let keys: [UInt32: (String, String)] = [
             0x10: ("z", "Z"), 0x06: ("y", "Y"), 0x00: ("a", "A"), 0x15: ("4", "$"), 0x1B: ("ß", "?"), 0x18: ("´", "`"),
             0x29: ("ö", "Ö"),
@@ -14,12 +14,19 @@ import Testing
     }
 
     /// A few keys of a French (AZERTY) layout: A/Q and Z/W swapped, symbols on the digit row (digits need ⇧).
-    static let azerty = KeyboardLayout(id: "azerty") { code, shift in
+    static let azerty = KeyboardLayout(id: "azerty") { code, shift, _ in
         let keys: [UInt32: (String, String)] = [
             0x0C: ("a", "A"), 0x00: ("q", "Q"), 0x0D: ("z", "Z"), 0x06: ("w", "W"),
             0x15: ("'", "4"), 0x12: ("&", "1"), 0x1D: ("à", "0"),
         ]
         return keys[code].map { shift ? $0.1 : $0.0 }
+    }
+
+    /// A few keys of "Dvorak – QWERTY ⌘": Dvorak, but QWERTY while ⌘ is down.
+    static let dvorakQwertyCommand = KeyboardLayout(id: "dvorak-qwerty-cmd") { code, shift, command in
+        let dvorak: [UInt32: (String, String)] = [0x06: (";", ":"), 0x2C: ("z", "Z"), 0x0C: ("'", "\""), 0x15: ("4", "$")]
+        let qwerty: [UInt32: (String, String)] = [0x06: ("z", "Z"), 0x2C: ("/", "?"), 0x0C: ("q", "Q"), 0x15: ("4", "$")]
+        return (command ? qwerty : dvorak)[code].map { shift ? $0.1 : $0.0 }
     }
 
     @Test func charactersFollowTheLayout() {
@@ -34,7 +41,7 @@ import Testing
     @Test func theSameKeysHaveUSNamesWithoutALayout() {
         #expect(KeyCombo(keyCode: 0x10, modifiers: control | option | cmd).displayString(layout: .us) == "⌃⌥⌘Y")
         #expect(KeyCombo(keyCode: 0x0C, modifiers: shift | cmd).displayString(layout: .us) == "⇧⌘Q")
-        #expect(KeyboardLayout.us.characterName(for: 0x10) == nil)
+        #expect(KeyboardLayout.us.characterName(for: 0x10, command: false) == nil)
         #expect(KeyboardLayout.us.inputSourceID == nil)
     }
 
@@ -48,7 +55,7 @@ import Testing
     }
 
     @Test func specialKeysKeepTheirSymbols() {
-        let everythingIsX = KeyboardLayout { _, _ in "x" }
+        let everythingIsX = KeyboardLayout { _, _, _ in "x" }
         #expect(KeyCombo(keyCode: 0x31, modifiers: option | cmd).displayString(layout: everythingIsX) == "⌥⌘Space")
         #expect(KeyCombo(keyCode: 0x7E, modifiers: control | cmd).displayString(layout: everythingIsX) == "⌃⌘↑")
         #expect(KeyCombo(keyCode: 0x6F, modifiers: shift | cmd).displayString(layout: everythingIsX) == "⇧⌘F12")
@@ -60,7 +67,7 @@ import Testing
     }
 
     @Test func unprintableOrMissingCharactersFallBackToUSNames() {
-        let odd = KeyboardLayout { code, _ in
+        let odd = KeyboardLayout { code, _, _ in
             switch code {
             case 0x00: return nil
             case 0x0B: return "\u{10}"
@@ -81,6 +88,22 @@ import Testing
         #expect(KeyCombo.keyName(for: 0x1B, layout: Self.qwertz) == "ß")
         #expect(KeyCombo.keyName(for: 0x18, layout: Self.qwertz) == "´")
         #expect(KeyCombo.keyName(for: 0x00, layout: Self.qwertz) == "A")
+    }
+
+    /// A combo with ⌘ is named by what its key types with ⌘ held, as menus name it; without ⌘, by what it types.
+    @Test func commandCombosAreNamedAsTheyTypeWithCommand() {
+        let layout = Self.dvorakQwertyCommand
+        #expect(layout.characterName(for: 0x06, command: false) == ";")
+        #expect(layout.characterName(for: 0x06, command: true) == "Z")
+        #expect(KeyCombo(keyCode: 0x06, modifiers: shift | cmd).displayString(layout: layout) == "⇧⌘Z")
+        #expect(KeyCombo(keyCode: 0x2C, modifiers: shift | cmd).displayString(layout: layout) == "⇧⌘/")
+        #expect(KeyCombo(keyCode: 0x06, modifiers: control | option).displayString(layout: layout) == "⌃⌥;")
+        #expect(KeyCombo(keyCode: 0x2C, modifiers: control | shift).displayString(layout: layout) == "⌃⇧Z")
+        #expect(KeyCombo(keyCode: 0x06, modifiers: control | cmd).keyName(layout: layout) == "Z")
+        #expect(KeyCombo.keyName(for: 0x06, layout: layout) == ";")
+        #expect(KeyCombo.keyName(for: 0x06, command: true, layout: layout) == "Z")
+        // The overlay's Z has no ⌘: it's where the layout types Z.
+        #expect(KeyCombo.keyCode(forCharacter: "Z", layout: layout) == 0x2C)
     }
 
     /// The overlay catches Z by where the layout has it.
@@ -113,6 +136,36 @@ import Testing
         #expect(KeyCombo.keyName(for: 0x06, layout: french) == "W")
         for action in ShortcutAction.allCases {
             #expect(action.defaultCombo.displayString(layout: french) == action.defaultCombo.displayString(layout: .us))
+        }
+    }
+
+    /// Dvorak while typing, QWERTY while ⌘ is down: ⇧⌘ on key code 0x06 is Redo (it types Z with ⌘), and ⇧⌘ on
+    /// 0x2C, labelled Z, is the Help menu's ⇧⌘/.
+    @MainActor @Test func dvorakQwertyCommandLayout() throws {
+        guard let layout = KeyboardLayout(inputSourceID: "com.apple.keylayout.DVORAK-QWERTYCMD") else {
+            try Test.cancel("The Dvorak – QWERTY ⌘ layout isn't installed")
+        }
+        #expect(KeyCombo(keyCode: 0x06, modifiers: shift | cmd).displayString(layout: layout) == "⇧⌘Z")
+        #expect(KeyCombo(keyCode: 0x2C, modifiers: shift | cmd).displayString(layout: layout) == "⇧⌘/")
+        #expect(KeyCombo(keyCode: 0x06, modifiers: control | option).displayString(layout: layout) == "⌃⌥;")
+        #expect(KeyCombo.keyCode(forCharacter: "Z", layout: layout) == 0x2C)
+        #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x06, modifiers: shift | cmd), layout: layout)
+            == "⇧⌘Z is Redo. Choose another.")
+        #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x2C, modifiers: shift | cmd), layout: layout)
+            == "⇧⌘/ is the Help menu. Choose another.")
+        // With ⌘ every character key has its QWERTY (US) name, so Margin's defaults read as they do in the US.
+        for code in UInt32(0)..<128 {
+            #expect(KeyCombo(keyCode: code, modifiers: cmd).keyName(layout: layout) == KeyCombo.keyName(for: code, layout: .us),
+                    "key code \(code)")
+        }
+    }
+
+    /// The Lithuanian digit row types letters (ą, č…) and digits with ⌘: ⇧⌘4 is ⇧⌘4 there too.
+    @MainActor @Test func lithuanianDigitRowWithCommand() throws {
+        let lithuanian = try #require(KeyboardLayout(inputSourceID: "com.apple.keylayout.Lithuanian"))
+        #expect(KeyCombo.keyName(for: 0x15, layout: lithuanian) == "Ė")
+        for action in ShortcutAction.allCases {
+            #expect(action.defaultCombo.displayString(layout: lithuanian) == action.defaultCombo.displayString(layout: .us))
         }
     }
 
