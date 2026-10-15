@@ -40,6 +40,8 @@ options for run / ab / launch:
   --idle <s>             seconds without keyboard or mouse input before the bench takes the screen, and before it
                          goes on after anyone touched either (default 20)
   --max-pause <s>        give up after waiting this long for the bench window to be in front (default 600)
+  --relaunch-gap <s>     launch Margin at most this often (default 30): quicker relaunches make macOS ask the user
+                         whether Margin may bypass the system's private window picker
 """
 
 // MARK: - Options
@@ -61,6 +63,7 @@ struct Options {
     var keepShots = false
     var maxPause = 600.0
     var idle = 20.0
+    var relaunchGap = 30.0
 
     init(_ args: [String]) {
         var it = args.makeIterator()
@@ -93,6 +96,7 @@ struct Options {
             case "--keep-shots": keepShots = true
             case "--max-pause": maxPause = Double(value(a)) ?? 600
             case "--idle": idle = Double(value(a)) ?? 20
+            case "--relaunch-gap": relaunchGap = Double(value(a)) ?? 30
             case "-h", "--help": command = "help"
             default: positional.append(a)
             }
@@ -464,6 +468,8 @@ final class Bench {
         let action = v["screenCapture"] ?? v["areaCapture"] ?? v["windowCapture"]
         if let action {
             if let f = v["releaseToThumbnailFrame"] { metrics.append(("e2e.toThumbnailFrame", action + f, "ms")) }
+            // Window mode's own shot, when a stand-in went to the shelf first.
+            if let f = v["releaseToShotThumbnailFrame"] { metrics.append(("e2e.toShotThumbnailFrame", action + f, "ms")) }
             if let f = v["releaseToFile"] { metrics.append(("e2e.toFile", action + f, "ms")) }
         }
         // A real ⇧⌘4: from posting the key press to Margin's handler (the window server's hand-over), on the mach clock.
@@ -669,6 +675,7 @@ final class Bench {
 // MARK: - Main
 
 let options = Options(Array(CommandLine.arguments.dropFirst()))
+Margin.relaunchGap = options.relaunchGap
 
 switch options.command {
 case "help":

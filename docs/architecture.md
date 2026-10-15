@@ -44,7 +44,7 @@ flowchart LR
 |---|---|
 | `FileNamer.swift` | `Screenshot yyyy-MM-dd at HH.mm.ss.png` (en_US_POSIX, 24-hour, ASCII spaces) and ` (2)` collisions |
 | `Geometry.swift` | AppKit ↔ CG coordinate flips, point → pixel rects, snapping to window edges |
-| `WindowPicking.swift` | Which on-screen windows window mode picks, by layer and size: normal and floating windows, system UI that covers, overlays and menus it skips |
+| `WindowPicking.swift` | Which on-screen windows window mode picks, by layer and size: normal and floating windows, system UI that covers, overlays and menus it skips. And whether a window shows whole, with nothing in front overlapping it (window mode's stand-in) |
 | `ShelfLayout.swift` | Card sizes, slots, how many cards fit and the `+N older` pile |
 | `ShelfCardPlan.swift` | Which cards are live, with a view and a decoded thumbnail (the visible ones, the pile's fan and the next few in the pile), and `ThumbnailLoads`: a few decodes at a time, in that order, without retrying a file that couldn't be read |
 | `ShelfStore.swift` | `ShelfItem` (path, bookmark, date, pixel size; whether its volume is mounted) and the ordered, JSON-persisted list |
@@ -89,7 +89,8 @@ flowchart LR
 - `png`: the one PNG encode of `image`, for both the file and the clipboard, started off the main thread alongside the thumbnail;
 - `scale`: pixels per point, used for the DPI;
 - `sourceRect`: the on-screen rect in AppKit global points, where the fly-in starts;
-- `displayID`, `kind` (`.area`, `.window` or `.screen`) and `date`.
+- `displayID`, `kind` (`.area`, `.window` or `.screen`) and `date`;
+- `windowShot`: window mode only, when `image` and `thumbnail` are a stand-in made at the click (see [Selecting](#selecting)): the window's own shot's thumbnail and pixel size, once ScreenCaptureKit has it (nil if that capture failed). `png` is always the shot's.
 
 **`CaptureControlling`** (implemented by `CaptureController`):
 
@@ -171,7 +172,9 @@ Selections are pixel-aligned and limited to the display where they started. Mous
 
 The other kinds:
 
-- **Window mode** picks the first window under the pointer in `ShareableContentCache`'s front-to-back stack, which `WindowPicking` builds from `CGWindowList`: windows up to layer 19 (normal, floating panels, Picture in Picture) are picked if ScreenCaptureKit lists them, the Dock, banners and the menu bar (layers 20–100) cover what's behind them and pick nothing, and menus and up, and see-through overlays above layer 0 (bigger than their display, or covering it), are skipped. Clicking closes the overlay and waits for the previous app to be active again, so the window is shot with its own focused look. It then captures with `SCContentFilter(desktopIndependentWindow:)`: no shadow unless ⌥ was held.
+- **Window mode** picks the first window under the pointer in `ShareableContentCache`'s front-to-back stack, which `WindowPicking` builds from `CGWindowList`: windows up to layer 19 (normal, floating panels, Picture in Picture) are picked if ScreenCaptureKit lists them, the Dock, banners and the menu bar (layers 20–100) cover what's behind them and pick nothing, and menus and up, and see-through overlays above layer 0 (bigger than their display, or covering it), are skipped. Clicking closes the overlay and waits for the previous app to be active again, and 35 ms more for it to redraw, so the window is shot with its own focused look. It then captures with `SCContentFilter(desktopIndependentWindow:)`: no shadow unless ⌥ was held.
+  - That shot is in about 130 ms after the click, whatever the wait: the window server holds a capture of the window back until the activation it just got is over, about 110 ms after the app is active again (ScreenCaptureKit takes 70–85 ms when started 35 ms after it, 25 ms once it's over). Waiting less doesn't get the shot sooner: a capture started before the activation takes hold comes back early, but with the unfocused look.
+  - Meanwhile the shelf gets a stand-in: the window cut from the frozen frame, as it looked when it was clicked (`finishWindow`; the crop shares the frame's pixels, as an area's does). Its thumbnail flies in at once, and the shot's replaces it once it's in, in the air or on the card (`ShelfController.replaceThumbnail`), without flying in again. The file and the clipboard are the shot's PNG. That's where the frozen frame shows all of that window and nothing else: not with ⌥ (the shot is bigger, by its shadow), and not for a window that isn't all on one display, or that something in front overlaps (another window, the Dock, the menu bar: `ShareableContentCache.isUncovered`). The cut is the frame's rectangle, though: until the shot replaces it, its rounded corners show what was behind the window, and so does anything over it that the window list leaves out (another window's shadow, a menu or tooltip, a window under 24 points). The windows it doesn't cut get a stand-in captured at the click instead, before focus goes back (`captureStandIn`): ScreenCaptureKit isn't held back yet then, so it's in after about 30 ms, but the window may have its unfocused look, and with ⌥ the smaller shadow that goes with it (the shot's pixel size then replaces the stand-in's, and the card follows). That capture runs for every click, though, the cut's too: after it, the shot is in about 9 ms sooner and its PNG encodes 5 ms faster (measured; ScreenCaptureKit seems to keep the window's capture going, and a 16 × 16 capture did only half as well). A shot that fails after its stand-in went to the shelf takes the card away, with the toast "Couldn't capture that window".
 - **⇧⌘3** captures the display under the pointer with the cached target.
 - **⇧⌘2** captures the last area's display, crops it and flashes the outline. `LastArea` keeps the rect relative to its display, with the display's size in points, so it's rebuilt on the display's current frame; at another size it falls back to ⇧⌘4.
 
@@ -184,6 +187,7 @@ On the main actor, in this order:
 1. Plays the shutter sound.
 2. Predicts the file name with `FileNamer`. It's checked against an in-memory set of names already handed out, *not* the disk.
 3. Calls `shelf.add` with a pending item and the result's thumbnail, which `CaptureController` downsampled off the main thread before handing the shot over. The fly-in starts here. The target is **≤ 100 ms from release to thumbnail**.
+4. For a window's stand-in, starts a task that waits for `windowShot` and puts the shot's thumbnail in its place (`replaceThumbnail`).
 
 Then, in a detached task:
 
@@ -199,7 +203,7 @@ Back on the main actor, `finishSave`:
 2. Stores the final path and bookmark, and calls `shelf.itemDidSave`.
 3. Shows the Unsaved toast if needed (and sets the flag behind the menu's **Show Unsaved Shots**), bumps the capture counter, and tells first run.
 
-If saving fails completely, the card goes with "Couldn't save the screenshot". The clipboard gets the PNG alone, if it's still the newest capture.
+If saving fails completely, the card goes with "Couldn't save the screenshot" ("Couldn't capture that window" when there was no PNG because a window's shot failed after its stand-in: `EncodedPNG.failure`). The clipboard gets the PNG alone, if it's still the newest capture.
 
 Quitting while saves are in flight answers `.terminateLater`. Margin waits for them, at most 3 s, on a run-loop timer that also fires during the termination modal loop. Then, as the app terminates (`AppCoordinator.stop`), it waits for the `shelf.json` writes still on their way (`ShelfStore.flush`).
 

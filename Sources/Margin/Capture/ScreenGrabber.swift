@@ -24,6 +24,16 @@ struct DisplayTarget: @unchecked Sendable {
 struct EncodedPNG: Sendable {
     let data: Data?
     let ms: Double
+    /// No bytes because the capture itself failed after its stand-in went to the shelf (`CaptureResult.windowShot`):
+    /// what the toast that takes the card away says.
+    var failure: String? = nil
+}
+
+/// Window mode's shot, replacing the stand-in on the shelf (`CaptureResult.windowShot`): its card thumbnail and its
+/// pixel size.
+struct ShotThumbnail: @unchecked Sendable {
+    let thumbnail: CGImage
+    let pixelSize: CGSize
 }
 
 /// A shot on its way to the shelf: the image, its card thumbnail and its PNG, all made off the main thread and started
@@ -102,14 +112,16 @@ enum ScreenGrabber {
     /// Just this window, with transparent rounded corners.
     /// Without the shadow, `captureImage` at frame × scale is exact. With the shadow, the image must be
     /// larger than the frame by the shadow's extent, which only the macOS 26 screenshot API sizes for us.
-    static func captureWindow(_ target: WindowTarget, keepShadow: Bool) async throws -> (SendableImage, CGFloat) {
+    /// `timing` names the log lines (`<timing>.filter`, `<timing>.sck`): window mode's stand-in has its own.
+    static func captureWindow(_ target: WindowTarget, keepShadow: Bool,
+                              timing: String = "windowCapture") async throws -> (SendableImage, CGFloat) {
         let state = CaptureLog.signposter.beginInterval("captureWindow")
         defer { CaptureLog.signposter.endInterval("captureWindow", state) }
         let setup = Stopwatch()
         let filter = SCContentFilter(desktopIndependentWindow: target.window)
         let info = SCShareableContent.info(for: filter)
         let scale = CGFloat(info.pointPixelScale)
-        CaptureTimings.log("windowCapture.filter", setup.ms)
+        CaptureTimings.log("\(timing).filter", setup.ms)
         if keepShadow {
             let config = SCScreenshotConfiguration()
             config.showsCursor = false
@@ -131,7 +143,7 @@ enum ScreenGrabber {
         config.shouldBeOpaque = false
         let sck = Stopwatch()
         let image = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
-        CaptureTimings.log("windowCapture.sck", sck.ms)
+        CaptureTimings.log("\(timing).sck", sck.ms)
         return (SendableImage(image: image), scale)
     }
 

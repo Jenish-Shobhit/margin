@@ -82,6 +82,9 @@ final class OverlaySession {
     var displays: [DisplayInfo] { panels.map(\.display) }
     var frozenCount: Int { images.count }
 
+    /// A display's frozen frame, if it has one yet.
+    func frozenImage(on id: CGDirectDisplayID) -> CGImage? { images[id] }
+
     // MARK: Lifecycle
 
     /// Puts the (still transparent) overlays up.

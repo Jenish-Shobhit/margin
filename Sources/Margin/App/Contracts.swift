@@ -24,6 +24,12 @@ struct CaptureResult: @unchecked Sendable {
     let displayID: CGDirectDisplayID
     let kind: Kind
     let date: Date
+    /// Window mode, when `image` and `thumbnail` are a stand-in made at the click (`CaptureController.finishWindow`): the
+    /// window cut from the frozen frame, or captured before its app had focus back, on the shelf while ScreenCaptureKit
+    /// is still waiting for the window to get its focused look back. This is the window's own shot's thumbnail and pixel
+    /// size, which replace the stand-in's, or nil if that capture failed (`png` then has no data, and says why). `png` is
+    /// always the shot's encode.
+    var windowShot: Task<ShotThumbnail?, Never>? = nil
 }
 
 /// Implemented by Capture/CaptureController.swift.

@@ -93,6 +93,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
   - Windows are taken front to back from `CGWindowList`. Normal windows and the ones floating above them below the Dock's level (floating panels, Picture in Picture, always-on-top windows: layers 1–19) can be picked, so a floating window is picked over the one behind it. System UI from the Dock's level to below menus (the Dock, banners, the menu bar) isn't picked but hides what's behind it. Menus and up (Margin's capture UI among them) are ignored, and so is a window above layer 0 that's bigger than its display or covers all of it: an overlay, usually see-through. Snapping uses the windows that can be picked.
 - Clicking captures that window with `SCContentFilter(desktopIndependentWindow:)`. That gives just the window, even if it's partly covered, with rounded corners and a transparent background.
 - There is **no shadow** (`ignoreShadowsSingleWindow = true`). Holding ⌥ while clicking keeps the shadow.
+- That capture waits for the window to look focused again (the app that had focus gets it back first), so it's in about 130 ms after the click. Until then the shelf shows a stand-in, the window cut from the frozen frame, which flies in at once; the capture's thumbnail replaces it in flight or on the card. The file and the clipboard are always the capture's. Where the frozen frame doesn't show that window alone (with ⌥, as the shadow makes the shot bigger; for a window not all on one display; with anything in front overlapping it: another window, the Dock, the menu bar), the stand-in is the window captured at the click instead, before its app has focus back: in after about 30 ms, it may look unfocused (with ⌥, with a smaller shadow) until the capture replaces it.
 
 ### Full screen (⌘⇧3) and repeat area (⌘⇧2)
 - Both capture directly with no overlay. They use the same filter, so the shelf never appears in the shot.
@@ -101,7 +102,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 
 ### When a capture fails
 - A missing Screen Recording permission opens First run (§7).
-- Any other failure shows a shelf toast instead of doing nothing: "Couldn't capture that window" (it closed between hover and click), "Couldn't capture this display" (⌘⇧3 or ⌘⇧2 on a display ScreenCaptureKit can't capture), "Couldn't capture that area" (the crop came out empty) or "Couldn't capture the screen" (the freeze got no frame, including the 3 s timeout). An overlay closed by Esc gets no toast.
+- Any other failure shows a shelf toast instead of doing nothing: "Couldn't capture that window" (it closed between hover and click; after a stand-in, its card goes with this toast), "Couldn't capture this display" (⌘⇧3 or ⌘⇧2 on a display ScreenCaptureKit can't capture), "Couldn't capture that area" (the crop came out empty) or "Couldn't capture the screen" (the freeze got no frame, including the 3 s timeout). An overlay closed by Esc gets no toast.
 - ⌘⇧2 with nothing to crop falls back to ⌘⇧4.
 
 ## 3. Save, copy, sound — the moment of release
@@ -127,7 +128,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - Only the newest capture writes the clipboard, and only if nothing was copied from the shelf (a click, ⌘C or Copy Path) since it was taken: that copy wins.
 - **Sound.** Play the system "Screen Capture" sound via `AudioServicesPlaySystemSound`, so it follows the alert volume.
   - Skip it when `com.apple.sound.uiaudio.enabled` is 0 or Settings › Sound is off.
-  - Play only on a successful capture.
+  - Play only on a successful capture. Window mode's stand-in (§2) counts: the sound goes with it, at the click.
 - **Timing targets** (measure on the dev machine; log with `os.Logger` and signposts):
   - Hotkey to first frozen frame on screen: ≤ 80 ms.
   - Release to thumbnail visible: ≤ 100 ms.

@@ -12,6 +12,33 @@ private struct FrozenFrame: Sendable {
 /// Captures one display's frozen frame; the target is nil when ScreenCaptureKit doesn't list the display.
 private typealias FrameGrabber = @Sendable (CGDirectDisplayID, DisplayTarget?) async throws -> SendableImage
 
+/// Window mode's stand-in for the shot (`CaptureController.standIn`): the window cut from the frozen frame (sharing its
+/// pixels), or captured before its app has focus back, and its card thumbnail, all made off the main thread.
+private struct StandIn: @unchecked Sendable {
+    let image: CGImage
+    let thumbnail: CGImage
+    let scale: CGFloat
+    /// When the cut was made, before the thumbnail: the release clock starts here, as it does at a shot's image.
+    let date: Date
+    let ready: ContinuousClock.Instant
+    let thumbnailMs: Double
+
+    init?(cutting pixelRect: CGRect, from frozen: SendableImage, scale: CGFloat) {
+        guard let image = ScreenGrabber.crop(frozen.image, to: pixelRect) else { return nil }
+        self.init(image, scale: scale)
+    }
+
+    init(_ image: CGImage, scale: CGFloat) {
+        self.image = image
+        self.scale = scale
+        date = Date()
+        ready = .now
+        let clock = Stopwatch()
+        thumbnail = ScreenGrabber.thumbnail(of: image)
+        thumbnailMs = clock.ms
+    }
+}
+
 /// Area, window and full-screen capture (spec §2).
 @MainActor
 final class CaptureController: CaptureControlling {
@@ -458,8 +485,13 @@ final class CaptureController: CaptureControlling {
         let clock = Stopwatch()
         let wasActive = owesFocus
         let previous = previousApp
+        // Cut while the overlay comes down (which lets go of the frozen frame), or captured before focus goes back. The
+        // capture runs even when the cut stands in: the shot comes 9 ms sooner after it, and encodes 5 ms faster.
+        let captured = Self.captureStandIn(of: window, keepShadow: keepShadow)
+        let standIn = standIn(for: window, keepShadow: keepShadow) ?? captured
         endSession()
-        Task {
+        let displayID = Displays.display(bestFor: window.frame)?.id ?? CGMainDisplayID()
+        let shot = Task { () -> Result<Shot, any Error> in
             // Margin took focus for the keys; give it back first so the window is shot with its own focus look.
             if wasActive, let previous {
                 let wait = Stopwatch()
@@ -468,16 +500,91 @@ final class CaptureController: CaptureControlling {
             }
             do {
                 let shot = try await Self.captureWindow(window.target, keepShadow: keepShadow)
+                permissionWorked()
+                return .success(shot)
+            } catch {
+                return .failure(error)
+            }
+        }
+        Task {
+            if let cut = await standIn.value {
+                timings.record("windowCapture", clock.ms(until: cut.ready))
+                timings.record("thumbnail", cut.thumbnailMs)
+                handOver(cut, standingInFor: shot, of: window, displayID: displayID, clock: clock)
+                return
+            }
+            switch await shot.value {
+            case let .success(shot):
                 timings.record("windowCapture", clock.ms(until: shot.ready))
                 timings.record("thumbnail", shot.thumbnailMs)
-                permissionWorked()
-                let displayID = Displays.display(bestFor: window.frame)?.id ?? CGMainDisplayID()
                 onCapture?(CaptureResult(image: shot.image, thumbnail: shot.thumbnail, png: shot.png, scale: shot.scale,
                                          sourceRect: window.frame, displayID: displayID, kind: .window, date: shot.date))
-            } catch {
+            case let .failure(error):
                 fail(error, session: nil, message: FailureText.window)
             }
         }
+    }
+
+    /// Window mode's stand-in for the shot, started now off the main thread: the window cut from the frozen frame, as it
+    /// looked when it was clicked. It goes on the shelf right away, while ScreenCaptureKit waits for the window to have
+    /// its focused look back (until about 130 ms after the click). Only where the frozen frame shows that window whole
+    /// and nothing else: not with ⌥ (the shot is bigger, by the shadow), and not for a window that isn't all on one
+    /// display, or that anything in front covers there (another window, the Dock, the menu bar).
+    private func standIn(for window: CapturableWindow, keepShadow: Bool) -> Task<StandIn?, Never>? {
+        guard !keepShadow, let session,
+              let display = session.displays.first(where: { $0.frame.contains(window.frame) }),
+              let frozen = session.frozenImage(on: display.id), display.frame.width > 0,
+              cache.isUncovered(window) else { return nil }
+        let scale = CGFloat(frozen.width) / display.frame.width
+        let pixelRect = Geometry.pixelRect(for: window.frame, displayFrame: display.frame, scale: scale,
+                                           imageSize: CGSize(width: frozen.width, height: frozen.height))
+        let source = SendableImage(image: frozen)
+        return Task.detached(priority: .userInitiated) { StandIn(cutting: pixelRect, from: source, scale: scale) }
+    }
+
+    /// The stand-in for a window the frozen frame doesn't show alone (with ⌥, covered, not all on one display): the window
+    /// captured right away, before its app has focus back. ScreenCaptureKit isn't held back yet then (about 30 ms), but
+    /// the window may have its unfocused look, and with ⌥ the smaller shadow that goes with it: the shot puts that right.
+    /// Nil if it fails; the shot then goes to the shelf as soon as it's in (or fails as it would have).
+    ///
+    /// It's made for every click, the frozen cut's too: after it, the shot is in about 9 ms sooner and its PNG encodes
+    /// 5 ms faster (measured; ScreenCaptureKit seems to keep that window's capture going). A 16 × 16 capture did that
+    /// only about half as well.
+    private static func captureStandIn(of window: CapturableWindow, keepShadow: Bool) -> Task<StandIn?, Never> {
+        let target = window.target
+        return Task.detached(priority: .userInitiated) {
+            guard let (image, scale) = try? await ScreenGrabber.captureWindow(target, keepShadow: keepShadow,
+                                                                              timing: "windowStandIn") else { return nil }
+            return StandIn(image.image, scale: scale)
+        }
+    }
+
+    /// The stand-in goes to the shelf now; the shot it stands in for follows. The shot's encode is the file (and the
+    /// clipboard), and its thumbnail replaces the stand-in's (`CaptureResult.windowShot`). Should the shot fail, the card
+    /// goes, saying so (`EncodedPNG.failure`), instead of a toast of its own.
+    private func handOver(_ standIn: StandIn, standingInFor shot: Task<Result<Shot, any Error>, Never>,
+                          of window: CapturableWindow, displayID: CGDirectDisplayID, clock: Stopwatch) {
+        let png = Task.detached { () -> EncodedPNG in
+            guard case let .success(shot) = await shot.value else {
+                return EncodedPNG(data: nil, ms: 0, failure: FailureText.window)
+            }
+            return await shot.png.value
+        }
+        let windowShot = Task { () -> ShotThumbnail? in
+            switch await shot.value {
+            case let .success(shot):
+                timings.record("windowShot", clock.ms(until: shot.ready))
+                timings.record("windowShot.thumbnail", shot.thumbnailMs)
+                return ShotThumbnail(thumbnail: shot.thumbnail,
+                                     pixelSize: CGSize(width: shot.image.width, height: shot.image.height))
+            case let .failure(error):
+                fail(error, session: nil, message: nil)
+                return nil
+            }
+        }
+        onCapture?(CaptureResult(image: standIn.image, thumbnail: standIn.thumbnail, png: png, scale: standIn.scale,
+                                 sourceRect: window.frame, displayID: displayID, kind: .window, date: standIn.date,
+                                 windowShot: windowShot))
     }
 
     // MARK: ⌘⇧3
@@ -628,8 +735,8 @@ final class CaptureController: CaptureControlling {
     }
 
     /// Ends `failed` if it's still the live overlay. A missing permission goes to `onPermissionMissing`; any
-    /// other failure shows `message`, unless it belongs to an overlay already closed (Esc, a display change).
-    private func fail(_ error: Error, session failed: OverlaySession?, message: String) {
+    /// other failure shows `message` (if any), unless it belongs to an overlay already closed (Esc, a display change).
+    private func fail(_ error: Error, session failed: OverlaySession?, message: String?) {
         let closed = failed.map { $0 !== session } ?? false
         if let failed, session === failed { endSession() }
         if ScreenGrabber.isPermissionError(error) {
@@ -640,7 +747,7 @@ final class CaptureController: CaptureControlling {
             onPermissionMissing?()
         } else {
             CaptureLog.capture.error("capture failed: \(error.localizedDescription, privacy: .public)")
-            if !closed { onFailure?(message) }
+            if !closed, let message { onFailure?(message) }
         }
     }
 

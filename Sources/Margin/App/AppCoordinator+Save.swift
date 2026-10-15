@@ -26,6 +26,9 @@ extension AppCoordinator {
         var saved: ShelfItem?
         var usedFallback = false
         var error: String?
+        /// What the toast says when the card goes because there's nothing to save, if not `saveFailedMessage`: window
+        /// mode's capture failed after its stand-in went to the shelf (`EncodedPNG.failure`).
+        var failureMessage: String?
         var encodeMs: Double?
         var writeMs: Double?
         var finishedAt: Date?
@@ -76,6 +79,18 @@ extension AppCoordinator {
         FrameTiming.measure(from: result.date, on: Displays.screen(for: result.displayID),
                             commit: { t.record("releaseToThumbnailCommit", $0) },
                             frame: { t.record("releaseToThumbnailFrame", $0) })
+        // A window's stand-in gives way to its own shot once ScreenCaptureKit has it, in the air or on the card.
+        if let windowShot = result.windowShot {
+            Task { [weak self] in
+                guard let shot = await windowShot.value, let self else { return }
+                let swap = Stopwatch()
+                shelf.replaceThumbnail(of: item.id, with: shot.thumbnail, pixelSize: shot.pixelSize)
+                t.record("release.shotThumbnail", swap.ms)
+                FrameTiming.measure(from: result.date, on: Displays.screen(for: result.displayID),
+                                    commit: { t.record("releaseToShotThumbnailCommit", $0) },
+                                    frame: { t.record("releaseToShotThumbnailFrame", $0) })
+            }
+        }
 
         let kind = "\(result.kind)"
         Self.timingLog.notice(
@@ -101,7 +116,10 @@ extension AppCoordinator {
             var outcome = SaveOutcome()
             let png = await result.png.value
             outcome.data = png.data
-            if png.data == nil { outcome.error = "PNG encode failed" }
+            if png.data == nil {
+                outcome.error = png.failure ?? "PNG encode failed"
+                outcome.failureMessage = png.failure
+            }
             outcome.encodeMs = png.ms
 
             if let data = outcome.data {
@@ -172,7 +190,7 @@ extension AppCoordinator {
                 mark.clear()
                 shelf.setClipboardMark(nil)
             }
-            shelf.itemSaveFailed(itemID, message: Self.saveFailedMessage)
+            shelf.itemSaveFailed(itemID, message: outcome.failureMessage ?? Self.saveFailedMessage)
             return
         }
 

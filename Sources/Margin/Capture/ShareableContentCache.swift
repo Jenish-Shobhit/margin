@@ -195,6 +195,14 @@ final class ShareableContentCache {
         stack.first { $0.frame.contains(point) }?.window
     }
 
+    /// Whether nothing in front of `window` overlaps it: no other window, nor the Dock or the menu bar. The screen then
+    /// shows all of it and, but for what's behind its rounded corners and what the stack leaves out (other windows'
+    /// shadows, menus and tooltips, windows under 24 points), nothing else in its frame.
+    func isUncovered(_ window: CapturableWindow) -> Bool {
+        guard let i = stack.firstIndex(where: { $0.window?.id == window.id }) else { return false }
+        return WindowPicking.isUncovered(window.frame, inFront: stack[..<i].map(\.frame))
+    }
+
     /// Takes the windows and rebuilds the targets, except from an on-screen-only fetch that doesn't list Margin (its
     /// overlay closed before the fetch ran): the targets there are stay. Returns whether the targets were rebuilt.
     private func apply(_ content: SCShareableContent, onScreenOnly: Bool) -> Bool {
