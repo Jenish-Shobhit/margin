@@ -74,7 +74,7 @@ flowchart LR
 | `MenuBar/` | `StatusMenuController` (icon, warning dot, menu rebuilt on open) and `MenuKeyEquivalent` |
 | `Onboarding/` | The first-run window: `FirstRunModel` (polled state), `FirstRunView` (SwiftUI) and its window controller |
 | `Settings/` | `SettingsModel` (`@Observable`, shortcut recording), `SettingsView` (SwiftUI form) and its window controller |
-| `Debug/` | `DebugCommandListener`, compiled only under `#if DEBUG` |
+| `Debug/` | `DebugCommandListener`, compiled only under `#if DEBUG || MARGIN_BENCH` (debug and bench builds) |
 
 ## The contracts
 
@@ -302,5 +302,7 @@ More on how these behave:
 ## Debug builds
 
 `#if DEBUG` adds `DebugCommandListener`, which receives distributed notifications from `scripts/debug.sh`: `capture-area`, `capture-screen`, `toggle-shelf`, `clear` and `dump-state`. It also adds `CaptureSimulation`, which fakes extra displays and failing captures for testing.
+
+Bench builds (`scripts/build.sh --bench`: release optimisation plus `-DMARGIN_BENCH`) have the listener too, but not `CaptureSimulation`. `scripts/bench.sh` drives them with its further commands (`hotkey`, `capture-window`, `select`, `click`, `cancel`, `mark`), which call the live overlay session's handlers in-process, and reads the `timing` log ([Building › Benchmarks](building.md#benchmarks)).
 
 Release builds contain neither. [Building › The debug hook](building.md#the-debug-hook) has the commands and the safety rules.

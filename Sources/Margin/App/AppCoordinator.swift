@@ -18,7 +18,7 @@ final class AppCoordinator {
     private var menuBar: StatusMenuController?
     private var hotkeys: HotkeyCenter?
     private var pasteboardTimer: Timer?
-    #if DEBUG
+    #if DEBUG || MARGIN_BENCH
     private var debugListener: DebugCommandListener?
     #endif
 
@@ -123,7 +123,7 @@ final class AppCoordinator {
         RunLoop.main.add(timer, forMode: .common)
         pasteboardTimer = timer
 
-        #if DEBUG
+        #if DEBUG || MARGIN_BENCH
         debugListener = DebugCommandListener(coordinator: self)
         #endif
         if let launched = ProcessLaunch.ms { CaptureTimings.shared.record("launchToStarted", launched) }
