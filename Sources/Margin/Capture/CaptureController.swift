@@ -38,8 +38,9 @@ final class CaptureController: CaptureControlling {
     private var becameActiveDuringSession = false
     /// When `takeFocus` last asked to activate Margin, and when AppKit's didBecomeActive said it had (`giveFocusBack`).
     private var activation: (requested: ContinuousClock.Instant, landed: ContinuousClock.Instant?)?
-    /// The app a `giveFocusBack` that's still waiting will hand focus to. A capture started meanwhile takes it as its
-    /// own previous app (Margin is frontmost by then), so a quick second ⌘⇧4 still ends with focus back there.
+    /// The app a `giveFocusBack` that's still waiting, or an area's release that hasn't given focus back yet
+    /// (`finishArea`), will hand focus to. A capture started meanwhile takes it as its own previous app (Margin is
+    /// frontmost by then), so a quick second ⌘⇧4 still ends with focus back there.
     private var pendingFocusReturn: NSRunningApplication?
     /// This capture took `previousApp` over from a waiting `giveFocusBack`: Margin is active from the last one, so
     /// focus goes back even if this one ends before it activates itself (Esc before the first frame).
@@ -405,26 +406,48 @@ final class CaptureController: CaptureControlling {
     private func finishArea(_ rect: CGRect, display: DisplayInfo, image: CGImage, pixelRect: CGRect, scale: CGFloat) {
         let clock = Stopwatch()
         let date = Date()
+        // The crop and the thumbnail start at once, off the main thread, while the overlay comes down here.
+        let source = SendableImage(image: image)
+        let prepared = Task.detached(priority: .userInitiated) { await Self.timedCrop(source, to: pixelRect, scale: scale) }
         // Overlay first: the shelf's fly-in starts from the selection, over the live screen.
         let previous = owesFocus ? previousApp : nil
+        // Owed from the mouse-up on, not from the hand-off: a ⇧⌘4 that lands while the crop and thumbnail are being
+        // made must take `previous` over (`begin`), or its overlay would hand focus back to Margin itself.
+        if let previous { pendingFocusReturn = previous }
         endSession(restoreFocus: false)
         timings.record("release.endSession", clock.ms)
-        let source = SendableImage(image: image)
         Task {
-            if case let (cropped, cropMs)? = await Self.timedCrop(source, to: pixelRect) {
+            var area: LastArea?
+            if case let (shot, cropMs)? = await prepared.value {
                 timings.record("release.crop", cropMs)
+                timings.record("thumbnail", shot.thumbnailMs)
                 timings.record("releaseToResult", clock.ms)
-                onCapture?(CaptureResult(image: cropped.image, scale: scale, sourceRect: rect, displayID: display.id, kind: .area, date: date))
-                // After the hand-off: the write posts Preferences.didChange, which shouldn't delay the thumbnail.
-                let write = Stopwatch()
-                Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
-                timings.record("release.lastArea", write.ms)
+                onCapture?(CaptureResult(image: shot.image, thumbnail: shot.thumbnail, png: shot.png, scale: scale, sourceRect: rect,
+                                         displayID: display.id, kind: .area, date: date))
+                area = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
             } else {
                 CaptureLog.capture.error("area crop was empty: \(String(describing: pixelRect), privacy: .public)")
                 onFailure?(FailureText.area)
             }
-            // Focus goes back only now: AppKit's deactivation work holds the main actor for ~15 ms, which
-            // would otherwise sit between the crop and the hand-off to the shelf.
+            finishRelease(lastArea: area, focusTo: previous)
+        }
+    }
+
+    /// The rest of a release, once this run-loop turn's Core Animation commit has put the thumbnail on screen: the last
+    /// area (its write posts Preferences.didChange), then focus back to `previous`. AppKit's deactivation work holds the
+    /// main actor for ~15 ms, and done in the same turn as the hand-off to the shelf, either would delay the commit.
+    /// `previous` waits as `pendingFocusReturn` since the mouse-up (`finishArea`), so a capture started before then
+    /// takes it over (`begin`).
+    private func finishRelease(lastArea area: LastArea?, focusTo previous: NSRunningApplication?) {
+        FrameTiming.afterCommit { [weak self] in
+            guard let self else { return }
+            if let area {
+                let write = Stopwatch()
+                Preferences.shared.lastArea = area
+                timings.record("release.lastArea", write.ms)
+            }
+            guard let previous, pendingFocusReturn === previous else { return }
+            pendingFocusReturn = nil
             let focus = Stopwatch()
             giveFocusBack(to: previous)
             timings.record("release.focusBack", focus.ms)
@@ -444,11 +467,13 @@ final class CaptureController: CaptureControlling {
                 timings.record("windowWaitActive", wait.ms)
             }
             do {
-                let (image, scale) = try await ScreenGrabber.captureWindow(window.target, keepShadow: keepShadow)
-                timings.record("windowCapture", clock.ms)
+                let shot = try await Self.captureWindow(window.target, keepShadow: keepShadow)
+                timings.record("windowCapture", clock.ms(until: shot.ready))
+                timings.record("thumbnail", shot.thumbnailMs)
                 permissionWorked()
                 let displayID = Displays.display(bestFor: window.frame)?.id ?? CGMainDisplayID()
-                onCapture?(CaptureResult(image: image.image, scale: scale, sourceRect: window.frame, displayID: displayID, kind: .window, date: Date()))
+                onCapture?(CaptureResult(image: shot.image, thumbnail: shot.thumbnail, png: shot.png, scale: shot.scale,
+                                         sourceRect: window.frame, displayID: displayID, kind: .window, date: shot.date))
             } catch {
                 fail(error, session: nil, message: FailureText.window)
             }
@@ -466,10 +491,12 @@ final class CaptureController: CaptureControlling {
         Task {
             do {
                 let target = try await cache.target(for: display)
-                let image = try await ScreenGrabber.capture(target)
-                timings.record("screenCapture", clock.ms)
+                let shot = try await Self.capture(target)
+                timings.record("screenCapture", clock.ms(until: shot.ready))
+                timings.record("thumbnail", shot.thumbnailMs)
                 permissionWorked()
-                onCapture?(CaptureResult(image: image.image, scale: target.scale, sourceRect: display.frame, displayID: display.id, kind: .screen, date: Date()))
+                onCapture?(CaptureResult(image: shot.image, thumbnail: shot.thumbnail, png: shot.png, scale: target.scale,
+                                         sourceRect: display.frame, displayID: display.id, kind: .screen, date: shot.date))
             } catch {
                 fail(error, session: nil, message: FailureText.display)
             }
@@ -515,14 +542,16 @@ final class CaptureController: CaptureControlling {
                 permissionWorked()
                 let size = CGSize(width: image.image.width, height: image.image.height)
                 let pixelRect = Geometry.pixelRect(for: rect, displayFrame: display.frame, scale: target.scale, imageSize: size)
-                guard let cropped = await Self.crop(image, to: pixelRect) else { throw CaptureError.emptyCrop }
-                timings.record("areaCapture", clock.ms)
+                guard let shot = await Self.crop(image, to: pixelRect, scale: target.scale) else { throw CaptureError.emptyCrop }
+                timings.record("areaCapture", clock.ms(until: shot.ready))
+                timings.record("thumbnail", shot.thumbnailMs)
                 if repeating {
                     let flash = Stopwatch()
                     AreaFlash.show(rect)
                     timings.record("areaFlash", flash.ms)
                 }
-                onCapture?(CaptureResult(image: cropped.image, scale: target.scale, sourceRect: rect, displayID: display.id, kind: .area, date: Date()))
+                onCapture?(CaptureResult(image: shot.image, thumbnail: shot.thumbnail, png: shot.png, scale: target.scale,
+                                         sourceRect: rect, displayID: display.id, kind: .area, date: shot.date))
                 if !repeating {
                     Preferences.shared.lastArea = LastArea(rect: rect, displayID: display.id, displayFrame: display.frame)
                 }
@@ -538,16 +567,33 @@ final class CaptureController: CaptureControlling {
 
     // MARK: Helpers
 
+    // Each of these starts the PNG encode and makes the shelf's thumbnail as well (`Shot`), before going back to the
+    // main actor.
+
+    /// One display's frame.
     @concurrent
-    private nonisolated static func crop(_ image: SendableImage, to pixelRect: CGRect) async -> SendableImage? {
-        ScreenGrabber.crop(image.image, to: pixelRect).map(SendableImage.init)
+    private nonisolated static func capture(_ target: DisplayTarget) async throws -> Shot {
+        Shot(try await ScreenGrabber.capture(target).image, scale: target.scale)
     }
 
-    /// `crop`, and how long the crop itself took (without the hops to and from the main actor).
     @concurrent
-    private nonisolated static func timedCrop(_ image: SendableImage, to pixelRect: CGRect) async -> (SendableImage, Double)? {
+    private nonisolated static func captureWindow(_ target: WindowTarget, keepShadow: Bool) async throws -> Shot {
+        let (image, scale) = try await ScreenGrabber.captureWindow(target, keepShadow: keepShadow)
+        return Shot(image.image, scale: scale)
+    }
+
+    @concurrent
+    private nonisolated static func crop(_ image: SendableImage, to pixelRect: CGRect, scale: CGFloat) async -> Shot? {
+        ScreenGrabber.crop(image.image, to: pixelRect).map { Shot($0, scale: scale) }
+    }
+
+    /// `crop`, and how long the crop itself took (without the thumbnail and the hops to and from the main actor).
+    @concurrent
+    private nonisolated static func timedCrop(_ image: SendableImage, to pixelRect: CGRect, scale: CGFloat) async -> (Shot, Double)? {
         let clock = Stopwatch()
-        return ScreenGrabber.crop(image.image, to: pixelRect).map { (SendableImage(image: $0), clock.ms) }
+        guard let cropped = ScreenGrabber.crop(image.image, to: pixelRect) else { return nil }
+        let cropMs = clock.ms
+        return (Shot(cropped, scale: scale), cropMs)
     }
 
     /// Waits (briefly) until `app` is active again and has had a frame or two to redraw.

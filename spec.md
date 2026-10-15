@@ -106,7 +106,7 @@ README.md  LICENSE  CHANGELOG.md  spec.md  CLAUDE.md
 
 ## 3. Save, copy, sound — the moment of release
 
-Release starts three things in parallel. The in-memory image feeds the shelf thumbnail right away, and **one** PNG encode feeds both the file and the clipboard.
+Release starts three things in parallel. The in-memory image feeds the shelf thumbnail right away, and **one** PNG encode feeds both the file and the clipboard. Both start off the main thread as soon as the image is ready (for an area, at mouse-up, while the overlay comes down); the main thread names the shot and puts the thumbnail on the shelf. After an area, focus goes back to the app you were in only once the thumbnail is committed to the screen.
 
 - **Folder.** `~/Desktop/Screenshots` by default (Settings can change it). Create it if missing.
   - If the folder can't be written, save to `~/Library/Application Support/Margin/Unsaved/` and show the shelf toast "Can't write to “Screenshots”. Saved to Unsaved: menu bar › Show Unsaved Shots" (with the save folder's name, shortened with “…” past 16 characters so the toast's three lines still reach the menu item; an error toast that wraps and stays 4 s). The menu bar offers **Show Unsaved Shots** while that folder holds shots (§6).
@@ -146,7 +146,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - 176 pt wide. Height follows the shot's aspect ratio, clamped to 64–176 pt, with aspect-fill.
   - 10 pt gap, 14 pt from the screen edge and the bottom of the visible frame.
   - Corner radius 10, a subtle 1 px border and a soft shadow.
-  - Thumbnails are downsampled to 2× the card size (`CGImageSourceCreateThumbnailAtIndex` for persisted items; the in-memory image for new ones).
+  - Thumbnails are downsampled to 2× the card size (`CGImageSourceCreateThumbnailAtIndex` for persisted items; the in-memory image for new ones, off the main thread right after the capture).
   - Since 0.0.16, only the cards that can be seen or soon could be are live (a view and a decoded thumbnail): the visible cards, the pile's fan (3) and the next 4 in the pile, plus any selected or last-clicked card. The rest of the pile becomes a card when it comes forward (a removal, ⌘Z), decoding at most 2 thumbnails at a time, newest first, and stops being one when it folds deeper again. Launch and memory then stay about the same however big the shelf is.
 - **Order.** The newest is at the bottom, and older cards slide up with a spring.
 - **Pile.** Show at most **4** cards, or fewer if they don't fit vertically. Older items fold into a pile above them labelled `+N older`.

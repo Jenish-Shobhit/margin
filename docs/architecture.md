@@ -84,7 +84,9 @@ flowchart LR
 
 **`CaptureResult`** is one finished capture:
 
-- `image`: full resolution, in the display's colour space, with transparent corners for windows;
+- `image`: full resolution, in the display's colour space, with transparent corners for windows. An area's shares the frozen display's pixels (`CGImage.cropping(to:)`, no copy), so nothing keeps it past the save: the shelf keeps only the thumbnail;
+- `thumbnail`: `image` downsampled for the shelf card, made off the main thread right after the capture or crop;
+- `png`: the one PNG encode of `image`, for both the file and the clipboard, started off the main thread alongside the thumbnail;
 - `scale`: pixels per point, used for the DPI;
 - `sourceRect`: the on-screen rect in AppKit global points, where the fly-in starts;
 - `displayID`, `kind` (`.area`, `.window` or `.screen`) and `date`.
@@ -122,9 +124,10 @@ sequenceDiagram
     CC->>CC: capture every display in parallel
     CC->>OS: show overlays, draw each frozen frame
     OS->>CC: onArea (mouse up)
+    CC->>BG: encode PNG (while the thumbnail is made)
     CC->>AC: onCapture(CaptureResult)
     AC->>SC: add(pending item, thumbnail) and fly-in
-    AC->>BG: encode PNG, write temp file, rename
+    AC->>BG: once encoded: write temp file, rename
     BG-->>AC: finishSave(outcome)
     AC->>AC: clipboard (PNG + file URL) and ⌘V mark
     AC->>SC: itemDidSave(item)
@@ -164,7 +167,7 @@ The target is **≤ 80 ms from the hotkey to the first frozen frame**.
 | `adjusting` | Handles, moving, nudging and ↩ |
 | `moving`, `resizing` | Dragging the selection or one of its handles |
 
-Selections are pixel-aligned and limited to the display where they started. Mouse-up in `dragging` calls `onArea` with the rect, the frozen image and the pixel rect. `CaptureController` closes the overlay and crops off the main thread, hands a `CaptureResult` to the coordinator, then gives focus back to the previous app.
+Selections are pixel-aligned and limited to the display where they started. Mouse-up in `dragging` calls `onArea` with the rect, the frozen image and the pixel rect. `CaptureController` starts the crop and the thumbnail off the main thread, closes the overlay meanwhile, and hands a `CaptureResult` to the coordinator. Only once that run-loop turn's Core Animation commit has put the thumbnail on screen does it save the last area and give focus back to the previous app: the preference write and AppKit's deactivation work (about 15 ms) would otherwise hold the commit back. The focus is owed from the mouse-up on, though: a ⇧⌘4 that lands before then takes that app over as the one to return to, as during the wait for Margin's activation (above).
 
 The other kinds:
 
@@ -174,16 +177,18 @@ The other kinds:
 
 ### The release (`AppCoordinator+Save`)
 
+By the time the coordinator gets the `CaptureResult`, `CaptureController` has made it in one step off the main thread (`Shot`), as soon as the image was ready (for an area, from mouse-up on, while the overlay comes down): the crop, which shares the frozen frame's pixels, then the PNG encode, started in a task of its own, and the thumbnail, made meanwhile.
+
 On the main actor, in this order:
 
 1. Plays the shutter sound.
 2. Predicts the file name with `FileNamer`. It's checked against an in-memory set of names already handed out, *not* the disk.
-3. Downsamples a thumbnail from the in-memory image and calls `shelf.add` with a pending item. The fly-in starts here. The target is **≤ 100 ms from release to thumbnail**.
+3. Calls `shelf.add` with a pending item and the result's thumbnail, which `CaptureController` downsampled off the main thread before handing the shot over. The fly-in starts here. The target is **≤ 100 ms from release to thumbnail**.
 
 Then, in a detached task:
 
-1. One `PNGWriter.encode` produces the bytes for both the file and the clipboard.
-2. Once `shelf.json` has the card (`ShelfStore.waitForWrites`: written in the background, long before the encode is done), `writeAtomically` writes a hidden temp file (`.margin-<uuid>.tmp`) in the save folder, then `renamex_np(RENAME_EXCL)` moves it into place.
+1. It waits for the result's PNG: one `PNGWriter.encode`, for both the file and the clipboard, which `CaptureController` started alongside the thumbnail, as soon as the image was ready.
+2. Once `shelf.json` has the card (`ShelfStore.waitForWrites`: written in the background, usually well before the encode is done), `writeAtomically` writes a hidden temp file (`.margin-<uuid>.tmp`) in the save folder, then `renamex_np(RENAME_EXCL)` moves it into place.
    - If the name is taken on disk, it moves on to the next free one.
    - If the folder can't be written, it falls back to `~/Library/Application Support/Margin/Unsaved/`.
 3. It makes a Finder bookmark for the final file. The target is **≤ 200 ms from release to the PNG renamed into place**.
@@ -219,7 +224,7 @@ A save cut off between the temp file and the rename (a crash, a forced quit, tha
   - Settings' folder icon.
 
   Even the predicted file name is checked against memory, not the disk. Results come back to the main actor, and a background check is applied only to items that haven't changed since it started.
-- **ScreenCaptureKit and pixel work run off the main thread:** captures, crops, encodes and downsampling files. `SCShareableContent` is never fetched on the hotkey path.
+- **ScreenCaptureKit and pixel work run off the main thread:** captures, crops, encodes, a new shot's thumbnail and downsampling files. `SCShareableContent` is never fetched on the hotkey path.
 - **Nothing touches ScreenCaptureKit before permission is confirmed.** An early call can raise the system prompt at a random moment, long before the user reaches **Allow…**. `CGPreflightScreenCaptureAccess` (6–10 ms) runs on the hotkey path only until access is confirmed.
 - **Blocking system work stays off the main thread.** `SystemShortcuts.setEnabled` waits on `activateSettings` and asserts it isn't on the main thread; the UI calls `setEnabledInBackground`.
 - **The one exception is `shelf.json`.** It lives in Application Support, which never prompts, and it's read on the main actor at launch. The list itself lives on the main actor; each change hands a copy of it to `ShelfFileWriter`, which encodes and writes it on a serial queue (1–2 ms for 200 cards that the main actor used to wait for, twice per capture, and once 441 ms). A change made while a write waits to start replaces what that write will write, so the file always ends with the newest list and a burst of changes is a write or two. Two waits keep the order that matters: the save pipeline writes a capture's PNG only once the file has its card (`waitForWrites`), and quitting flushes the queue.
@@ -229,9 +234,9 @@ A save cut off between the temp file and the rename (a crash, a forced quit, tha
 | Window | Level | Notes |
 |---|---|---|
 | Capture overlay (one per display) | `.screenSaver + 1` | Borderless, non-activating, made once and reused. Key from the first frozen frame; its keys are hotkeys until then. Swallows ⌘ shortcuts |
-| ⇧⌘2 outline | `.screenSaver + 1` | Click-through, 150 ms |
+| ⇧⌘2 outline | `.screenSaver + 1` | Click-through, 150 ms. Made once and reused; the outline is two layer borders |
 | Shelf | `.screenSaver` | Borderless, **non-activating** `NSPanel`; hidden when empty |
-| Fly-in | `.screenSaver` | Click-through, one per shot in the air |
+| Fly-in | `.screenSaver` | Click-through, one per shot in the air. Reused: up to two wait, ordered out, for the next shots |
 
 All of them join every Space and float over full-screen apps.
 

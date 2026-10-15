@@ -10,8 +10,6 @@ extension AppCoordinator {
         var pixelHeight: Int
         /// `CaptureResult.date` (the release) → `shelf.add` returned.
         var releaseToThumbnailMs: Double
-        /// Cost of the downsample alone.
-        var thumbnailMs: Double
         var encodeMs: Double?
         var writeMs: Double?
         /// `CaptureResult.date` → PNG renamed into place.
@@ -38,9 +36,9 @@ extension AppCoordinator {
     static let fallbackToastDuration: TimeInterval = 4
 }
 
-/// The moment of release (spec §3): sound, name, thumbnail on the shelf, then one PNG encode off the
-/// main actor that feeds both the file and the clipboard. The main actor never touches the save
-/// folder: the first access to ~/Desktop can block on the Desktop-folder privacy prompt.
+/// The moment of release (spec §3): sound, name, thumbnail on the shelf, then the write of the one PNG encode
+/// (started off the main actor with the capture) that feeds both the file and the clipboard. The main actor never
+/// touches the save folder: the first access to ~/Desktop can block on the Desktop-folder privacy prompt.
 extension AppCoordinator {
     func handleCapture(_ result: CaptureResult) {
         let signpost = Self.signposter.beginInterval("thumbnail")
@@ -64,17 +62,13 @@ extension AppCoordinator {
         reservedPaths.insert(url.path)
         t.record("release.name", nameClock.ms)
 
-        // 3–4. Thumbnail from the in-memory image, onto the shelf (pending until `itemDidSave`).
+        // 3. The thumbnail (made off the main thread with the capture) onto the shelf, pending until `itemDidSave`.
         let pixelSize = CGSize(width: result.image.width, height: result.image.height)
-        let thumbStart = ContinuousClock.now
-        let thumbnail = Self.makeThumbnail(result.image, pixelSize: pixelSize)
-        let thumbnailMs = Self.milliseconds(since: thumbStart)
         let item = Self.pendingItem(at: url, createdAt: result.date, pixelSize: pixelSize)
         let addClock = Stopwatch()
-        shelf.add(item, thumbnail: thumbnail, flyInFrom: result.sourceRect, displayID: result.displayID)
+        shelf.add(item, thumbnail: result.thumbnail, flyInFrom: result.sourceRect, displayID: result.displayID)
         let releaseToThumbnailMs = Date().timeIntervalSince(result.date) * 1000
         Self.signposter.endInterval("thumbnail", signpost)
-        t.record("release.thumbnail", thumbnailMs)
         t.record("release.shelfAdd", addClock.ms)
         t.record("releaseToThumbnail", releaseToThumbnailMs)
         // `shelf.add` only starts the fly-in: it's on screen once the main thread has committed it (after whatever
@@ -85,10 +79,10 @@ extension AppCoordinator {
 
         let kind = "\(result.kind)"
         Self.timingLog.notice(
-            "release→thumbnail \(releaseToThumbnailMs, format: .fixed(precision: 1)) ms (downsample \(thumbnailMs, format: .fixed(precision: 1)) ms, \(result.image.width)×\(result.image.height) \(kind, privacy: .public))")
+            "release→thumbnail \(releaseToThumbnailMs, format: .fixed(precision: 1)) ms (\(result.image.width)×\(result.image.height) \(kind, privacy: .public))")
         let timings = Timings(
             kind: kind, pixelWidth: result.image.width, pixelHeight: result.image.height,
-            releaseToThumbnailMs: releaseToThumbnailMs, thumbnailMs: thumbnailMs)
+            releaseToThumbnailMs: releaseToThumbnailMs)
         lastTimings = timings
 
         captureSequence += 1
@@ -100,17 +94,15 @@ extension AppCoordinator {
 
         t.record("release.main", mainClock.ms)
 
-        // 5. Encode + write off the main actor; the clipboard gets the same bytes once the file is in place.
+        // 4. The write, off the main actor, once the PNG is encoded (that started with the capture, alongside the
+        // thumbnail); the clipboard gets the same bytes once the file is in place.
         Task.detached(priority: .userInitiated) { [weak self] in
             let saveSignpost = Self.signposter.beginInterval("save")
             var outcome = SaveOutcome()
-            let encodeStart = ContinuousClock.now
-            do {
-                outcome.data = try PNGWriter.encode(result.image, scale: result.scale)
-            } catch {
-                outcome.error = "PNG encode failed"
-            }
-            outcome.encodeMs = Self.milliseconds(since: encodeStart)
+            let png = await result.png.value
+            outcome.data = png.data
+            if png.data == nil { outcome.error = "PNG encode failed" }
+            outcome.encodeMs = png.ms
 
             if let data = outcome.data {
                 // The card is in shelf.json before the PNG is written (spec §3): a save cut off between the two
@@ -127,7 +119,7 @@ extension AppCoordinator {
         }
     }
 
-    /// 6. Clipboard + ⌘V mark, once the PNG is renamed into place: the PNG plus the file at its *final* URL
+    /// 5. Clipboard + ⌘V mark, once the PNG is renamed into place: the PNG plus the file at its *final* URL
     /// (it can differ from the predicted one: " (2)", the Unsaved folder), so ⌘V in a terminal pastes its
     /// path. If saving failed, the PNG alone. Only the newest capture may overwrite the clipboard, and a
     /// shelf copy since this capture began wins (`shelfDidCopy`, `shelfDidCopyPaths`).
@@ -214,7 +206,7 @@ extension AppCoordinator {
                             duration: Self.fallbackToastDuration)
         }
 
-        // 7. Bookkeeping.
+        // 6. Bookkeeping.
         let bookkeeping = Stopwatch()
         prefs.completedCaptures += 1
         FirstRunWindowController.shared.captureSucceeded()
@@ -279,26 +271,6 @@ extension AppCoordinator {
         saved.path = url.path
         saved.refreshBookmark()
         return saved
-    }
-
-    /// Downsampled to cover the shelf card at 2× (aspect-fill), from the in-memory image.
-    nonisolated static func makeThumbnail(_ image: CGImage, pixelSize: CGSize) -> CGImage {
-        let w = pixelSize.width, h = pixelSize.height
-        guard w > 0, h > 0 else { return image }
-        let cardHeight = ShelfLayout.cardHeight(forPixelSize: pixelSize)
-        let scale = min(1, max(ShelfLayout.cardWidth * 2 / w, cardHeight * 2 / h))
-        guard scale < 0.9 else { return image }
-        let tw = max(1, Int((w * scale).rounded())), th = max(1, Int((h * scale).rounded()))
-
-        var space = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
-        if space.model != .rgb || !space.supportsOutput { space = CGColorSpace(name: CGColorSpace.sRGB)! }
-        let info = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        guard let ctx = CGContext(
-            data: nil, width: tw, height: th, bitsPerComponent: 8, bytesPerRow: 0, space: space, bitmapInfo: info)
-        else { return image }
-        ctx.interpolationQuality = .high
-        ctx.draw(image, in: CGRect(x: 0, y: 0, width: tw, height: th))
-        return ctx.makeImage() ?? image
     }
 
     nonisolated static func milliseconds(since start: ContinuousClock.Instant) -> Double {

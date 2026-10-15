@@ -207,7 +207,6 @@ final class DebugCommandListener: NSObject {
                 "pixelWidth": t.pixelWidth,
                 "pixelHeight": t.pixelHeight,
                 "releaseToThumbnailMs": t.releaseToThumbnailMs,
-                "thumbnailMs": t.thumbnailMs,
                 "usedFallback": t.usedFallback,
             ]
             if let v = t.encodeMs { timings["encodeMs"] = v }
