@@ -199,8 +199,9 @@ final class HotkeyCenter {
             Self.log.notice("\(registration.binding.combo.displayString, privacy: .public) was pressed while a menu was open; dropped")
             return true
         }
-        // From the key press to here: the window server's hand-over of the hotkey (not Margin's doing).
-        CaptureTimings.shared.record("hotkeyDelivery", (GetCurrentEventTime() - time) * 1000)
+        // From the Carbon event to here. The event is stamped when it reaches Margin, so the window server's hand-over
+        // of the key press isn't in it; scripts/bench.sh --real-hotkey measures that from this line's log timestamp.
+        CaptureTimings.shared.record("hotkeyEventToHandler", (GetCurrentEventTime() - time) * 1000)
         center.onAction(registration.binding.action)
         return true
     }

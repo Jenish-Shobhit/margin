@@ -222,7 +222,7 @@ The info lines read `name: 12.3 ms` (sizes: `name: 45.6 KB`). The ones that say 
 
 | Line | From | To |
 |---|---|---|
-| `hotkeyDelivery` | The key press (its event time) | Margin's hotkey handler: the window server's part |
+| `hotkeyEventToHandler` | The Carbon hotkey event's time stamp | Margin's handler (in-process dispatch only: the event is stamped as it reaches Margin; `scripts/bench.sh run --real-hotkey` measures the press itself as `keyPressToHandler`) |
 | `hotkeyToFirstFrozen`, `…Frame` | The handler | The first frozen frame handed to the render server, and the display's next refresh after that |
 | `releaseToThumbnailCommit`, `…Frame` | Mouse-up (or the capture, for ⇧⌘3, ⇧⌘2 and window mode) | The main thread's Core Animation commit after the thumbnail went to the shelf, and the next refresh after that |
 | `releaseToFile` | The same | The PNG renamed into place |

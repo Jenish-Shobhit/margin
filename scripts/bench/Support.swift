@@ -59,6 +59,8 @@ struct LogEvent {
     let text: String
     let pid: Int32
     let time: Date
+    /// When Margin logged it, on the mach clock (`mach_continuous_time`).
+    let mach: UInt64
 }
 
 /// Streams Margin's timing log (`log stream --level info`) into memory. Info lines aren't kept by the log store,
@@ -104,6 +106,7 @@ final class Collector: @unchecked Sendable {
               let message = json["eventMessage"] as? String else { return }
         let pid = Int32((json["processID"] as? Int) ?? 0)
         let time = (json["timestamp"] as? String).flatMap(stamp.date(from:)) ?? Date()
+        let mach = (json["machTimestamp"] as? NSNumber)?.uint64Value ?? 0
         var name = "", value = 0.0, unit = "", text = ""
         if message.hasPrefix("mark: ") {
             name = "mark"
@@ -117,7 +120,7 @@ final class Collector: @unchecked Sendable {
             unit = String(parts[2])
         }
         lock.lock()
-        events.append(LogEvent(seq: events.count, name: name, value: value, unit: unit, text: text, pid: pid, time: time))
+        events.append(LogEvent(seq: events.count, name: name, value: value, unit: unit, text: text, pid: pid, time: time, mach: mach))
         lock.unlock()
     }
 

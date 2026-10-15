@@ -286,6 +286,8 @@ final class Bench {
     var results: [Sample] = []
     var stopRequested = false
     var marginPID: pid_t?
+    /// When the last real ⇧⌘4 was posted (`mach_continuous_time`).
+    var lastKeyPost: UInt64?
     let shots: URL
     let outURL: URL
 
@@ -462,9 +464,15 @@ final class Bench {
             if let f = v["releaseToThumbnailFrame"] { metrics.append(("e2e.toThumbnailFrame", action + f, "ms")) }
             if let f = v["releaseToFile"] { metrics.append(("e2e.toFile", action + f, "ms")) }
         }
-        if let d = v["hotkeyDelivery"], let f = v["hotkeyToFirstFrozenFrame"] {
-            metrics.append(("e2e.keyToFirstFrozenFrame", d + f, "ms"))
+        // A real ⇧⌘4: from posting the key press to Margin's handler (the window server's hand-over), on the mach clock.
+        if let posted = lastKeyPost, let handler = all.first(where: { $0.name == "hotkeyEventToHandler" }), handler.mach > posted {
+            var tb = mach_timebase_info_data_t()
+            mach_timebase_info(&tb)
+            let press = Double(handler.mach - posted) * Double(tb.numer) / Double(tb.denom) / 1e6
+            metrics.append(("keyPressToHandler", press, "ms"))
+            if let f = v["hotkeyToFirstFrozenFrame"] { metrics.append(("e2e.keyToFirstFrozenFrame", press + f, "ms")) }
         }
+        lastKeyPost = nil
         let main = ["release.endSession", "release.main", "release.lastArea", "release.focusBack", "finishSave.main", "areaFlash"]
             .compactMap { v[$0] }
         if !main.isEmpty { metrics.append(("release.mainThreadTotal", main.reduce(0, +), "ms")) }
@@ -494,6 +502,7 @@ final class Bench {
     private func postShiftCommand4() {
         guard Gate.allowed(Gate.frontPID()) else { return }
         Gate.lastPost = Date()
+        lastKeyPost = mach_continuous_time()
         let source = CGEventSource(stateID: .hidSystemState)
         for down in [true, false] {
             let e = CGEvent(keyboardEventSource: source, virtualKey: 0x15, keyDown: down)

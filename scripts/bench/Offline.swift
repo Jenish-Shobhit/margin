@@ -90,6 +90,16 @@ enum Offline {
             print(String(format: "%-58@ median %8.3f ms   p90 %8.3f ms", label as NSString, r.median, r.p90))
         }
         row("ShutterSound.uiSoundsEnabled (CFPreferencesAppSynchronize)", timed(200) { _ = ShutterSound.uiSoundsEnabled })
+        // As a capture sees it: once, after a while of nothing (the cache may have gone cold).
+        var cold: [Double] = []
+        for _ in 0..<10 {
+            usleep(500_000)
+            let t = ContinuousClock.now
+            _ = ShutterSound.uiSoundsEnabled
+            cold.append(ms(t))
+        }
+        cold.sort()
+        row("  … once after 0.5 s idle (10×)", (Stats.quantile(cold, 0.5), Stats.quantile(cold, 0.9)))
         row("FileNamer.fileName (a DateFormatter per call)", timed(500) { _ = FileNamer.fileName(for: Date()) })
         let reserved: Set<String> = []
         row("FileNamer.uniqueURL against the in-memory set", timed(500) {
