@@ -36,7 +36,7 @@ Margin has no Dock icon. Everything is in its menu bar icon, a small rectangle w
 | About Margin | Version and copyright |
 | Quit Margin | Quit |
 
-Captures started from the menu wait for the menu to close, so the menu is never in the shot.
+Captures started from the menu wait for the menu to close, so the menu is never in the shot. The shortcuts next to the items work while the menu is closed: pressed with a Margin menu open, they do nothing (rather than firing as it closes).
 
 **When something needs attention**, an orange dot appears on the icon and the menu gains an item at the top:
 
