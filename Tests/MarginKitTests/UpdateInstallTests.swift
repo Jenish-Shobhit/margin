@@ -58,6 +58,16 @@ import Testing
         #expect(UpdateInstall.downloadLimit(listedSize: -1) == 512 * 1024 * 1024)
     }
 
+    @Test func aRelaunchWaitsOutTheFirstHalfMinute() {
+        let launch = Date(timeIntervalSinceReferenceDate: 1000)
+        #expect(UpdateInstall.relaunchDelay(launchedAt: launch, now: launch.addingTimeInterval(4)) == 26)
+        #expect(UpdateInstall.relaunchDelay(launchedAt: launch, now: launch.addingTimeInterval(30)) == 0)
+        #expect(UpdateInstall.relaunchDelay(launchedAt: launch, now: launch.addingTimeInterval(3600)) == 0)
+        // A clock set back never waits longer than the half minute; an unknown launch doesn't wait.
+        #expect(UpdateInstall.relaunchDelay(launchedAt: launch, now: launch.addingTimeInterval(-50)) == 30)
+        #expect(UpdateInstall.relaunchDelay(launchedAt: nil, now: launch) == 0)
+    }
+
     @Test func trashNames() {
         #expect(UpdateInstall.trashName(oldVersion: "0.0.19") == "Margin 0.0.19")
         #expect(UpdateInstall.trashName(oldVersion: "1/2:3") == "Margin 1-2-3")

@@ -296,6 +296,12 @@ final class UpdateController {
             }.value
             try Task.checkCancellation()
             phase = .relaunching(update)
+            // Accepted right after launch (the launch check's offer), the relaunch waits until Margin has run 30 s.
+            let delay = UpdateInstall.relaunchDelay(launchedAt: NSRunningApplication.current.launchDate, now: Date())
+            if delay > 0 {
+                Self.log.notice("Relaunching in \(delay, format: .fixed(precision: 1)) s, 30 s after launch")
+                try await Task.sleep(for: .seconds(delay))
+            }
             try launchHelper(app: app, newApp: newApp, staging: staging)
             prefs.pendingUpdate = (update.versionString, Date())
             installTask = nil
