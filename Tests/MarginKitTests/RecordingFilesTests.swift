@@ -1,5 +1,5 @@
 import Foundation
-import MarginKit
+@testable import MarginKit
 import Testing
 
 @Suite struct RecordingFilesTests {
@@ -88,23 +88,42 @@ import Testing
         let dir = try TempDir()
         defer { dir.remove() }
         let fm = FileManager.default
-        let cutOff = try movie(dir, RecordingFiles.tempName(), [box("ftyp"), box("mdat", payload: 200, size: 0)])
-        let finished = try movie(dir, RecordingFiles.tempName(), [box("ftyp"), box("moov"), box("mdat", payload: 200)])
+        let empty = try movie(dir, RecordingFiles.tempName(), [box("ftyp"), box("mdat", payload: 200, size: 0)])
+        let finished = try movie(dir, RecordingFiles.tempName(), [box("ftyp"), box("mdat", payload: 200), box("moov")])
+        let cutOff = try movie(dir, RecordingFiles.tempName(), [
+            box("ftyp"), box("mdat", payload: 200), box("moov"), box("mdat", payload: 200), box("moof"),
+            box("mdat", payload: 50, size: 0),
+        ])
         let current = try dir.file(RecordingFiles.tempName())
         let png = try dir.file(".margin-\(UUID().uuidString).tmp")
         let named = try dir.file("Screen Recording 2026-10-14 at 17.42.17.mp4")
         let launch = Date()
-        for url in [cutOff, finished, png, named] {
+        for url in [empty, finished, cutOff, png, named] {
             try fm.setAttributes([.modificationDate: launch.addingTimeInterval(-600)], ofItemAtPath: url.path)
         }
         try fm.setAttributes([.creationDate: date], ofItemAtPath: finished.path)
+        try fm.setAttributes([.creationDate: date.addingTimeInterval(3600)], ofItemAtPath: cutOff.path)
         try fm.setAttributes([.modificationDate: launch.addingTimeInterval(5)], ofItemAtPath: current.path)
         let outcomes = RecordingFiles.handleLeftovers(in: dir.url, writtenBefore: launch, timeZone: utc)
-        // The finished one gets the name of when it was started, next to one already there; the cut-off one goes.
+        // Each one that plays gets the name of when it was started (the finished one next to one already there; the
+        // one cut off by a crash plays up to its last fragment); the one with nothing that plays goes.
         let recovered = dir.url.appendingPathComponent("Screen Recording 2026-10-14 at 17.42.17 (2).mp4")
-        #expect(Set(outcomes) == [.recovered(recovered), .removed(cutOff)])
+        let recoveredCut = dir.url.appendingPathComponent("Screen Recording 2026-10-14 at 18.42.17.mp4")
+        #expect(Set(outcomes) == [.recovered(recovered), .recovered(recoveredCut), .removed(empty)])
         // The recording under way, a PNG save's temp file (`LeftoverSaves`' business) and finished files stay.
-        #expect(Set(dir.contents()) == Set([current, png, named, recovered].map(\.lastPathComponent)))
+        #expect(Set(dir.contents()) == Set([current, png, named, recovered, recoveredCut].map(\.lastPathComponent)))
+    }
+
+    @Test func aLeftoverThatPlaysIsNeverDeleted() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let finished = try movie(dir, RecordingFiles.tempName(), [box("ftyp"), box("mdat", payload: 200), box("moov")])
+        let launch = Date()
+        try FileManager.default.setAttributes([.modificationDate: launch.addingTimeInterval(-600)], ofItemAtPath: finished.path)
+        // Its rename fails (the folder became read-only, say): it stays as it is, for the next time.
+        let outcomes = RecordingFiles.handleLeftovers(in: dir.url, writtenBefore: launch) { _, _ in throw POSIXError(.EACCES) }
+        #expect(outcomes == [.unnamed(finished)])
+        #expect(dir.contents() == [finished.lastPathComponent])
     }
 
     @Test func leftoversInAMissingFolderAreNothing() {

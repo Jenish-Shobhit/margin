@@ -1,7 +1,8 @@
 import Foundation
 
-/// A screen recording's file (spec §14.4): written to a hidden temp file in the save folder while recording, and renamed
-/// into place, under its start time's name, when it's finished.
+/// A screen recording's file (spec §14.4): written to a hidden temp file in the save folder while recording, in movie
+/// fragments (so it plays even if it's never finished), and renamed into place, under its start time's name, when it's
+/// finished.
 public enum RecordingFiles {
     /// `.margin-recording-<UUID>.mp4`: hidden, an MP4 to AVFoundation, and never a PNG save's temp file (`LeftoverSaves`
     /// leaves it alone).
@@ -34,30 +35,40 @@ public enum RecordingFiles {
 
     /// What became of a leftover temp file.
     public enum Leftover: Hashable, Sendable {
-        /// A finished movie whose rename never happened: renamed to this.
+        /// A movie that plays: finished, its rename never done, or cut off (a crash, a forced quit, the quit's time
+        /// limit, a stop that never finished) and playing up to its last fragment. Renamed to this.
         case recovered(URL)
-        /// Cut off mid-recording (a crash, a forced quit): without its index an MP4 doesn't play, so it's removed.
+        /// One that plays but couldn't be renamed: it stays as it is, for the next time.
+        case unnamed(URL)
+        /// Cut off in its first second, before its index was written: nothing in it plays, so it's removed.
         case removed(URL)
     }
 
     /// Deals with the temp files of recordings in `folder` last written before `before` (this launch: no recording of this
-    /// copy's can be older). A complete movie (finished, but its rename never happened) gets a `Screen Recording` name
-    /// from when it was started; one cut off mid-recording is removed. Runs when a recording starts in that folder,
-    /// never at launch, which would look into the save folder (on the Desktop, a privacy prompt) before anything is
-    /// recorded. Blocking.
+    /// copy's can be older). One that plays (`isPlayableMovie`: finished, or cut off after its first fragment) gets a
+    /// `Screen Recording` name from when it was started, as a leftover screenshot does (`LeftoverSaves`), and is never
+    /// deleted; only one with nothing that plays is removed. Runs when a recording starts, in the folder it's saved to and
+    /// in Unsaved, never at launch, which would look into the save folder (on the Desktop, a privacy prompt) before
+    /// anything is recorded. Blocking.
     @discardableResult
     public static func handleLeftovers(in folder: URL, writtenBefore before: Date, timeZone: TimeZone = .current) -> [Leftover] {
+        handleLeftovers(in: folder, writtenBefore: before) { try moveIntoPlace($0, in: folder, date: $1, timeZone: timeZone) }
+    }
+
+    /// `handleLeftovers`, naming each with `rename(temp, its start)`.
+    static func handleLeftovers(in folder: URL, writtenBefore before: Date,
+                                rename: (URL, Date) throws -> URL) -> [Leftover] {
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else { return [] }
         return names.filter(isTempName).sorted().compactMap { name -> Leftover? in
             let url = folder.appendingPathComponent(name)
             let keys: Set<URLResourceKey> = [.isRegularFileKey, .contentModificationDateKey, .creationDateKey]
             guard let values = try? url.resourceValues(forKeys: keys), values.isRegularFile == true,
                   let modified = values.contentModificationDate, modified < before else { return nil }
-            if isPlayableMovie(at: url),
-               let placed = try? moveIntoPlace(url, in: folder, date: values.creationDate ?? modified, timeZone: timeZone) {
-                return .recovered(placed)
+            guard isPlayableMovie(at: url) else {
+                return (try? FileManager.default.removeItem(at: url)) != nil ? .removed(url) : nil
             }
-            return (try? FileManager.default.removeItem(at: url)) != nil ? .removed(url) : nil
+            guard let placed = try? rename(url, values.creationDate ?? modified) else { return .unnamed(url) }
+            return .recovered(placed)
         }
     }
 

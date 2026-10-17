@@ -193,17 +193,23 @@ final class RecordingController {
 
     /// Creates the temp file in the save folder (or, if that can't be written or is nearly full, in Unsaved, as a
     /// screenshot would) and starts the recorder. Off the main thread: the first write to ~/Desktop can wait on its privacy
-    /// prompt. Leftovers of an earlier run go first: a finished movie gets its name, one cut off is removed.
+    /// prompt. Leftovers of an earlier run go first, there and in Unsaved (Margin's own folder): one that plays (finished,
+    /// or cut off by a crash or a quit) gets its name, one with nothing that plays is removed.
     @concurrent
     private nonisolated static func open(_ source: RecordingSource, saveFolder: URL, fallbackFolder: URL,
                                          callbacks: ScreenRecorder.Callbacks) async throws -> Opened {
         var saveError: String?
+        let launch = ProcessLaunch.date ?? Date()
+        let logLeftovers = { (leftovers: [RecordingFiles.Leftover]) in
+            for leftover in leftovers {
+                RecordingLog.log.notice("Leftover recording: \(String(describing: leftover), privacy: .public)")
+            }
+        }
+        logLeftovers(RecordingFiles.handleLeftovers(in: fallbackFolder, writtenBefore: launch))
         for (folder, isFallback) in [(saveFolder, false), (fallbackFolder, true)] {
             do {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-                for leftover in RecordingFiles.handleLeftovers(in: folder, writtenBefore: ProcessLaunch.date ?? Date()) {
-                    RecordingLog.log.notice("Leftover recording: \(String(describing: leftover), privacy: .public)")
-                }
+                if !isFallback { logLeftovers(RecordingFiles.handleLeftovers(in: folder, writtenBefore: launch)) }
                 // A recording that would stop at once for lack of space doesn't start there.
                 if let free = RecordingFiles.freeBytes(at: folder), free < RecordingFiles.minimumFreeBytes {
                     throw ScreenRecorder.RecorderError.full
