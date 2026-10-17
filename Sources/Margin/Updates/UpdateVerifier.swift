@@ -106,8 +106,11 @@ enum UpdateVerifier {
     nonisolated static var runningCopyIsSigned: Bool { (try? runningRequirement()) != nil }
 
     nonisolated private static func describe(_ status: OSStatus, _ error: Unmanaged<CFError>?) -> String {
-        var text = error.map { CFErrorCopyDescription($0.takeRetainedValue()) as String? ?? "" } ?? ""
-        if text.isEmpty { text = SecCopyErrorMessageString(status, nil) as String? ?? "error \(status)" }
+        // The status's own sentence ("a sealed resource is missing or invalid") says more than the error's description
+        // ("The operation couldn't be completed. (OSStatus error -67054.)").
+        let fromError = error.map { CFErrorCopyDescription($0.takeRetainedValue()) as String? ?? "" } ?? ""
+        var text = SecCopyErrorMessageString(status, nil) as String? ?? ""
+        if text.isEmpty || text.hasPrefix("OSStatus") { text = fromError.isEmpty ? "error \(status)" : fromError }
         return text.hasSuffix(".") ? String(text.dropLast()) : text
     }
 }
