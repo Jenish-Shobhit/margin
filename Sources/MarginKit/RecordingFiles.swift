@@ -188,7 +188,7 @@ public enum RecordingFiles {
     /// What `statfs` says is free or, on a disk where that's under `minimumFreeBytes`, what macOS would make room for
     /// something the user asked for, if that's more: APFS counts purgeable space (caches, iCloud Drive files kept on the
     /// Mac, which it deletes as room is needed) as used, so a nearly full Mac would refuse to record, or stop after a
-    /// second, with gigabytes to spare. That figure (`volumeAvailableCapacityForImportantUsageKey`) takes 7–30 ms on APFS
+    /// second, with gigabytes to spare. That figure (`volumeAvailableCapacityForImportantUsageKey`) takes 7–130 ms on APFS
     /// against a few µs, so it's only asked on a nearly full disk; on FAT and exFAT it's 0, and `statfs`'s is all there is.
     static func usableBytes(_ fs: statfs) -> Int64 {
         usableBytes(free: Int64(fs.f_bavail) * Int64(fs.f_bsize)) {
