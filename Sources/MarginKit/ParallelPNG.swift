@@ -15,7 +15,8 @@ import zlib
 /// - the chunks before the image data (iCCP or sRGB, cICP, eXIf, pHYs) are the ones ImageIO writes for a 1 × 1 crop
 ///   of the image with the same options, with the eXIf's pixel size set to the image's;
 /// - samples are unpremultiplied by vImage, which rounds as ImageIO does (all 65 536 colour and alpha pairs agree);
-/// - every row uses the Up filter, the zlib level is 1 and the image data is cut into 16 KB IDAT chunks.
+/// - every row uses the Up filter, zlib uses level 1 and the window libpng picks, and the image data is cut into 16 KB
+///   IDAT chunks.
 ///
 /// Each band boundary costs a few bytes, so files are within a fraction of a percent of ImageIO's; with one band the
 /// file is ImageIO's, byte for byte.
@@ -65,6 +66,10 @@ enum ParallelPNG {
 
     struct Layout {
         let width, height, stride, rowsPerBand, count, dictionaryRows: Int
+        /// deflate's window, 2^windowBits bytes: 32 KB, or as libpng shrinks it for 16 KB of rows or less.
+        let windowBits: Int
+        /// The zlib header: deflate, the window, level 1 (as ImageIO writes it).
+        let zlibHeader: [UInt8]
 
         init(width: Int, height: Int, bands: Int? = nil) {
             self.width = width
@@ -75,8 +80,31 @@ enum ParallelPNG {
             if (height + rows - 1) / rows > ParallelPNG.maxBands { rows = (height + ParallelPNG.maxBands - 1) / ParallelPNG.maxBands }
             rowsPerBand = rows
             count = (height + rows - 1) / rows
-            // deflate looks back at most 32 KB: the rows that cover it.
-            dictionaryRows = (32768 + stride - 1) / stride
+            // libpng's png_deflate_claim and optimize_cmf: for 16 KB of rows or less, deflate gets the smallest window
+            // that holds them and their 262-byte lookahead, and the header says the smallest window that holds them.
+            let size = height * stride
+            var bits = 15
+            var cinfo = 7
+            if size <= 16384 {
+                var half = 1 << (bits - 1)
+                while size + 262 <= half {
+                    half >>= 1
+                    bits -= 1
+                }
+                cinfo = bits - 8
+                var halfWindow = 1 << (cinfo + 7)
+                if size <= halfWindow {
+                    repeat {
+                        halfWindow >>= 1
+                        cinfo -= 1
+                    } while cinfo > 0 && size <= halfWindow
+                }
+            }
+            windowBits = bits
+            let cmf = cinfo << 4 | 8
+            zlibHeader = [UInt8(cmf), UInt8(31 - (cmf << 8) % 31)]
+            // deflate looks back at most a window: the rows that cover it.
+            dictionaryRows = ((1 << bits) + stride - 1) / stride
         }
 
         func rows(of band: Int) -> Range<Int> { (band * rowsPerBand)..<min(height, (band + 1) * rowsPerBand) }
@@ -123,7 +151,7 @@ enum ParallelPNG {
             bytesPerRow = 4 * layout.width
             stream = .allocate(capacity: 1)
             stream.initialize(to: z_stream())
-            guard deflateInit2_(stream, 1, Z_DEFLATED, -15, 8, Z_DEFAULT_STRATEGY, ZLIB_VERSION,
+            guard deflateInit2_(stream, 1, Z_DEFLATED, Int32(-layout.windowBits), 8, Z_DEFAULT_STRATEGY, ZLIB_VERSION,
                                 Int32(MemoryLayout<z_stream>.size)) == Z_OK
             else {
                 stream.deallocate()
@@ -154,7 +182,7 @@ enum ParallelPNG {
             if dictionaryRows > 0 {
                 let from = max(0, rows.lowerBound - dictionaryRows)
                 for row in from..<rows.lowerBound { filter(row, firstFilled: first, into: filtered + (row - from) * layout.stride) }
-                let length = min(32768, (rows.lowerBound - from) * layout.stride)
+                let length = min(1 << layout.windowBits, (rows.lowerBound - from) * layout.stride)
                 let end = filtered + (rows.lowerBound - from) * layout.stride
                 guard deflateSetDictionary(stream, end - length, uInt(length)) == Z_OK else { return Band() }
             }
@@ -239,7 +267,7 @@ enum ParallelPNG {
     private static func assemble(_ metadata: Metadata, _ layout: Layout, _ bands: UnsafeMutableBufferPointer<Band>) -> Data {
         var adler = adler32(0, nil, 0)
         for band in bands { adler = adler32_combine(adler, band.adler, band.inputLength) }
-        let header: [UInt8] = [0x78, 0x01] // deflate, 32 KB window, level 1: what ImageIO writes
+        let header = layout.zlibHeader
         let trailer: [UInt8] = [UInt8(truncatingIfNeeded: adler >> 24), UInt8(truncatingIfNeeded: adler >> 16),
                                 UInt8(truncatingIfNeeded: adler >> 8), UInt8(truncatingIfNeeded: adler)]
         let streamLength = header.count + bands.reduce(0) { $0 + $1.count } + trailer.count
