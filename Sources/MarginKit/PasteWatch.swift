@@ -50,8 +50,8 @@ public struct PasteKeys: Equatable, Sendable {
 /// pasteboard server fetches every file URL the moment it's written, which would use up the promise before any paste.
 /// The pasteboard keeps what it was given, so only the first read of each type reaches the watch.
 ///
-/// Measured on macOS 27.0.1 with Handoff off: written normally, `pboard` reads the file URL about 15 ms after the
-/// write, and Spotlight's clipboard history (in "Siri AI") reads it 50 ms after; nothing reads the PNG. Written
+/// Measured on macOS 27.0.1 with Handoff off: written normally, `pboard` reads the file URL 15–45 ms after the write,
+/// and Spotlight's clipboard history (in "Siri AI") reads it about 60 ms after; nothing reads the PNG. Written
 /// `currentHostOnly`, neither reads anything (Spotlight skips promised data) until an app pastes.
 @MainActor
 public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
@@ -72,11 +72,11 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
 
     /// The pasteboard's change count after the write: the watch is current while the pasteboard still has it.
     public private(set) var changeCount = -1
-    /// When it was written, for the log.
+    /// When it was written: how long after it a read comes is part of telling a paste (`PasteKeys.isPaste`).
     public private(set) var writtenAt = Date.distantPast
     /// The watched items that have been pasted.
     public private(set) var pasted: Set<UUID> = []
-    /// The pasteboard has moved on (something else was copied): nothing more will be asked.
+    /// The pasteboard has everything, or has moved on (something else was copied): nothing more will be asked.
     public private(set) var isFinished = false
     /// Every read so far, oldest first, for the DEBUG state dump.
     public private(set) var reads: [(type: String, id: UUID, after: TimeInterval, keys: PasteKeys)] = []
