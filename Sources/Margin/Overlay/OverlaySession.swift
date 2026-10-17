@@ -65,6 +65,9 @@ final class OverlaySession {
     /// mid-drag. Nil once Space has moved the selection.
     private var unsnappedAnchor: CGPoint?
     private var lastDrag = CGPoint.zero
+    /// The selection being drawn began outside a kept one: a click without a drag just clears that, even when choosing
+    /// what to record (where a click on its own records the whole display).
+    private var replacesSelection = false
     private var spaceHeld = false
     /// When the held arrow key began repeating (`NSEvent.timestamp`), for nudge acceleration.
     private var nudgeRepeatStart: TimeInterval?
@@ -229,6 +232,7 @@ final class OverlaySession {
             }
         }
         // Start a new selection on this display.
+        replacesSelection = if case .adjusting = phase { true } else { false }
         selectionDisplay = d
         prepareSnapping(on: d)
         let start = SelectionMath.align(SelectionMath.clamp(p, to: d.frame), in: d.frame, scale: scale(d))
@@ -295,8 +299,8 @@ final class OverlaySession {
                 commitArea()
                 return
             }
-            // Choosing what to record, a click is the whole display it's on.
-            if purpose == .record, let d = selectionDisplay {
+            // Choosing what to record, a click is the whole display it's on (one outside a kept selection clears it).
+            if purpose == .record, !replacesSelection, let d = selectionDisplay {
                 isFinished = true
                 onScreen?(d)
                 return

@@ -133,7 +133,7 @@ If a capture fails, the shelf says so: "Couldn't capture that window" (it closed
 Press **⇧⌘5** (or choose **Record Screen** from the menu bar). The screen freezes as for an area capture, and the hint bar reads "Drag an area · Space Window · Click for the whole screen · Esc Cancel":
 
 - **Drag** an area and let go to record it. ⇧, ⌥, Space and the arrow keys work as for a screenshot; with a kept selection, **↩** records it.
-- **Click** without dragging, or press **↩** before selecting anything, to record the whole display under the pointer.
+- **Click** without dragging, or press **↩** before selecting anything, to record the whole display under the pointer. (With a selection kept, a click outside it just clears it, as for a screenshot.)
 - **Space**, then **click** a window, to record that window on its own. It's recorded wherever it goes and even when other windows cover it, without its shadow. If it grows, it's scaled down to fit the movie.
 - **Esc** or a right-click cancels.
 
