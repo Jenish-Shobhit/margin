@@ -18,6 +18,13 @@ import Testing
         #expect(RecordingStop.forStreamError(domain: domain, code: code, description: "x") == stop)
     }
 
+    @Test func aWindowsSourceGoingIsTheWindowClosing() {
+        for code in [-3813, -3814, -3815] {
+            #expect(RecordingStop.forStreamError(domain: domain, code: code, description: "x", recordsWindow: true) == .windowClosed)
+        }
+        #expect(RecordingStop.forStreamError(domain: domain, code: -3817, description: "x", recordsWindow: true) == .stoppedBySystem)
+    }
+
     @Test func otherErrorsKeepTheirDescription() {
         #expect(RecordingStop.forStreamError(domain: domain, code: -3811, description: "Internal error") == .error("Internal error"))
         // The same code from another domain (the encoder, the file system) isn't ScreenCaptureKit's.

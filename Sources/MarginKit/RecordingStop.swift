@@ -33,14 +33,16 @@ public enum RecordingStop: Equatable, Sendable {
 
     /// What ScreenCaptureKit stopping the stream means, from its error: `SCStreamError.Code`'s raw values, so this needs
     /// no ScreenCaptureKit (and covers `insufficientStorage`, which only macOS 27's SDK names). Anything else, or an error
-    /// from elsewhere (the encoder), is an error with its description.
-    public static func forStreamError(domain: String, code: Int, description: String) -> RecordingStop {
+    /// from elsewhere (the encoder), is an error with its description. `recordsWindow`: the stream records a window, whose
+    /// capture source going away (the window closed, or its app quit) isn't a display going.
+    public static func forStreamError(domain: String, code: Int, description: String,
+                                      recordsWindow: Bool = false) -> RecordingStop {
         guard domain == streamErrorDomain else { return .error(description) }
         switch code {
         case -3817, -3821: return .stoppedBySystem   // userStopped, systemStoppedStream
         case -3801: return .permission               // userDeclined
         case -3813: return .windowClosed             // noWindowList
-        case -3814, -3815: return .displayGone       // noDisplayList, noCaptureSource
+        case -3814, -3815: return recordsWindow ? .windowClosed : .displayGone // noDisplayList, noCaptureSource
         case -3822: return .diskFull                 // insufficientStorage
         default: return .error(description)
         }

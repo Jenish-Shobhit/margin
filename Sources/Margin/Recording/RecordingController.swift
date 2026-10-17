@@ -111,10 +111,11 @@ final class RecordingController {
         onChange?()
         let prefs = Preferences.shared
         let saveFolder = prefs.saveFolder, fallbackFolder = Preferences.fallbackSaveFolder
+        let recordsWindow = if case .window = target { true } else { false }
         let callbacks = ScreenRecorder.Callbacks(
             firstFrame: { [weak self] in Task { @MainActor in self?.firstFrame() } },
             interrupted: { [weak self] error in
-                let reason = Self.stopReason(for: error)
+                let reason = Self.stopReason(for: error, recordsWindow: recordsWindow)
                 Task { @MainActor in self?.stop(reason) }
             })
         Task {
@@ -262,10 +263,12 @@ final class RecordingController {
     }
 
     /// What ScreenCaptureKit (or the writer) stopping the stream means.
-    nonisolated static func stopReason(for error: any Error) -> StopReason {
+    nonisolated static func stopReason(for error: any Error, recordsWindow: Bool) -> StopReason {
         let ns = error as NSError
+        RecordingLog.log.notice("Recording interrupted: \(ns.domain, privacy: .public) \(ns.code)")
         let domain = ns.domain == SCStreamErrorDomain ? RecordingStop.streamErrorDomain : ns.domain
-        return RecordingStop.forStreamError(domain: domain, code: ns.code, description: ns.localizedDescription)
+        return RecordingStop.forStreamError(domain: domain, code: ns.code, description: ns.localizedDescription,
+                                            recordsWindow: recordsWindow)
     }
 
     // MARK: While recording
@@ -322,23 +325,29 @@ final class RecordingController {
         }
     }
 
-    /// Once a second: a recorded window that has closed, and the space left on the disk.
+    /// Once a second, off the main thread: a recorded window that has closed, and the space left on the disk.
     private func secondPassed() {
-        if case .window(let w)? = target, !Self.windowExists(w.id) {
-            stop(.windowClosed)
-            return
-        }
         guard let folder, !checkingSpace else { return }
         checkingSpace = true
+        let window: CGWindowID? = if case .window(let w)? = target { w.id } else { nil }
         Task {
-            let free = await Task.detached(priority: .utility) { RecordingFiles.freeBytes(at: folder) }.value
+            let (exists, free) = await Task.detached(priority: .utility) {
+                (window.map(Self.windowExists) ?? true, RecordingFiles.freeBytes(at: folder))
+            }.value
             checkingSpace = false
-            if let free, free < RecordingFiles.minimumFreeBytes { stop(.diskFull) }
+            if !exists {
+                stop(.windowClosed)
+            } else if let free, free < RecordingFiles.minimumFreeBytes {
+                stop(.diskFull)
+            }
         }
     }
 
-    private static func windowExists(_ id: CGWindowID) -> Bool {
-        let list = CGWindowListCopyWindowInfo([.optionIncludingWindow], id) as? [[String: Any]] ?? []
+    /// Whether the window still exists, on screen or not: minimized, its app hidden or on another Space, it's still
+    /// recorded (its last frame held). `.optionIncludingWindow` lists only on-screen windows, so the whole list (a few
+    /// ms, hence off the main thread).
+    private nonisolated static func windowExists(_ id: CGWindowID) -> Bool {
+        let list = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] ?? []
         return list.contains { ($0[kCGWindowNumber as String] as? NSNumber)?.uint32Value == id }
     }
 

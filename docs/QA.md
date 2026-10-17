@@ -133,7 +133,7 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] The frozen overlay appears as for ⇧⌘4; the hint bar reads Drag an area · Space Window · Click for the whole screen · Esc Cancel, and while drawing the area hints end with ↩ Record
 - [ ] A drag records that area: the file's pixel size is the area's at the display's scale (rounded down to even)
 - [ ] A click without a drag records the whole display it's on; so does ↩ before anything is selected
-- [ ] Space, then a click on a window, records that window alone (no shadow; the hint bar has no ⌥ Keep shadow); a covered or moved window is still recorded whole
+- [ ] Space, then a click on a window, records that window alone (no shadow; the hint bar has no ⌥ Keep shadow); a covered or moved window is still recorded whole, and a minimized one (or its app hidden) keeps recording, its last frame held, until it comes back
 - [ ] Esc or right-click: nothing is recorded, the status item doesn't change
 - [ ] ⇧⌘5 with the ⇧⌘4 overlay up does nothing; ⇧⌘4 during a recording takes a screenshot as usual
 - [ ] Without Screen Recording permission, ⇧⌘5 opens First run step 1, as ⇧⌘4 does
@@ -150,7 +150,7 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 
 **Stopping by itself** (each keeps what was recorded, with a toast saying why)
 
-- [ ] The recorded window closes ("the window closed")
+- [ ] The recorded window closes, or its app quits ("the window closed", not "the display was disconnected")
 - [ ] The recorded display is unplugged ("the display was disconnected"); a window recording carries on
 - [ ] The Mac sleeps, the displays sleep (lock the screen), or another user takes over
 - [ ] The save folder's disk falls under about 400 MB free (a small disk image as the save folder, then a big file onto it): "the disk is almost full", and the movie plays; a recording into a folder already that full goes to Unsaved
