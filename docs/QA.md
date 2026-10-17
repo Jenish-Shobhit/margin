@@ -156,6 +156,17 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] The save folder's disk falls under about 400 MB free (a small disk image as the save folder, then a big file onto it): "the disk is almost full", and the movie plays; a recording into a folder already that full goes to Unsaved
 - [ ] Stopped from macOS's screen-recording indicator in the menu bar ("Recording stopped by macOS")
 - [ ] Quitting Margin while recording saves it first (the file plays, no `.margin-recording-…mp4` left)
+- [ ] A FAT32 (MS-DOS) disk image as Save to: a recording stops about 130 MB short of 4 GB, "the disk can't hold files over 4 GB", and the movie plays (debug builds: `recording-fault limit <bytes>` stands in for the 4 GB)
+- [ ] The writer fails mid-recording (debug builds: `recording-fault fail`; or a disk that fills faster than the once-a-second check): "Recording stopped: <the error>", and the card's movie plays up to about a second before it
+
+**Failures** (debug builds, `scripts/debug.sh recording-fault …`; record only a window or an area of your own)
+
+- [ ] `hang-stream`, then stop: Margin is idle about 3 s later, and the movie is finished and ends at the stop, not 3 s after it
+- [ ] `hang-finish`, then stop: for 10 s the recording is still stopping (⇧⌘5 does nothing), then Margin is idle again (⇧⌘5 records), "The recording couldn't be finished: saved up to 0:05", and the card's movie plays
+- [ ] `crash` while recording: Margin exits, leaving a hidden `.margin-recording-….mp4`; relaunched, the next recording names it `Screen Recording <its start>.mp4` (it plays up to its last full second) and nothing is deleted
+- [ ] Save to renamed or moved in Finder while recording: stopped, the movie is in that folder under its name, "Saved to “<new name>”: the save folder was renamed or moved while recording"; no hidden temp file left anywhere
+- [ ] Save to moved to the Trash, or deleted, while recording: the movie is in Unsaved, with "“<folder>” is in the Trash." (or "was deleted.") "Saved to Unsaved: menu bar › Show Unsaved Shots"
+- [ ] `dump-state`'s `recording.recordersAlive` is back to 0 a moment after each recording, however it ended
 
 **The file**
 
@@ -164,7 +175,8 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] H.264 at the native size and the display's rate up to 60 fps, AAC sound when on; text is sharp at 100%
 - [ ] Record system audio on: what the Mac plays is in it, Margin's own sounds aren't; no new permission prompt
 - [ ] Record microphone on: Settings asks for microphone permission once; denied, it says so with Open Privacy Settings, and a recording says "Recording without the microphone"; with both on there are two sound tracks
-- [ ] A recording cut off by a crash leaves a hidden temp file, removed at the next recording into that folder (a finished one whose rename never happened gets its name there instead)
+- [ ] A recording cut off by a crash leaves a hidden temp file; the next recording (into that folder, or any, for one in Unsaved) gives it its name if it plays, and removes it only if it has nothing to play (cut off in its first second)
+- [ ] Finished files are ordinary MP4s, their index at the end (`mdat`, then `moov`): they open in QuickTime and Quick Look and upload as before
 
 **On the shelf**
 

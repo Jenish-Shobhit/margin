@@ -197,10 +197,18 @@ Margin keeps what was recorded and says why on the shelf:
 - **"the display was disconnected"**: a display (or area) recording ends with its display. A window recording carries on when its window moves to another display.
 - **"the window closed"**: a window recording ends with its window.
 - **"the Mac went to sleep"** or **"another user took over the Mac"**: sleep, the displays sleeping (locking the screen) and fast user switching end a recording. Idle display sleep doesn't happen while recording.
-- **"the disk is almost full"**: Margin stops while about 400 MB are still free, so it can finish the file (a movie without its index doesn't play). It doesn't start a recording on a disk with less: it records into Unsaved, on your startup disk, or says "Can't record: the disk is almost full". Free some space, or choose a save folder on another disk.
+- **"the disk is almost full"**: Margin stops while about 400 MB are still free, so it can finish the file. Space macOS can free on its own (caches, iCloud Drive files kept on the Mac: the "purgeable" part of what Finder calls available) counts as free. It doesn't start a recording on a disk with less: it records into Unsaved, on your startup disk, or says "Can't record: the disk is almost full". Free some space, or choose a save folder on another disk.
+- **"the disk can't hold files over 4 GB"**: a disk formatted FAT32 (MS-DOS) takes no file of 4 GB or more, so Margin stops about 130 MB short of that, with the movie finished. Record to a disk formatted APFS, Mac OS Extended or exFAT for longer recordings.
 - **"Recording stopped by macOS"**: someone stopped it from macOS's screen-recording indicator in the menu bar, or macOS ended it.
+- **"Recording stopped: …" with an error** (the disk filled up anyway, the network share went away, the encoder stopped): the movie is written a second at a time, so it keeps everything up to about a second before the error.
 
-"Couldn't save the recording" means the file couldn't be finished: nothing usable was written. (Stopping before the first frame, with ⇧⌘5 pressed twice quickly, just cancels: no message.) If Margin crashes or is forced to quit mid-recording, the unfinished movie can't be played; its hidden temp file (`.margin-recording-….mp4`) is removed the next time you record into that folder. (A finished one that never got its name gets it then.)
+**"The recording couldn't be finished: saved up to 0:42"**: the movie wasn't finished (its last part couldn't be written, or macOS didn't answer within 10 seconds of the stop), so it ends at the last full second that was on disk. It plays like any other.
+
+**"Couldn't save the recording"** means nothing of it could be kept: the first second wasn't on disk yet. (Stopping before the first frame, with ⇧⌘5 pressed twice quickly, just cancels: no message.)
+
+**A recording cut off** by a crash, a forced quit or a power cut leaves a hidden temp file (`.margin-recording-….mp4`) in its folder. The next time you record, Margin names it `Screen Recording <date and time it started>.mp4`, and it plays up to its last full second. Only one cut off in its first second, with nothing to play, is removed.
+
+**"Saved to “…”: the save folder was renamed or moved while recording"**: the movie is in that folder, where it is now. New screenshots still go to the folder named in Settings, which Margin makes again. If the folder went to the Trash or was deleted while recording, the movie is in Unsaved instead ("“Screenshots” is in the Trash. Saved to Unsaved"), under **Show Unsaved Shots** in the menu bar.
 
 ## A recording has no sound, or no microphone
 
