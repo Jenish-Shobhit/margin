@@ -227,6 +227,7 @@ The shelf never steals focus. A click (copy) or double-click (open) leaves the k
   - "macOS still uses ⇧⌘4 — Fix…" (only while a macOS shortcut takes one of Margin's keys)
   - Settings…
   - About Margin (current version)
+  - Check for Updates… (since 0.1.1, §14.3)
   - Quit Margin
 - If Screen Recording permission is missing, the icon gets a warning dot and the first item becomes "Allow Screen Recording…", which opens First run step 1. While permission is revoked, "Relaunch Margin" is offered; a failed hotkey registration adds a warning item that opens Settings.
 - The shortcuts shown are for when the menu is closed. While any menu of Margin's is open, AppKit holds hotkeys back and delivers them when it closes; a press made while it was open (its event time between the menu opening and closing) is dropped, so it does nothing instead of capturing late. Not one in the last 0.5 s before AppKit reports the close: the menu is fading out then (about 0.25 s after Esc, 0.35 s after a choice), so a shortcut pressed right after dismissing the menu still works.
@@ -265,6 +266,7 @@ There are six settings, in one small SwiftUI window:
 - **Shortcuts:** recorders for Area, Screen, Repeat area and Tuck shelf (and Record screen since 0.1.0). A recorded combo needs ⌘ or ⌃, and is refused (with the reason, `ReservedShortcuts`) when it's ⌘ or ⌃ with one typing key, a combo macOS or most apps use (⇧⌘Z, ⌃⌘Q, ⌥⌘⎋…; ⇧⌘5 only while macOS's own ⇧⌘5 is on, §14.4), or an enabled system shortcut from `com.apple.symbolichotkeys`. Window mode is always Space from area mode, and the ⌃ twins follow automatically.
   - A recorder listens until it gets a combo (or Esc, or Delete), is clicked again, or the Settings window loses the keys: to another app, or to a sheet (Choose…'s folder panel, whose ⇧⌘G goes to a folder, never to the recorder).
   - Keys are named as the keyboard layout types them (`KeyboardLayout`), in Settings and the menu; a combo with ⌘ as its key types with ⌘ held, as menus name it. Menu shortcuts are refused by that name: Redo is ⇧⌘ on whichever key types Z with ⌘, which on "Dvorak – QWERTY ⌘" is where QWERTY has Z.
+- **Check for updates automatically** (on; since 0.1.1, §14.3), between Show key hints and Launch at login.
 
 ## 9. Not in 0.0.1
 
@@ -272,7 +274,7 @@ There are six settings, in one small SwiftUI window:
 - Annotate, blur, scrolling capture, GIF, file-name tokens. (Screen recording is in since 0.1.0, §14.)
 - A general file shelf (dropping other files onto the shelf).
 - Cloud/uploads, accounts, AI.
-- Intel builds, notarization. (Updates from GitHub are in since 0.0.20, §14.)
+- Intel builds, notarization. (Updates from GitHub are in since 0.1.1, §14.)
 
 ## 10. Build, sign, debug
 
@@ -369,7 +371,7 @@ Each item ships as its own patch release (version bump, CHANGELOG entry, tag, Gi
 
 ## 14. Features after the passes (user request, 17 Oct 2026)
 
-Shipped in this order: six cards (0.0.19), delete after pasting (0.0.19 or later), updates and the website (0.0.20 or later), screen recording (**0.1.0**). None of them may slow a screenshot: nothing new runs on the capture path, and recording code runs only while recording.
+Shipped in this order: six cards (0.0.19), delete after pasting (0.0.19 or later), screen recording (**0.1.0**), updates and the website (0.1.1). None of them may slow a screenshot: nothing new runs on the capture path, and recording code runs only while recording.
 
 ### 14.1 Six cards
 The shelf shows up to 6 cards (was 4), fewer when they don't fit; see §4.
@@ -389,6 +391,16 @@ The shelf shows up to 6 cards (was 4), fewer when they don't fit; see §4.
 - **URL scheme:** `margin://update` (`CFBundleURLTypes`) runs a check and shows its result. It never installs without a click in Margin's window.
 - **Website:** `docs/index.html`, one self-contained page for GitHub Pages (served from `main` › `/docs`): icon, what Margin does, **Download Margin X** (resolved from the GitHub API on load, falling back to the releases page), install steps (Open Anyway), and **Update Margin** (a `margin://update` link, with "or choose Check for Updates… in Margin's menu"). It follows `prefers-color-scheme` and works at phone width.
 - `scripts/release.sh` keeps naming the asset `Margin-<version>.zip`; the updater depends on that name.
+- **As built** (decisions the bullets above leave open):
+  - *Schedule.* The launch check runs 3 s after prewarm (or at once without permission, as there's no prewarm), unless a check got an answer less than an hour ago (a relaunch, an update); then one is due 24 h after the last answer, looked at hourly (so a Mac that slept catches up). A check that's due during a capture or a recording waits a minute (its window would be in the shot), and an offer that arrives during one waits until it's over. A failed automatic check is only logged, and tried again at the next hourly look.
+  - *What's offered.* Only a release (not a draft or pre-release, and not a tag with a pre-release suffix) newer than the running version; a running copy newer than the latest release (a build of `main`) is up to date. Skip This Version holds for automatic checks of that exact version; a manual check (the menu, `margin://update`) still offers it. Later just closes the window, so the next automatic check offers it again. An automatic check's window comes to the front without taking the keyboard; a manual check's activates Margin.
+  - *Requests.* Ephemeral `URLSession`s (no cookies, no cache), the user agent `Margin/<version>`, https only, redirects only to https. The download stops as soon as it's bigger than the size GitHub lists (512 MB if none is). A newer release without its zip is an error, not "up to date".
+  - *Checks before installing.* The zip's size and, when GitHub lists one, its SHA-256 `digest`; `Margin.app` at the zip's top level (a folder, not a link); the bundle ID and version from its `Info.plist`; the Security framework's `codesign --verify --deep --strict` (`SecStaticCodeCheckValidity` with `kSecCSCheckAllArchitectures | kSecCSCheckNestedCode | kSecCSStrictValidate | kSecCSRestrictSymlinks`), then the same with the running copy's designated requirement (`SecCodeCopySelf` → `SecCodeCopyDesignatedRequirement`). A running copy signed ad hoc refuses at once ("can't be checked against it") and opens the releases page, as does one that's translocated or not a bundle.
+  - *Staging and the swap.* The zip downloads into a temporary folder on the app's own volume (`FileManager`'s item replacement directory), so the helper's last step is a rename. The helper is `/bin/sh` (`UpdateInstall.helperScript`), started with `Process` before Margin quits: it waits up to 30 s for Margin's pid to exit (otherwise it changes nothing), moves the old app into the Trash folder with `mv` as `Margin <old version>.app` (` 2`, ` 3`… beside an earlier one; `NSWorkspace.recycle` can't run once Margin has quit, so Finder's Put Back doesn't know it), moves the new one into place, putting the old one back if that fails, clears `com.apple.quarantine`, `open -g`s the app at that path (the new one, or the old one after a failure), so the app the user is in keeps the keyboard, and deletes the staging folder. Each step goes to `~/Library/Logs/Margin/Update.log`. `LaunchGuard` covers the new copy starting while the old one is still going.
+  - *Quitting* goes through `NSApp.terminate`, from the run loop rather than a main-queue block, so the usual wait for saves works. If Margin is still running 35 s later, the window says it didn't quit.
+  - *After the relaunch.* Margin remembers the version it was installing (`pendingUpdate`). The next launch says "Updated to Margin X" in the shelf, or, when it's still the old version, shows the window with the helper's last `FAILED:` line.
+  - *Not writable:* the app's folder or the bundle itself (`FileManager.isWritableFile`); the window says so and the releases page opens.
+  - *Website:* `docs/.nojekyll` makes Pages serve the folder as it is. The API is asked once per page load; a failure leaves the button on the releases page.
 
 ### 14.4 Screen recording (0.1.0)
 - **Shortcut:** ⇧⌘5 **Record Screen** (new `ShortcutAction`, rebindable; its ⌃ twin like the others). macOS's own ⇧⌘5 (symbolic hotkey **184**, "Screenshot and recording options") must be off for Margin to get it. "Turn off for me" (First run) and "Turn off macOS screenshot shortcuts" (Settings) now cover 184 with 28–31, still only on the user's click; "Restore" re-enables all five. Until then the Record row shows the usual "macOS uses ⇧⌘5" warning (any row whose keys an enabled macOS screenshot shortcut takes first shows it), and the menu's "macOS still uses ⇧⌘5 — Fix…". ⇧⌘5 leaves `ReservedShortcuts.common` (an enabled 184 is still caught as a system combo: `SystemShortcuts.otherEnabledCombos` counts it, with its default binding when the entry is missing, so ⇧⌘5 is refused for every action but Record Screen). First run's note about ⇧⌘5 now says Margin records with it.

@@ -27,6 +27,8 @@ final class SettingsModel {
     private(set) var loginNeedsApproval = false
     /// Shown under the toggle when turning launch at login on didn't work.
     private(set) var loginItemError: String?
+    /// Check GitHub for a newer release at launch and every 24 hours (spec §14.3).
+    private(set) var checksForUpdates = true
     private(set) var shortcuts: [ShortcutAction: KeyCombo] = [:]
 
     /// The recorder that's listening for keys, if any.
@@ -113,6 +115,7 @@ final class SettingsModel {
         recordsMicrophone = prefs.recordsMicrophone
         shortcuts = Dictionary(uniqueKeysWithValues: ShortcutAction.allCases.map { ($0, prefs.shortcut(for: $0)) })
         refreshFolderInfo()
+        checksForUpdates = prefs.checksForUpdates
     }
 
     // MARK: Save folder
@@ -200,6 +203,8 @@ final class SettingsModel {
     }
 
     func openLoginItemsSettings() { LoginItem.openSystemSettings() }
+
+    func setChecksForUpdates(_ on: Bool) { prefs.checksForUpdates = on }
 
     // MARK: macOS screenshot shortcuts
 

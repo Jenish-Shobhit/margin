@@ -15,6 +15,11 @@
 #
 # Commands are posted as the distributed notification io.github.jenish-shobhit.margin.debug with the
 # command string as its object. Release builds don't listen.
+#
+# The updater's commands (spec §14.3; all of them are in Sources/Margin/Debug/UpdateDebugCommands.swift):
+#   scripts/debug.sh update-check [<feed-url>]      Check for Updates…, against a local feed when given (file://, http://127.0.0.1)
+#   scripts/debug.sh update-install                 Install and Relaunch (also update-later, update-skip, update-cancel)
+#   scripts/debug.sh update-state                   write the updater's state to /tmp/margin-update-state.json
 set -euo pipefail
 
 NAME="io.github.jenish-shobhit.margin.debug"

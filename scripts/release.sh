@@ -17,6 +17,9 @@ PLIST=Resources/Info.plist
 git diff --quiet -- . ':!CHANGELOG.md' && git diff --cached --quiet || { echo "error: uncommitted changes besides CHANGELOG.md" >&2; exit 1; }
 git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null && { echo "error: tag v$VERSION exists" >&2; exit 1; }
 grep -q "^## $VERSION " CHANGELOG.md || { echo "error: no '## $VERSION — <date>' section in CHANGELOG.md" >&2; exit 1; }
+# Without it build.sh signs ad hoc, and every installed copy would refuse the release as an update (spec §14.3).
+security find-identity -p codesigning 2>/dev/null | grep -q '"Margin Dev"' \
+  || { echo "error: no \"Margin Dev\" signing identity in the keychain" >&2; exit 1; }
 LAST=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
 # From this version's section down to the last released one (or to the end with no earlier tag).
 NOTES=$(awk -v v="$VERSION" -v last="${LAST#v}" '

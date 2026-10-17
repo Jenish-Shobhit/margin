@@ -283,6 +283,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         settings.keyEquivalentModifierMask = .command
         menu.addItem(settings)
         menu.addItem(item("About Margin \(Self.version)", symbol: "info.circle", action: #selector(about)))
+        menu.addItem(item("Check for Updates…", symbol: "arrow.down.circle", action: #selector(checkForUpdates)))
         let quit = item("Quit Margin", symbol: "power", action: #selector(quit))
         quit.keyEquivalent = "q"
         quit.keyEquivalentModifierMask = .command
@@ -329,6 +330,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func openSettings() { coordinator?.showSettings() }
     @objc private func fixShortcuts() { coordinator?.showShortcutsStep() }
     @objc private func about() { coordinator?.showAbout() }
+    @objc private func checkForUpdates() { UpdateController.shared.checkForUpdates() }
     @objc private func quit() { coordinator?.quit() }
 }
 

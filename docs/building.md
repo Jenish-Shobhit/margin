@@ -13,6 +13,8 @@ Margin builds with SwiftPM and the Xcode Command Line Tools alone. There's no Xc
 - [Benchmarks](#benchmarks)
 - [The app icon](#the-app-icon)
 - [Releasing](#releasing)
+- [The website](#the-website)
+- [Testing updates](#testing-updates)
 
 ## Requirements
 
@@ -67,6 +69,7 @@ The tests cover `MarginKit`, the app's pure logic:
 - `shelf.json` round trips, bookmarks, pruning and unmounted volumes, and damaged or newer files;
 - PNG encoding, DPI and atomic writes, and putting back the temp files of saves cut off;
 - the clipboard items, including emulated Ghostty pastes;
+- updates: version order, GitHub's release JSON (a fixture of a real answer), choosing the zip, what a check offers and Skip This Version, when checks are due, `margin://update`, the downloaded bundle's checks, and the swap helper run against fake bundles in a temporary folder;
 - key-combo display and conflicts;
 - preferences and the hint counter;
 - the login item state;
@@ -309,4 +312,38 @@ Then it does the release:
 4. Commits `chore(release): <version>`, tags `v<version>` and pushes `main` and the tag.
 5. Creates the GitHub release with `gh`, attaching the zip. The notes are the changelog section plus install instructions.
 
-You need `gh` signed in with push access, and the Margin Dev certificate, so release builds keep a stable signature. Releases aren't notarized; users open them with Open Anyway, as the README explains.
+You need `gh` signed in with push access, and the Margin Dev certificate, so release builds keep a stable signature (the script stops before changing anything without it). Releases aren't notarized; users open them with Open Anyway, as the README explains.
+
+**Keep the zip's name and the certificate.** The updater (spec §14.3) installs only the asset named exactly `Margin-<version>.zip` from the latest release, containing a `Margin.app` whose version is that release's and whose signature satisfies the running copy's designated requirement. So a release signed with another certificate (or ad hoc) is refused by every installed copy, and they'd all have to be reinstalled by hand. Publish it as a full release, not a draft or pre-release: GitHub's `releases/latest` skips those, and so does the updater.
+
+## The website
+
+`docs/index.html` is Margin's download page: one self-contained file (inline CSS and JS, no external scripts or fonts) that asks GitHub's API for the latest release when it loads, and links its zip. `docs/.nojekyll` makes GitHub Pages serve the folder as it is, without Jekyll.
+
+To publish it, once: on GitHub, open the repository's **Settings › Pages**, choose **Deploy from a branch**, then branch **main** and folder **/docs**, and save. It appears at <https://jenish-shobhit.github.io/margin/> a minute later, and updates with every push to `main`. Nothing in the release script touches it: the page always shows whatever release is latest.
+
+To look at it locally, open `docs/index.html` in a browser (the download button falls back to the releases page if the API can't be reached).
+
+## Testing updates
+
+The updater can be tested end to end without GitHub, against a release you make yourself. Do it with a debug build installed, and put a release build back afterwards.
+
+1. **The "new" version.** In a scratch worktree (`git worktree add --detach <scratch>/new HEAD`), set `CFBundleShortVersionString` in `Resources/Info.plist` to something higher (`9.9.9`), run `scripts/build.sh` (not `--install`), and zip the app as a release is zipped:
+
+   ```sh
+   ditto -c -k --keepParent --norsrc --noextattr --noacl .build/app/release/Margin.app <scratch>/www/ok/Margin-9.9.9.zip
+   ```
+
+2. **A feed.** Write `<scratch>/www/latest.json` in the shape of GitHub's answer (see `Tests/MarginKitTests/ReleaseFixture.swift`): `tag_name` `v9.9.9`, `html_url`, `body`, `published_at`, and one asset with `name` `Margin-9.9.9.zip`, `browser_download_url`, `size` and `digest` (`sha256:` and the zip's `shasum -a 256`).
+3. **Serve it** with `python3 -m http.server 8765 --bind 127.0.0.1 --directory <scratch>/www`, or use `file://` URLs throughout. Release builds only accept https; DEBUG and bench builds also take `file://` and `http://127.0.0.1`.
+4. **Check and install** with the debug build running from `/Applications`:
+
+   ```sh
+   scripts/debug.sh update-check http://127.0.0.1:8765/latest.json   # the window offers 9.9.9
+   scripts/debug.sh update-state; cat /tmp/margin-update-state.json  # what it shows
+   scripts/debug.sh update-install                                   # download, check, quit, swap, relaunch
+   ```
+
+   With a local feed the window never takes the keyboard and Open Releases Page only logs. After the relaunch, `/Applications/Margin.app` is the 9.9.9 build, the shelf says "Updated to Margin 9.9.9", the old app is in the Trash as "Margin <old version>.app" and `~/Library/Logs/Margin/Update.log` has each step.
+5. **Refusals.** Each of these must leave the app alone and say why: a zip of a copy with another `CFBundleIdentifier` (re-signed with Margin Dev), a feed whose tag doesn't match the app's version, a copy re-signed ad hoc (`codesign --force --sign - …`), a copy changed after signing (append a byte to its icon or executable), a zip without `Margin.app`, a wrong `size` or `digest`, a feed with no asset, an unreachable feed. `update-readonly on` stands in for an `/Applications` you can't write, and `update-trash /var/empty` makes the helper fail and put the old app back (the next launch says so).
+6. **Clean up:** delete the old copy from the Trash, `defaults delete io.github.jenish-shobhit.margin debugUpdateFeedURL` if you set it, and reinstall a release build (`scripts/build.sh --install --run`).
