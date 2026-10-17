@@ -16,7 +16,11 @@ import os
 ///   dismiss [n]            remove the n newest cards (default 1) as one undo step, as ✕ does but keeping the keys
 ///   restore-last           the menu's Restore Last Removed (the shelf's ⌘Z)
 ///   dump-state             write the state as JSON to /tmp/margin-state.json
-///   hotkey <action>        what that shortcut does: captureArea, captureScreen, repeatArea, toggleShelf
+///   record-area x y w h    record a rect in AppKit global points, no overlay
+///   record-screen          record the display under the pointer
+///   record-window [id]     record a window window mode could pick (by window number; the frontmost without one)
+///   stop-recording         stop and save the recording under way, as ⇧⌘5 does
+///   hotkey <action>        what that shortcut does: captureArea, captureScreen, repeatArea, toggleShelf, recordScreen
 ///   capture-window         the menu's Capture Window (the overlay in window mode)
 ///   select x y w h         in the live overlay: drag from (x, y) to (x + w, y + h) and release (global points)
 ///   click x y [option]     in the live overlay in window mode: click at (x, y), with ⌥ to keep the shadow
@@ -70,10 +74,36 @@ final class DebugCommandListener: NSObject {
         case "restore-last":
             coordinator.restoreLastRemoved()
         case "dump-state":
-            dumpState(coordinator)
+            Task { await dumpState(coordinator) }
+        case "record-area":
+            let numbers = parts.dropFirst().compactMap(Double.init)
+            let rect = numbers.count == 4 ? CGRect(x: numbers[0], y: numbers[1], width: numbers[2], height: numbers[3]) : .null
+            guard let display = Displays.display(bestFor: rect) else {
+                Self.log.error("usage: record-area x y w h (on a display)")
+                return
+            }
+            coordinator.startRecording(.area(rect.intersection(display.frame), display))
+        case "record-screen":
+            guard let display = Displays.display(containing: NSEvent.mouseLocation) else { return }
+            coordinator.startRecording(.display(display))
+        case "record-window":
+            let id = parts.count > 1 ? CGWindowID(parts[1]) : nil
+            guard coordinator.permissionGranted else { return }
+            let cache = coordinator.capture.shareableContent
+            Task { @MainActor in
+                // The window list as it is now, not as of the last capture.
+                try? await cache.refresh(onScreenOnly: true)
+                guard let window = cache.pickableWindow(id: id) else {
+                    Self.log.error("record-window: no window \(id.map(String.init) ?? "in front", privacy: .public)")
+                    return
+                }
+                coordinator.startRecording(.window(window))
+            }
+        case "stop-recording":
+            coordinator.stopRecording()
         case "hotkey":
             guard parts.count == 2, let action = ShortcutAction(rawValue: parts[1]) else {
-                Self.log.error("usage: hotkey captureArea|captureScreen|repeatArea|toggleShelf")
+                Self.log.error("usage: hotkey captureArea|captureScreen|repeatArea|toggleShelf|recordScreen")
                 return
             }
             coordinator.perform(action)
@@ -143,8 +173,36 @@ final class DebugCommandListener: NSObject {
             clickCount: 1, pressure: type == .leftMouseUp ? 0 : 1)!
     }
 
-    private func dumpState(_ c: AppCoordinator) {
+    /// The recording under way (or the last one's numbers): its state and target, the encoded size, frame rate and bit
+    /// rate, the temp file, and frames written and dropped.
+    private static func recordingState(_ r: RecordingController, stats: ScreenRecorder.Stats?) -> [String: Any] {
+        var out: [String: Any] = ["state": "\(r.state)", "elapsed": r.elapsed, "target": r.target?.name ?? NSNull()]
+        if let source = r.source {
+            let size = source.videoSize
+            out["width"] = Int(size.width)
+            out["height"] = Int(size.height)
+            out["fps"] = source.fps
+            out["bitRate"] = RecordingFormat.bitRate(width: Int(size.width), height: Int(size.height), fps: source.fps)
+            out["systemAudio"] = source.systemAudio
+            out["microphone"] = source.microphone
+        }
+        if let url = r.recorder?.url { out["tempPath"] = url.path }
+        if let stats {
+            out["framesWritten"] = stats.framesWritten
+            out["framesDropped"] = stats.framesDropped
+            out["audioSamples"] = stats.audioSamples
+            out["microphoneSamples"] = stats.microphoneSamples
+        }
+        if let last = r.lastOutcome {
+            out["last"] = ["duration": last.duration, "framesWritten": last.framesWritten,
+                           "framesDropped": last.framesDropped] as [String: Any]
+        }
+        return out
+    }
+
+    private func dumpState(_ c: AppCoordinator) async {
         let prefs = c.prefs
+        let stats = await c.recording.recorder?.currentStats()
         var state: [String: Any] = [
             "itemIDs": c.shelf.itemIDs.map(\.uuidString),
             "itemPaths": c.store.items.map(\.path),
@@ -159,7 +217,9 @@ final class DebugCommandListener: NSObject {
             "clipboardMarkItemID": c.mark.itemID?.uuidString ?? NSNull(),
             "pasteboardChangeCount": NSPasteboard.general.changeCount,
             "isCapturing": c.capture.isCapturing,
-            "overlay": c.capture.currentSession.map { ["mode": "\($0.mode)"] } ?? NSNull(),
+            "overlay": c.capture.currentSession.map { ["mode": "\($0.mode)", "purpose": "\($0.purpose)"] } ?? NSNull(),
+            "recording": Self.recordingState(c.recording, stats: stats),
+            "itemKinds": c.store.items.map(\.kind.rawValue),
             "focus": [
                 "keyWindow": NSApp.keyWindow.map { String(describing: type(of: $0)) } ?? "none",
                 "isActive": NSApp.isActive,
@@ -218,6 +278,8 @@ final class DebugCommandListener: NSObject {
         } else {
             state["lastTimings"] = NSNull()
         }
+        state["recordsSystemAudio"] = prefs.recordsSystemAudio
+        state["recordsMicrophone"] = prefs.recordsMicrophone
         do {
             let data = try JSONSerialization.data(withJSONObject: state, options: [.prettyPrinted, .sortedKeys])
             try data.write(to: Self.stateFileURL, options: .atomic)

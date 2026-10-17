@@ -47,13 +47,13 @@ public enum ReservedShortcuts {
         }?.2
     }
 
-    /// Combos with two or more modifiers that macOS or most apps use.
+    /// Combos with two or more modifiers that macOS or most apps use. (⇧⌘5, macOS's screenshot toolbar, is Margin's
+    /// Record Screen since 0.1.0: while that macOS shortcut is on, it's an enabled system shortcut like any other.)
     static let common: [(Key, UInt32, String)] = {
         let cmd = KeyCombo.cmd, shift = KeyCombo.shift, option = KeyCombo.option, control = KeyCombo.control
         return [
             (.character("Z"), cmd | shift, "Redo"),
             (.character("Q"), cmd | shift, "Log Out"),
-            (.code(0x17), cmd | shift, "the macOS screenshot toolbar"),
             (.character("T"), cmd | shift, "Reopen Closed Tab"),
             (.code(0x2C), cmd | shift, "the Help menu"),
             (.code(0x35), cmd | option, "Force Quit"),

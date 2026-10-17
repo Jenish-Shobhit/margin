@@ -17,6 +17,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         model.refreshFolderInfo(force: true) // the folder may have been created or removed since
         model.refreshLoginItem()
         model.refreshSystemShortcuts()
+        model.refreshMicrophoneAccess()
         if !window.isVisible {
             // The hosting controller sizes the window lazily; size it now so centering uses the real size.
             if let view = window.contentViewController?.view { window.setContentSize(view.fittingSize) }
@@ -43,9 +44,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowDidBecomeKey(_ notification: Notification) {
-        // Back from System Settings, the login item approval or the macOS shortcuts may have changed.
+        // Back from System Settings, the login item approval, the macOS shortcuts or the microphone may have changed.
         model.refreshLoginItem()
         model.refreshSystemShortcuts()
+        model.refreshMicrophoneAccess()
     }
 
     func windowDidResignKey(_ notification: Notification) {

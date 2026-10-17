@@ -22,10 +22,14 @@ extension ShelfController {
         return elements
     }
 
-    /// "Screenshot, 14:32, 3024 × 1964", then its state: selected, copied (the ⌘V mark), saving.
+    /// "Screenshot, 14:32, 3024 × 1964" ("Screen recording, 14:32, 0:12, 2940 × 1912"), then its state: selected, copied
+    /// (the ⌘V mark), saving.
     func accessibilityLabel(for card: ShelfCardView) -> String {
         let item = card.item
-        var parts = ["Screenshot", ShelfStyle.metaFormatter.string(from: item.createdAt), "\(item.pixelWidth) × \(item.pixelHeight)"]
+        var parts = [item.kind == .recording ? "Screen recording" : "Screenshot",
+                     ShelfStyle.metaFormatter.string(from: item.createdAt)]
+        if item.kind == .recording { parts.append(RecordingFormat.cardDurationText(item.duration ?? 0)) }
+        parts.append("\(item.pixelWidth) × \(item.pixelHeight)")
         if card.isSelected { parts.append("selected") }
         if card.isMarked { parts.append("copied, ready to paste") }
         if pending.contains(card.id) { parts.append("saving") }

@@ -31,7 +31,8 @@ public struct ClipboardMark: Equatable, Sendable {
     }
 }
 
-/// Puts screenshot images on the pasteboard: the image for apps that take images, the saved file for terminals.
+/// Puts screenshot images on the pasteboard: the image for apps that take images, the saved file for terminals. A screen
+/// recording goes as its file alone.
 ///
 /// Checked on macOS 27.0.1: `screencapture -c` leaves exactly one pasteboard item with one type,
 /// `public.png` (Display P3 profile, DPI 144 on Retina). Margin writes the same PNG bytes it saved to disk as
@@ -59,6 +60,34 @@ public enum ClipboardWriter {
     @MainActor @discardableResult
     public static func write(pngs: [Data], to pasteboard: NSPasteboard = .general) -> Int {
         write(pngs: pngs, fileURLs: [], to: pasteboard)
+    }
+
+    /// One pasteboard item: a screenshot's PNG and its file, or a screen recording's file alone (a video isn't copied as
+    /// data: apps that take a pasted video take its file).
+    public struct Entry: Sendable, Equatable {
+        public var png: Data?
+        public var fileURL: URL?
+
+        public init(png: Data? = nil, fileURL: URL?) {
+            self.png = png
+            self.fileURL = fileURL
+        }
+    }
+
+    /// One pasteboard item per entry: `public.png` when it has one, then `public.file-url` when it has a file URL. For
+    /// copies with a recording in them; screenshots alone go through `write(pngs:fileURLs:)`, which writes the same.
+    /// Returns the new changeCount.
+    @MainActor @discardableResult
+    public static func write(_ entries: [Entry], to pasteboard: NSPasteboard = .general) -> Int {
+        pasteboard.clearContents()
+        let items = entries.map { entry -> NSPasteboardItem in
+            let item = NSPasteboardItem()
+            if let png = entry.png { item.setData(png, forType: .png) }
+            if let url = entry.fileURL, url.isFileURL { item.setString(url.absoluteURL.absoluteString, forType: .fileURL) }
+            return item
+        }
+        pasteboard.writeObjects(items)
+        return pasteboard.changeCount
     }
 
     /// Copy Path: the paths as plain text, one per line, and no image. Returns the new changeCount.

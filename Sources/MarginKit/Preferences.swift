@@ -18,6 +18,8 @@ public struct KeyCombo: Codable, Hashable, Sendable {
 
 public enum ShortcutAction: String, Codable, CaseIterable, Sendable {
     case captureArea, captureScreen, repeatArea, toggleShelf
+    /// ⇧⌘5: choose what to record and start a screen recording, or stop the one under way (spec §14.4).
+    case recordScreen
 
     public var defaultCombo: KeyCombo {
         let cs = KeyCombo.cmd | KeyCombo.shift
@@ -26,6 +28,7 @@ public enum ShortcutAction: String, Codable, CaseIterable, Sendable {
         case .captureScreen: return KeyCombo(keyCode: 0x14, modifiers: cs) // ⌘⇧3
         case .repeatArea: return KeyCombo(keyCode: 0x13, modifiers: cs)    // ⌘⇧2
         case .toggleShelf: return KeyCombo(keyCode: 0x12, modifiers: cs)   // ⌘⇧1
+        case .recordScreen: return KeyCombo(keyCode: 0x17, modifiers: cs)  // ⌘⇧5
         }
     }
 

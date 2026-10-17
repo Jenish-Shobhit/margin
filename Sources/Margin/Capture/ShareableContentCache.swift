@@ -32,6 +32,8 @@ final class ShareableContentCache {
     private(set) var snapFrames: [CGRect] = []
     private(set) var hasMarginApp = false
     private(set) var isLoaded = false
+    /// After every rebuild of the targets: a display recording under way takes the new filter (`RecordingController`).
+    var onTargetsRebuilt: (() -> Void)?
     /// Margin's ordinary windows the targets keep in shots (see `apply`).
     private var keptWindowIDs: Set<CGWindowID> = []
     /// The displays (NSScreen) that existed when the applied fetch started, with their pixel size then. One of
@@ -190,6 +192,11 @@ final class ShareableContentCache {
         Displays.all.allSatisfy { d in targets[d.id].map { $0.pixelSize == d.pixelSize } ?? true }
     }
 
+    /// A window window mode can pick, by its window number, or the frontmost one (the DEBUG hook's `record-window`).
+    func pickableWindow(id: CGWindowID?) -> CapturableWindow? {
+        stack.lazy.compactMap(\.window).first { id == nil || $0.id == id }
+    }
+
     /// The topmost window under a point (AppKit global points); nil over system UI such as the Dock.
     func window(at point: CGPoint) -> CapturableWindow? {
         stack.first { $0.frame.contains(point) }?.window
@@ -233,6 +240,7 @@ final class ShareableContentCache {
             t[display.displayID] = ScreenGrabber.makeDisplayTarget(display: display, excluding: margin, keeping: kept)
         }
         targets = t
+        onTargetsRebuilt?()
     }
 
     private func applyWindows(_ content: SCShareableContent) {

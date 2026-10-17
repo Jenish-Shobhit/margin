@@ -24,7 +24,7 @@ import Testing
         try #require(entry(d, id)["value"] as? [String: Any]) as NSDictionary
     }
 
-    @Test func turnsAllFourOffAndBackOn() {
+    @Test func turnsAllFiveOffAndBackOn() {
         let off = SystemShortcuts.applying(enabled: false, to: sample)
         #expect(SystemShortcuts.parse(off).allSatisfy { !$0.enabled })
         let on = SystemShortcuts.applying(enabled: true, to: off)
@@ -33,7 +33,7 @@ import Testing
 
     @Test func keepsOtherIDsUntouched() throws {
         let off = SystemShortcuts.applying(enabled: false, to: sample)
-        #expect(Set(off.keys) == Set(sample.keys).union(["29", "31"]))
+        #expect(Set(off.keys) == Set(sample.keys).union(["29", "31", "184"]))
         for id in [15, 60, 164] {
             #expect(try entry(off, id) as NSDictionary == entry(sample, id) as NSDictionary)
         }
@@ -52,9 +52,9 @@ import Testing
 
     @Test func createsMissingEntriesWithMacOSDefaults() throws {
         let off = SystemShortcuts.applying(enabled: false, to: [:])
-        #expect(off.count == 4)
+        #expect(off.count == 5)
         let expected: [Int: [Int]] = [28: [51, 20, 1_179_648], 29: [51, 20, 1_441_792],
-                                      30: [52, 21, 1_179_648], 31: [52, 21, 1_441_792]]
+                                      30: [52, 21, 1_179_648], 31: [52, 21, 1_441_792], 184: [53, 23, 1_179_648]]
         for (id, parameters) in expected {
             let e = try entry(off, id)
             #expect(e["enabled"] as? Bool == false)
@@ -64,7 +64,7 @@ import Testing
 
     @Test func nilDictionaryIsTreatedAsEmpty() {
         let off = SystemShortcuts.applying(enabled: false, to: nil)
-        #expect(Set(off.keys) == ["28", "29", "30", "31"])
+        #expect(Set(off.keys) == ["28", "29", "30", "31", "184"])
     }
 
     @Test func entryWithoutValueGetsTheDefault() throws {
@@ -86,8 +86,22 @@ import Testing
     }
 
     @Test func idWithoutADefaultGetsOnlyEnabled() throws {
-        let off = SystemShortcuts.applying(enabled: false, ids: [184], to: [:])
-        #expect(try entry(off, 184) as NSDictionary == ["enabled": false] as NSDictionary)
+        let off = SystemShortcuts.applying(enabled: false, ids: [64], to: [:])
+        #expect(try entry(off, 64) as NSDictionary == ["enabled": false] as NSDictionary)
+    }
+
+    @Test func theToolbarTurnsOffWithTheOthersKeepingItsBinding() throws {
+        // 184 as the user left it: rebound to ⌥⇧⌘S.
+        var hotkeys = sample
+        hotkeys["184"] = ["enabled": true, "value": ["parameters": [115, 1, 1_703_936], "type": "standard"]]
+        let off = SystemShortcuts.applying(enabled: false, to: hotkeys)
+        #expect(try entry(off, 184)["enabled"] as? Bool == false)
+        #expect(try value(off, 184) == ["parameters": [115, 1, 1_703_936], "type": "standard"] as NSDictionary)
+        // Restore turns it back on, on the user's keys.
+        let on = SystemShortcuts.applying(enabled: true, to: off)
+        #expect(SystemShortcuts.parse(on).first { $0.id == 184 }?.keys == "⌥⇧⌘S")
+        #expect(SystemShortcuts.parse(on).allSatisfy { $0.enabled })
+        #expect(SystemShortcuts.allIDs == [28, 29, 30, 31, 184])
     }
 
     @Test func defaultsMatchTheDefaultCombos() {

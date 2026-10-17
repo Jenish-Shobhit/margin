@@ -17,7 +17,8 @@ import Testing
 
     @Test func commonTwoModifierCombosAreRefused() {
         #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x06, modifiers: cmd | shift)) == "⇧⌘Z is Redo. Choose another.")
-        #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x17, modifiers: cmd | shift)) != nil)   // ⇧⌘5
+        // ⇧⌘5 is Margin's Record Screen since 0.1.0: no longer common, only a system shortcut while macOS's is on.
+        #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x17, modifiers: cmd | shift)) == nil)   // ⇧⌘5
         #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x35, modifiers: cmd | option)) != nil)  // ⌥⌘⎋
         #expect(ReservedShortcuts.reason(for: KeyCombo(keyCode: 0x0C, modifiers: cmd | control)) != nil) // ⌃⌘Q
     }
@@ -69,6 +70,20 @@ import Testing
         #expect(system == [KeyCombo(keyCode: 0x31, modifiers: cmd), toolbar])
         #expect(ReservedShortcuts.reason(for: toolbar, systemCombos: system) == "macOS uses ⌥⇧⌘S for a system shortcut. Choose another.")
         #expect(ReservedShortcuts.reason(for: ShortcutAction.captureArea.defaultCombo, systemCombos: system) == nil)
-        #expect(SystemShortcuts.otherEnabledCombos(nil).isEmpty)
+        // Nothing stored: every macOS default is on, and the only one known here is 184's ⇧⌘5.
+        #expect(SystemShortcuts.otherEnabledCombos(nil) == [ShortcutAction.recordScreen.defaultCombo])
+    }
+
+    @Test func theScreenshotToolbarCountsWhileItsOn() {
+        let shiftCmd5 = KeyCombo(keyCode: 0x17, modifiers: cmd | shift)
+        // 184 missing (as on a Mac where it was never touched) means on, at ⇧⌘5.
+        let untouched: [String: Any] = ["30": ["enabled": false]]
+        let system = SystemShortcuts.otherEnabledCombos(untouched)
+        #expect(system == [shiftCmd5])
+        #expect(ReservedShortcuts.reason(for: shiftCmd5, systemCombos: system) == "macOS uses ⇧⌘5 for a system shortcut. Choose another.")
+        // Turned off ("Turn off for me"): ⇧⌘5 is free.
+        let off: [String: Any] = ["184": ["enabled": false, "value": ["parameters": [53, 23, 1_179_648], "type": "standard"]]]
+        #expect(SystemShortcuts.otherEnabledCombos(off).isEmpty)
+        #expect(ReservedShortcuts.reason(for: shiftCmd5, systemCombos: SystemShortcuts.otherEnabledCombos(off)) == nil)
     }
 }

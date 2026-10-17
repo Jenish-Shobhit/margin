@@ -15,7 +15,9 @@ final class AppCoordinator {
     let store: ShelfStore
     let shelf: ShelfController
     let capture: CaptureController
-    private var menuBar: StatusMenuController?
+    /// ⇧⌘5's screen recordings (spec §14.4). Idle, and observing nothing, until one starts.
+    let recording: RecordingController
+    private(set) var menuBar: StatusMenuController?
     private var hotkeys: HotkeyCenter?
     private var pasteboardTimer: Timer?
     #if DEBUG || MARGIN_BENCH
@@ -48,6 +50,11 @@ final class AppCoordinator {
     private var terminationReplied = false
     /// The longest a quit waits for in-flight saves.
     static let terminationTimeout: TimeInterval = 3
+    /// The longest a quit waits for a recording under way to be stopped and finished (its index written, which takes
+    /// longer the longer it is).
+    static let recordingTerminationTimeout: TimeInterval = 15
+    /// Quit was asked for during a recording: it's being stopped and saved, and counts as a save in flight until then.
+    var recordingHoldsQuit = false
     /// The last action a global hotkey fired (for the DEBUG state dump).
     private(set) var lastHotkeyAction: ShortcutAction?
     var hotkeyRegistrations: [(binding: HotkeyCenter.Binding, status: OSStatus)] {
@@ -67,6 +74,7 @@ final class AppCoordinator {
         store = ShelfStore(fileURL: ShelfStore.defaultFileURL, writesInBackground: true)
         shelf = ShelfController(store: store)
         capture = CaptureController()
+        recording = RecordingController(cache: capture.shareableContent)
     }
 
     // MARK: - Lifecycle
@@ -91,6 +99,7 @@ final class AppCoordinator {
         shelf.onCopied = { [weak self] id, changeCount in self?.shelfDidCopy(id, changeCount: changeCount) }
         shelf.onCopiedPaths = { [weak self] in self?.shelfDidCopyPaths() }
         shelf.onRemoved = { [weak self] ids in self?.shelfDidRemove(ids) }
+        wireRecording()
         FirstRunWindowController.shared.onRelaunch = { [weak self] in self?.relaunch() }
 
         let menuBar = StatusMenuController(coordinator: self)
@@ -143,6 +152,12 @@ final class AppCoordinator {
     /// hidden temp file, for the next launch to put back), so wait for in-flight saves, at most `terminationTimeout`,
     /// then let the quit go on.
     func shouldTerminate() -> NSApplication.TerminateReply {
+        // A recording under way is stopped and saved first: until its index is written, the file doesn't play.
+        if recording.isActive, !recordingHoldsQuit {
+            recordingHoldsQuit = true
+            savesInFlight += 1
+            recording.stop(.quit)
+        }
         guard savesInFlight > 0 else { return .terminateNow }
         guard !isTerminating else { return .terminateLater } // asked again while already waiting
         isTerminating = true
@@ -151,7 +166,8 @@ final class AppCoordinator {
         // the main actor through the main queue, which that mode services: unless `terminate` was called
         // from inside a main-queue block, which then can't be re-entered. So the timeout is a run-loop timer
         // in the common modes, not `asyncAfter`: it fires either way, and a quit never hangs.
-        let timeout = Timer(timeInterval: Self.terminationTimeout, repeats: false) { [weak self] _ in
+        let wait = recordingHoldsQuit ? Self.recordingTerminationTimeout : Self.terminationTimeout
+        let timeout = Timer(timeInterval: wait, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, !self.terminationReplied else { return }
                 Self.log.error("Quit: \(self.savesInFlight) capture(s) still saving after the timeout; quitting anyway")
@@ -192,6 +208,7 @@ final class AppCoordinator {
         case .captureScreen: captureScreen()
         case .repeatArea: repeatArea()
         case .toggleShelf: shelf.toggleTucked()
+        case .recordScreen: toggleRecording()
         }
     }
 
@@ -324,7 +341,7 @@ final class AppCoordinator {
     /// Never prompts: without permission, show First run step 1 instead of touching ScreenCaptureKit.
     /// After a capture failed for lack of permission, captures are still attempted while preflight says
     /// yes: the user may have granted it again, and only a capture that works can clear the warning.
-    private func canStartCapture() -> Bool {
+    func canStartCapture() -> Bool {
         if capture.isCapturing || isTerminating { return false }
         if !permissionGranted { refreshPermission() }
         guard permissionGranted else {
@@ -359,7 +376,7 @@ final class AppCoordinator {
     /// A capture failed because Screen Recording permission is missing (revoked while running, usually).
     /// `permissionGranted` keeps following preflight; the revoked flag holds the warning until a capture
     /// succeeds or Margin relaunches.
-    private func captureLostPermission() {
+    func captureLostPermission() {
         RuntimeStatus.shared.screenRecordingRevoked = true
         permissionMissing()
     }
