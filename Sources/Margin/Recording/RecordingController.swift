@@ -394,6 +394,8 @@ final class RecordingController {
             defer { reset() }
             guard let placed else {
                 RecordingLog.log.error("Recording not saved: \(outcome.error ?? "unknown", privacy: .public)")
+                // Stopped before its first frame (⇧⌘5 twice, quickly): nothing was lost, so no error.
+                if outcome.framesWritten == 0, reason == .user || reason == .quit { return }
                 onFailure?(reason == .user || reason == .quit ? "Couldn't save the recording" : (reason.note ?? "Couldn't save the recording"))
                 return
             }

@@ -171,7 +171,7 @@ Margin keeps what was recorded and says why on the shelf:
 - **"the disk is almost full"**: Margin stops while about 400 MB are still free, so it can finish the file (a movie without its index doesn't play). It doesn't start a recording on a disk with less: it records into Unsaved, on your startup disk, or says "Can't record: the disk is almost full". Free some space, or choose a save folder on another disk.
 - **"Recording stopped by macOS"**: someone stopped it from macOS's screen-recording indicator in the menu bar, or macOS ended it.
 
-"Couldn't save the recording" means the file couldn't be finished: nothing usable was written. If Margin crashes or is forced to quit mid-recording, the unfinished movie can't be played; its hidden temp file (`.margin-recording-….mp4`) is removed the next time you record into that folder. (A finished one that never got its name gets it then.)
+"Couldn't save the recording" means the file couldn't be finished: nothing usable was written. (Stopping before the first frame, with ⇧⌘5 pressed twice quickly, just cancels: no message.) If Margin crashes or is forced to quit mid-recording, the unfinished movie can't be played; its hidden temp file (`.margin-recording-….mp4`) is removed the next time you record into that folder. (A finished one that never got its name gets it then.)
 
 ## A recording has no sound, or no microphone
 
