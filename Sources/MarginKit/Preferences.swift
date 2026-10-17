@@ -106,11 +106,10 @@ public final class Preferences {
 
     /// Where screenshots go while "Delete screenshots after pasting" is on (spec §14.2):
     /// `~/Library/Application Support/Margin/Pasteboard`. Margin's own, so it never raises a privacy prompt, and every
-    /// file in it lives only as long as its card can come back (`PasteboardShots`).
-    public nonisolated static var pasteboardFolder: URL {
+    /// file in it lives only as long as its card can come back (`PasteboardShots`). Looked up once: every capture asks.
+    public nonisolated static let pasteboardFolder: URL =
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Margin/Pasteboard", isDirectory: true)
-    }
 
     /// Posted (object: the `Preferences`) when `isRecordingShortcut` changes. It isn't a settings change,
     /// so `didChange` isn't posted for it.

@@ -25,6 +25,8 @@ struct SettingsView: View {
                     }
                 }
                 Toggle("Copy each capture", isOn: Binding(get: { model.copyEachCapture }, set: model.setCopyEachCapture))
+                Toggle("Delete screenshots after pasting", isOn: Binding(get: { model.deletesAfterPasting }, set: model.setDeletesAfterPasting))
+                    .help("Screenshots aren’t saved to your folder. One you paste (⌘V) or drag into an app leaves the shelf, and its file is deleted once Restore Last Removed can’t bring it back. Screen recordings are always saved.")
                 Toggle("Shutter sound", isOn: Binding(get: { model.shutterSound }, set: model.setShutterSound))
                 Toggle("Show key hints while capturing", isOn: Binding(get: { model.showsCaptureHints }, set: model.setShowsCaptureHints))
                 VStack(alignment: .leading, spacing: 4) {

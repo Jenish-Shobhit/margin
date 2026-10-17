@@ -58,10 +58,13 @@ extension AppCoordinator {
         }
 
         // 2. The predicted file name, reserved in memory so two captures in the same second differ.
-        // A name already taken on disk is resolved by the writer, and the shelf hears the final path.
+        // A name already taken on disk is resolved by the writer, and the shelf hears the final path. With "Delete
+        // screenshots after pasting" on, the shot goes to Margin's Pasteboard folder instead (spec §14.2).
         let nameClock = Stopwatch()
         let reserved = reservedPaths
-        let url = FileNamer.uniqueURL(in: prefs.saveFolder, for: result.date) { reserved.contains($0.path) }
+        let folder = PasteboardShots.folder(for: .screenshot, deletesAfterPasting: prefs.deletesAfterPasting,
+                                            saveFolder: prefs.saveFolder)
+        let url = FileNamer.uniqueURL(in: folder, for: result.date) { reserved.contains($0.path) }
         reservedPaths.insert(url.path)
         t.record("release.name", nameClock.ms)
 
@@ -133,7 +136,8 @@ extension AppCoordinator {
             }
             Self.signposter.endInterval("save", saveSignpost)
             await self?.finishSave(
-                itemID: item.id, sequence: sequence, releaseDate: result.date, timings: timings, outcome: outcome)
+                itemID: item.id, sequence: sequence, releaseDate: result.date, folder: folder, timings: timings,
+                outcome: outcome)
         }
     }
 
@@ -161,7 +165,8 @@ extension AppCoordinator {
         }
     }
 
-    private func finishSave(itemID: UUID, sequence: Int, releaseDate: Date, timings: Timings, outcome: SaveOutcome) {
+    private func finishSave(itemID: UUID, sequence: Int, releaseDate: Date, folder: URL, timings: Timings,
+                            outcome: SaveOutcome) {
         let mainClock = Stopwatch()
         let t = CaptureTimings.shared
         // Last, so a quit waiting on this save goes ahead only after shelf.json has the final path.
@@ -220,7 +225,7 @@ extension AppCoordinator {
             Self.log.error(
                 "Saved to Unsaved — folder not writable (\(outcome.error ?? "", privacy: .public)): \(saved.path, privacy: .public)")
             didSaveToUnsaved()
-            shelf.showToast(UnsavedShots.fallbackToast(saveFolder: prefs.saveFolder), isError: true,
+            shelf.showToast(UnsavedShots.fallbackToast(saveFolder: folder), isError: true,
                             duration: Self.fallbackToastDuration)
         }
 
