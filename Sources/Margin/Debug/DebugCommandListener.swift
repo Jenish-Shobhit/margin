@@ -15,6 +15,7 @@ import os
 ///   clear                  remove every item from the shelf (undoable)
 ///   dismiss [n]            remove the n newest cards (default 1) as one undo step, as ✕ does but keeping the keys
 ///   restore-last           the menu's Restore Last Removed (the shelf's ⌘Z)
+///   copy [n]               click the n-th newest card (default 1): the shelf's copy
 ///   dump-state             write the state as JSON to /tmp/margin-state.json
 ///   record-area x y w h    record a rect in AppKit global points, no overlay
 ///   record-screen          record the display under the pointer
@@ -23,8 +24,11 @@ import os
 ///   hotkey <action>        what that shortcut does: captureArea, captureScreen, repeatArea, toggleShelf, recordScreen
 ///   capture-window         the menu's Capture Window (the overlay in window mode)
 ///   select x y w h         in the live overlay: drag from (x, y) to (x + w, y + h) and release (global points)
-///   click x y [option]     in the live overlay in window mode: click at (x, y), with ⌥ to keep the shadow
+///   click x y [option] [window=<id>]  in the live overlay in window mode: click at (x, y), with ⌥ to keep the shadow;
+///                          with `window=`, only if that's the window it would pick there (otherwise the overlay closes)
 ///   cancel                 close the live overlay, as Esc does
+///   key space|return|escape  that key in the live overlay (Space: window mode; ↩: capture, or record the whole display)
+///   show settings|first-run|shortcuts|none  open Settings, First run, or First run at its shortcuts step; or close them
 ///   mark <text>            log `mark: <text>` in the timing category (`scripts/bench.sh` tells captures apart by it)
 /// The overlay commands call the session's mouse handlers in-process: no event reaches any other app.
 @MainActor
@@ -73,6 +77,11 @@ final class DebugCommandListener: NSObject {
             coordinator.shelf.dismiss(coordinator.store.items.suffix(max(count, 0)).map(\.id), exit: .collapse)
         case "restore-last":
             coordinator.restoreLastRemoved()
+        case "copy":
+            let n = parts.count > 1 ? Int(parts[1]) ?? 1 : 1
+            let items = coordinator.store.items
+            guard n >= 1, n <= items.count else { return }
+            coordinator.shelf.click(items[items.count - n].id)
         case "dump-state":
             Task { await dumpState(coordinator) }
         case "record-area":
@@ -123,9 +132,32 @@ final class DebugCommandListener: NSObject {
                 Self.log.error("usage: click x y [option]")
                 return
             }
-            click(at: CGPoint(x: numbers[0], y: numbers[1]), option: parts.contains("option"), in: coordinator)
+            let expected = parts.first { $0.hasPrefix("window=") }.flatMap { CGWindowID($0.dropFirst("window=".count)) }
+            click(at: CGPoint(x: numbers[0], y: numbers[1]), option: parts.contains("option"), expecting: expected, in: coordinator)
         case "cancel":
             coordinator.capture.currentSession?.cancel()
+        case "key":
+            let codes: [String: UInt16] = ["space": 49, "return": 36, "escape": 53]
+            guard parts.count == 2, let code = codes[parts[1]], let session = coordinator.capture.currentSession else {
+                Self.log.error("usage: key space|return|escape (with an overlay up)")
+                return
+            }
+            let characters = code == 49 ? " " : code == 36 ? "\r" : "\u{1B}"
+            for type in [NSEvent.EventType.keyDown, .keyUp] {
+                guard let event = NSEvent.keyEvent(
+                    with: type, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: 0, context: nil, characters: characters, charactersIgnoringModifiers: characters,
+                    isARepeat: false, keyCode: code) else { continue }
+                if type == .keyDown { session.keyDown(event) } else { session.keyUp(event) }
+            }
+        case "show":
+            switch parts.dropFirst().first {
+            case "settings": coordinator.showSettings()
+            case "first-run": FirstRunWindowController.shared.show()
+            case "shortcuts": coordinator.showShortcutsStep()
+            case "none": for window in NSApp.windows where window.isVisible && window.level == .normal { window.close() }
+            default: Self.log.error("usage: show settings|first-run|shortcuts|none")
+            }
         case "mark":
             let text = parts.dropFirst().joined(separator: " ")
             CaptureLog.timing.info("mark: \(text, privacy: .public)")
@@ -155,11 +187,17 @@ final class DebugCommandListener: NSObject {
         }
     }
 
-    /// A click on the live overlay (window mode picks the window under it).
-    private func click(at point: CGPoint, option: Bool, in c: AppCoordinator) {
+    /// A click on the live overlay (window mode picks the window under it). With `expected`, only if that's the window
+    /// it would pick: a test never captures or records some other app's window by mistake.
+    private func click(at point: CGPoint, option: Bool, expecting expected: CGWindowID?, in c: AppCoordinator) {
         guard let session = c.capture.currentSession,
               let display = session.displays.first(where: { $0.frame.contains(point) }) else {
             Self.log.error("click: no overlay on a display at \(String(describing: point), privacy: .public)")
+            return
+        }
+        if let expected, c.capture.shareableContent.window(at: point)?.id != expected {
+            Self.log.error("click: window \(expected) isn't the one at \(String(describing: point), privacy: .public); cancelling")
+            session.cancel()
             return
         }
         session.mouseDown(at: point, on: display, event: Self.mouseEvent(.leftMouseDown, option: option))
@@ -219,6 +257,7 @@ final class DebugCommandListener: NSObject {
             "isCapturing": c.capture.isCapturing,
             "overlay": c.capture.currentSession.map { ["mode": "\($0.mode)", "purpose": "\($0.purpose)"] } ?? NSNull(),
             "recording": Self.recordingState(c.recording, stats: stats),
+            "statusItem": c.menuBar?.debugState ?? NSNull(),
             "itemKinds": c.store.items.map(\.kind.rawValue),
             "focus": [
                 "keyWindow": NSApp.keyWindow.map { String(describing: type(of: $0)) } ?? "none",

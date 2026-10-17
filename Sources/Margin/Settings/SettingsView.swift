@@ -73,7 +73,8 @@ struct SettingsView: View {
     }
 }
 
-/// Screen recording's audio (spec §14.4): what the Mac plays, and the microphone, both off until turned on here.
+/// Screen recording's audio (spec §14.4): what the Mac plays, and the microphone, both off until turned on here. No
+/// header: the toggles say what they're for, and the window stays short enough for a small display.
 private struct RecordingSection: View {
     let model: SettingsModel
 
@@ -93,8 +94,6 @@ private struct RecordingSection: View {
                     .font(.caption)
                 }
             }
-        } header: {
-            Text("Screen recording")
         }
     }
 }

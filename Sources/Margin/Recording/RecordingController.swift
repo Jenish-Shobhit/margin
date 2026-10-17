@@ -208,9 +208,9 @@ final class RecordingController {
         let saveError: String?
     }
 
-    /// Creates the temp file in the save folder (or, if that can't be written, in Unsaved, as a screenshot would) and
-    /// starts the recorder. Off the main thread: the first write to ~/Desktop can wait on its privacy prompt. Leftovers of
-    /// recordings cut off in an earlier run go first.
+    /// Creates the temp file in the save folder (or, if that can't be written or is nearly full, in Unsaved, as a
+    /// screenshot would) and starts the recorder. Off the main thread: the first write to ~/Desktop can wait on its privacy
+    /// prompt. Leftovers of recordings cut off in an earlier run go first.
     @concurrent
     private nonisolated static func open(_ source: RecordingSource, saveFolder: URL, fallbackFolder: URL,
                                          callbacks: ScreenRecorder.Callbacks) async throws -> Opened {
@@ -219,11 +219,15 @@ final class RecordingController {
             do {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 RecordingFiles.removeLeftovers(in: folder, writtenBefore: ProcessLaunch.date ?? Date())
+                // A recording that would stop at once for lack of space doesn't start there.
+                if let free = RecordingFiles.freeBytes(at: folder), free < RecordingFiles.minimumFreeBytes {
+                    throw ScreenRecorder.RecorderError.full
+                }
                 let temp = folder.appendingPathComponent(RecordingFiles.tempName())
                 let recorder = try await ScreenRecorder.start(source, to: temp, callbacks: callbacks)
                 return Opened(recorder: recorder, folder: folder, usedFallback: isFallback, saveError: saveError)
             } catch let error as ScreenRecorder.RecorderError {
-                guard case .file = error, !isFallback else { throw error }
+                guard error.isAboutTheFolder, !isFallback else { throw error }
                 saveError = "\(folder.path): \(error.localizedDescription)"
             } catch let error as CocoaError where !isFallback {
                 // The folder couldn't be created.
@@ -264,6 +268,8 @@ final class RecordingController {
         if ScreenGrabber.isPermissionError(error) {
             RuntimeStatus.shared.screenRecordingRevoked = true
             onPermissionMissing?()
+        } else if case ScreenRecorder.RecorderError.full = error {
+            onFailure?("Can't record: the disk is almost full")
         } else if case ScreenRecorder.RecorderError.file = error {
             onFailure?("Couldn't save the recording: no folder can be written")
         } else {

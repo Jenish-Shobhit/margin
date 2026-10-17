@@ -15,6 +15,18 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private(set) var showsWarning = false
     /// How long the recording under way has run; nil when there's none (spec §14.4).
     private(set) var recordingElapsed: TimeInterval?
+    #if DEBUG || MARGIN_BENCH
+    /// What the button shows, for the DEBUG state dump.
+    var debugState: [String: Any] {
+        [
+            "title": statusItem.button?.title ?? "",
+            "recordingGlyph": statusItem.button?.image === recordingGlyph,
+            "variableLength": statusItem.length == NSStatusItem.variableLength,
+            "menu": menu.items.map { $0.isSeparatorItem ? "—" : $0.title + ($0.keyEquivalent.isEmpty ? "" : " [\($0.keyEquivalent)]") },
+        ]
+    }
+    #endif
+
     /// The red stop glyph that stands in for the icon while recording: not a template, so it stays red.
     private lazy var recordingGlyph: NSImage = {
         let config = NSImage.SymbolConfiguration(paletteColors: [.white, .systemRed])

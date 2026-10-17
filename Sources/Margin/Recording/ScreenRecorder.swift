@@ -340,9 +340,23 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
     enum RecorderError: LocalizedError {
         /// The file couldn't be created where it was asked for.
         case file(String)
+        /// Less than `RecordingFiles.minimumFreeBytes` is free there.
+        case full
         case failed(String)
+
+        /// Another folder might do (the Unsaved one).
+        var isAboutTheFolder: Bool {
+            switch self {
+            case .file, .full: true
+            case .failed: false
+            }
+        }
+
         var errorDescription: String? {
-            switch self { case .file(let why), .failed(let why): why }
+            switch self {
+            case .file(let why), .failed(let why): why
+            case .full: "The disk is almost full"
+            }
         }
     }
 }
