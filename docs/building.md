@@ -68,7 +68,7 @@ The tests cover `MarginKit`, the app's pure logic:
 - the order ⌘Z restores steps in;
 - `shelf.json` round trips, bookmarks, pruning and unmounted volumes, and damaged or newer files;
 - PNG encoding, DPI and atomic writes, and putting back the temp files of saves cut off;
-- the clipboard items, including emulated Ghostty pastes;
+- the clipboard items, including emulated Ghostty pastes, and Delete screenshots after pasting's watched items (what counts as a paste, on a private pasteboard), where its shots go, when their files may go, and the launch's cleanup;
 - updates: version order, GitHub's release JSON (a fixture of a real answer), choosing the zip, what a check offers and Skip This Version, when checks are due, `margin://update`, the downloaded bundle's checks, and the swap helper run against fake bundles in a temporary folder;
 - key-combo display and conflicts;
 - preferences and the hint counter;
@@ -206,7 +206,8 @@ scripts/debug.sh dump-state                     # print the state as JSON
   - each hotkey registration and its `OSStatus`;
   - the overlay's mode and purpose while a capture is up (`overlay.mode`, `overlay.purpose`: `capture` or `record`), and who has focus (`focus`: Margin's key window, whether it's active, the frontmost app);
   - the last capture's timings;
-  - the recording (`recording`: its state, target, encoded size, fps, bit rate, temp file, frames written and dropped, and the last one's duration), each item's kind (`itemKinds`) and the status item (`statusItem`: its title, whether it shows the recording glyph, the menu's items).
+  - the recording (`recording`: its state, target, encoded size, fps, bit rate, temp file, frames written and dropped, and the last one's duration), each item's kind (`itemKinds`) and the status item (`statusItem`: its title, whether it shows the recording glyph, the menu's items);
+  - Delete screenshots after pasting (`pasteboard`: the setting, the watched clipboard write and each read of it, with how long after the write, whether ⌘ and ⌃ were held and how long before it a key went down, the files waiting to be deleted, the clipboard's Pasteboard files and the undo steps).
 - To check visuals, take a `screencapture -x`: it sees the shelf, while Margin's own captures never do.
 - `scripts/bench.sh` also uses `hotkey <action>`, `capture-window`, `select x y w h`, `click x y [window=<id>]`, `key space|return|escape`, `cancel` and `mark <text>`, which drive a live overlay in-process (see `DebugCommandListener.swift`); `click … window=<id>` clicks only if that window is the one window mode would pick there, so a test never captures or records another app's window. `copy [n]` copies the n-th newest card as a click does, and `show settings|first-run|shortcuts|none` opens or closes Margin's windows.
 

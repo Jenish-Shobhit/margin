@@ -54,6 +54,7 @@ Every capture is saved to disk, copied to the clipboard and put on a shelf of th
 - PNGs named `Screenshot 2026-10-14 at 17.42.17.png` (24-hour time), written atomically so no app ever sees half a file.
 - Keeps the display's colour profile and the Retina DPI (144), and tags the file as a screenshot (Finder and Spotlight's screenshot searches find it), as macOS does.
 - The clipboard gets the PNG and the saved file. The shutter sound follows your alert volume.
+- Or don't keep them: with **Delete screenshots after pasting** on, a screenshot waits on the shelf only until you paste it (⌘V) or drag it into an app, and its file goes once Restore Last Removed can't bring it back. Screen recordings are always saved.
 
 **The shelf**
 
@@ -174,6 +175,7 @@ Open **Settings…** from the menu bar icon.
 |---|---|---|
 | Save to | `~/Desktop/Screenshots` | Created when missing |
 | Copy each capture | On | Off leaves the clipboard alone; click a card to copy it |
+| Delete screenshots after pasting | Off | Screenshots go to Margin's own folder, and one you paste or drag into an app leaves the shelf and is deleted once undo can't bring it back. A clipboard manager that saves images keeps pastes from being noticed ([user guide](docs/user-guide.md#delete-screenshots-after-pasting)) |
 | Shutter sound | On | Silent when "Play user interface sound effects" is off in System Settings › Sound |
 | Show key hints while capturing | On | The bar of keys at the top of the screen while you select |
 | Check for updates automatically | On | At launch and once a day, asks GitHub for the latest release |
@@ -190,7 +192,7 @@ Margin works entirely on your Mac. It has no analytics, no telemetry and no acco
 
 | What | Where |
 |---|---|
-| Screenshots and screen recordings | Your save folder (default `~/Desktop/Screenshots`). If that can't be written: `~/Library/Application Support/Margin/Unsaved/` |
+| Screenshots and screen recordings | Your save folder (default `~/Desktop/Screenshots`). If that can't be written: `~/Library/Application Support/Margin/Unsaved/`. With **Delete screenshots after pasting** on, screenshots stay in `~/Library/Application Support/Margin/Pasteboard/` only until they're pasted |
 | The shelf's list (paths, Finder bookmarks, dates, pixel sizes) | `~/Library/Application Support/Margin/shelf.json` |
 | Settings, shortcuts, the last area for ⇧⌘2, a few counters | The preferences domain `io.github.jenish-shobhit.margin` |
 | Diagnostics (timings, saved file names, errors) | The macOS unified log, subsystem `io.github.jenish-shobhit.margin`, like any app's logs |

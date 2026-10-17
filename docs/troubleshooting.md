@@ -13,6 +13,8 @@ Answers to the problems people run into most. If yours isn't here, [open an issu
 - [The shelf is gone](#the-shelf-is-gone)
 - [Launch at login needs approval](#launch-at-login-needs-approval)
 - [Where are my screenshots?](#where-are-my-screenshots)
+- [A pasted screenshot stays on the shelf](#a-pasted-screenshot-stays-on-the-shelf)
+- [A screenshot left the shelf when I pasted it](#a-screenshot-left-the-shelf-when-i-pasted-it)
 - [The frozen screen won't go away](#the-frozen-screen-wont-go-away)
 - [⇧⌘5 opens the macOS screenshot toolbar](#5-opens-the-macos-screenshot-toolbar)
 - [A recording stopped by itself](#a-recording-stopped-by-itself)
@@ -138,6 +140,7 @@ The same goes for any app that wrongly reports a drop as successful. If an app w
 - **It's tucked.** Look for a narrow tab with a number at the right edge of the screen, near the bottom. Hover it to peek, click it, or press **⇧⌘1** (or choose **Show Shelf** in the menu bar).
 - **It's on another display.** The shelf moves to the display of your most recent capture.
 - **It's empty**, so it's hidden. **Restore Last Removed** in the menu bar brings back what last left it.
+- **You pasted the shots**, with **Delete screenshots after pasting** on: each one leaves the shelf when it's pasted. See [below](#a-screenshot-left-the-shelf-when-i-pasted-it).
 - **The files were deleted or moved to the Trash.** Cards drop off when their file is gone.
 - **Its list was damaged.** The shelf is kept in `~/Library/Application Support/Margin/shelf.json`. If part of that file can't be read, the cards that can still be read come back, and the original file is kept beside it as `shelf.json.bad` (attach it to a bug report).
 - **Margin isn't running.** If there's no menu bar icon, open Margin from Applications. If the icon is hidden by your menu bar settings, opening Margin again opens its Settings.
@@ -154,7 +157,30 @@ If Settings says **Couldn't turn on launch at login**, move Margin to `/Applicat
 
 In `~/Desktop/Screenshots` unless you changed **Settings › Save to**. **Open Screenshots Folder** in the menu bar opens it. Shots that couldn't be written there are in `~/Library/Application Support/Margin/Unsaved/`: **Show Unsaved Shots** in the menu bar opens it.
 
+With **Settings › Delete screenshots after pasting** on, screenshots aren't saved there at all: they're in `~/Library/Application Support/Margin/Pasteboard/` while their cards are on the shelf (or ⌘Z can still bring them back), and are deleted after that. Screen recordings are always in the save folder.
+
 To find one from the shelf, choose **Reveal in Finder** from its card's menu.
+
+## A pasted screenshot stays on the shelf
+
+With **Delete screenshots after pasting** on, a card leaves the shelf when an app reads the shot just as you press **⌘V** or **⌃V**. It stays when Margin can't tell that it was pasted:
+
+- **You pasted from a menu** (Edit › Paste, or a right-click). Only the keys count.
+- **The app read it after you let go of the keys**, or more than a moment after the key. Claude Code's **⌃V** in a terminal can be that slow. **⌘V** in Ghostty (which pastes the file's path) counts.
+- **You pasted the instant it was copied** (within about a sixth of a second). Click the card to copy it again.
+- **A clipboard manager read it first.** One that saves every copy, images included, gets the shot as soon as it's copied, and after that the pasteboard answers later pastes without asking Margin. Spotlight's clipboard history doesn't do this.
+- **The shot was taken before you turned the option on**, or the option is off now: those cards behave as usual.
+- **It was saved to Unsaved** (Margin's Pasteboard folder couldn't be written): it's a normal file then.
+
+Dismiss the card (✕ or ⌫) when you're done with it. Its file goes once Restore Last Removed can't bring it back.
+
+## A screenshot left the shelf when I pasted it
+
+That's **Settings › Delete screenshots after pasting**: a shot pasted (or dragged) into an app is done with. To get it back:
+
+- **Restore Last Removed** in the menu bar (or ⌘Z on the shelf, after ⌘-clicking a card) brings the card back with its file. That works until 20 newer removals have pushed it out, or Margin quits; then the file is deleted.
+- **The clipboard still has it** until you copy something else, so ⌘V pastes it again.
+- To keep a shot for good, drag its card into a Finder folder (the copy there stays), or turn the option off: new shots are saved to your folder again.
 
 ## The frozen screen won't go away
 

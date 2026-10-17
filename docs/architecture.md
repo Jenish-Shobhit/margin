@@ -6,6 +6,7 @@ How Margin 0.1.1 is put together, for anyone changing it. The product rules live
 - [The contracts](#the-contracts)
 - [From hotkey to shelf](#from-hotkey-to-shelf)
 - [Screen recording](#screen-recording)
+- [Delete screenshots after pasting](#delete-screenshots-after-pasting)
 - [Threading rules](#threading-rules)
 - [Windows and focus](#windows-and-focus)
 - [Persistence](#persistence)
@@ -57,6 +58,8 @@ flowchart LR
 | `ParallelPNG.swift` | That same file with the deflate spread over every core: bands of rows deflated pigz-style and joined into one zlib stream, around ImageIO's own chunks for the image. `PNGWriter` uses it from two bands of rows (about 360 × 360 pixels) up |
 | `LeftoverSaves.swift` | At launch, the temp files of saves cut off before their rename: a complete PNG back under its card's name, or a new one; the rest deleted |
 | `ClipboardMark.swift` | The ⌘V mark's change-count bookkeeping, and `ClipboardWriter` (PNG + file URL per item, a recording's file URL alone; Copy Path's plain text) |
+| `PasteWatch.swift` | Delete screenshots after pasting: one clipboard write, promised (`NSPasteboardItemDataProvider`) and kept on this Mac, that reports a paste (a read just as ⌘V or ⌃V is pressed: `PasteKeys`) |
+| `PasteboardShots.swift` | Where a capture goes with that option on, which files may be deleted and when (`Retention`), the clipboard's Pasteboard files across a relaunch, and the launch's cleanup of the Pasteboard folder |
 | `Preferences.swift` | `KeyCombo`, `ShortcutAction` (defaults, ⌃ twins, conflicts), `LastArea` and the `Preferences` store |
 | `KeyCombo+Display.swift` | `⇧⌘4`-style strings in ⌃⌥⇧⌘ order, key names and Carbon ↔ AppKit modifiers |
 | `KeyboardLayout.swift` | What the character keys type on the user's keyboard layout (`UCKeyTranslate`), so shortcuts read as the keys are labelled: with ⌘ held for a combo with ⌘, as menus name it ("Dvorak – QWERTY ⌘" types QWERTY then). A snapshot taken on the main thread at launch and on every input source change |
@@ -79,7 +82,7 @@ flowchart LR
 
 | Folder | Responsibility |
 |---|---|
-| `App/` | `main.swift` (accessory app), `AppDelegate`, `LaunchGuard` (one copy at a time), `AppCoordinator` (wires everything, permission state, ⌘V mark), `AppCoordinator+Save` (the save pipeline), `AppCoordinator+Recording` (⇧⌘5, and a finished recording onto the shelf and the clipboard), `Contracts.swift`, and `MainMenu` (a hidden main menu that gives text fields and windows their standard key equivalents) |
+| `App/` | `main.swift` (accessory app), `AppDelegate`, `LaunchGuard` (one copy at a time), `AppCoordinator` (wires everything, permission state, ⌘V mark), `AppCoordinator+Save` (the save pipeline), `AppCoordinator+Recording` (⇧⌘5, and a finished recording onto the shelf and the clipboard), `AppCoordinator+Pasteboard` (Delete screenshots after pasting: watched copies, pastes, and deleting what nothing holds), `Contracts.swift`, and `MainMenu` (a hidden main menu that gives text fields and windows their standard key equivalents) |
 | `Recording/` | `RecordingController` (one recording's life: target, start, the menu bar's clock, what stops it, the finished file) and `ScreenRecorder` (`SCStream` into `AVAssetWriter`) |
 | `Capture/` | `CaptureController` (area, window, screen, repeat area), `ScreenGrabber` (ScreenCaptureKit calls and cropping), `ShareableContentCache`, `Displays`, logging and timings, and `CaptureSimulation` (DEBUG-only fakes) |
 | `Overlay/` | The frozen-screen overlay: `OverlayPanel` and its pool, `OverlaySession` (selection state machine and keys), `OverlayView` (layers), `OverlayChrome` (hint bar, magnifier, pills), `SelectionMath` and `AreaFlash` |
@@ -198,7 +201,7 @@ By the time the coordinator gets the `CaptureResult`, `CaptureController` has ma
 On the main actor, in this order:
 
 1. Plays the shutter sound.
-2. Predicts the file name with `FileNamer`. It's checked against an in-memory set of names already handed out, *not* the disk.
+2. Predicts the file name with `FileNamer`, in the save folder (in the Pasteboard folder with Delete screenshots after pasting on: [below](#delete-screenshots-after-pasting)). It's checked against an in-memory set of names already handed out, *not* the disk.
 3. Calls `shelf.add` with a pending item and the result's thumbnail, which `CaptureController` downsampled off the main thread before handing the shot over. The fly-in starts here. The target is **≤ 100 ms from release to thumbnail**.
 4. For a window's stand-in, starts a task that waits for `windowShot` and puts the shot's thumbnail in its place (`replaceThumbnail`).
 
@@ -212,7 +215,7 @@ Then, in a detached task:
 
 Back on the main actor, `finishSave`:
 
-1. Writes the clipboard, if **Copy each capture** is on and this is still the newest capture (a copy from the shelf since then wins: a click, ⌘C or Copy Path). It writes one item per shot: `public.png`, plus `public.file-url` pointing at the *final* path. It records the pasteboard's `changeCount` and puts the ⌘V mark on the card.
+1. Writes the clipboard, if **Copy each capture** is on and this is still the newest capture (a copy from the shelf since then wins: a click, ⌘C or Copy Path). It writes one item per shot: `public.png`, plus `public.file-url` pointing at the *final* path (a shot in the Pasteboard folder: the same, promised through a `PasteWatch`). It records the pasteboard's `changeCount` and puts the ⌘V mark on the card.
 2. Stores the final path and bookmark, and calls `shelf.itemDidSave`.
 3. Shows the Unsaved toast if needed (and sets the flag behind the menu's **Show Unsaved Shots**), bumps the capture counter, and tells first run.
 
@@ -310,6 +313,36 @@ Nothing of recording exists until ⇧⌘5: `RecordingController` is created at l
 
 **On the shelf.** A recording is a `ShelfItem` with `kind: .recording` and its `duration`. The card adds a ▶ length badge (bottom-left, swapped for the meta line on hover); a copy (click, ⌘C) writes its file URL alone (`ClipboardWriter.write(_ entries:)`, never reading the movie), and everything else (drag, open, Quick Look, rename, trash, undo) works on its file as for a PNG.
 
+## Delete screenshots after pasting
+
+Spec §14.2, since 0.1.2. With the option off none of this runs: captures are saved and copied exactly as before (`ClipboardWriter`'s `setData`, no providers), shelf copies too, and nothing new observes or polls. What's left costs a flag: `handleCapture` reads `deletesAfterPasting` once, `copyCapture` checks a Bool, and the ⌘V mark's one-second tick finds no file waiting and no clipboard record.
+
+**Saving.** `PasteboardShots.folder` sends a screenshot to `Preferences.pasteboardFolder` (`~/Library/Application Support/Margin/Pasteboard/`) while the option is on. The save pipeline is otherwise the same: temp file, exclusive rename, the screenshot tags, and the Unsaved fallback, after which the shot is a normal file. Recordings always go to the save folder.
+
+**Watching the clipboard** (`PasteWatch`, `AppCoordinator+Pasteboard`). A capture saved to the Pasteboard folder, and a shelf copy with one in it (`ShelfController.writeWatchedCopy`), go on the clipboard as the usual items, `public.png` then `public.file-url`, but promised (`NSPasteboardItem.setDataProvider`) and kept on this Mac (`prepareForNewContents(with: .currentHostOnly)`). The pasteboard asks Margin's main thread for a type the first time any app reads it, and keeps the answer. At that moment `PasteKeys.current` reads `CGEventSource`'s combined session state (the keyboard and posted events), which needs neither Input Monitoring nor Accessibility but shows a background app only part of it: the modifiers, and how long ago some key went down. Which key, it doesn't say: `keyState` reports V only to the app in front (checked with two test apps without Input Monitoring, one in front and one behind, as Margin is when another app pastes). So a read is a paste when ⌘ or ⌃ is held and a key went down at most 0.3 s before it (an app reads the clipboard as it handles the key: Ghostty within 2–10 ms, an AppKit menu's key equivalent within 35 ms) and after the write (⇧⌘3's own keys, still down as its shot is copied, don't count), and the read comes at least 0.15 s after the write (what reads every change, reads within 60 ms). The reads of one paste (several items, both types) are gathered for 0.15 s, and the pasted cards leave as one undo step (`ShelfUndoStep.Kind.paste`), as after a drop. Once the pasteboard has everything, or has moved on, the watch lets go of its images; at quit, a watch still on the clipboard hands over whatever is still promised (`fulfil`), so the clipboard outlives Margin.
+
+**Who reads the clipboard.** Measured 17 Oct 2026 on macOS 27.0.1 (Handoff and Universal Clipboard off, Spotlight's clipboard history on, no third-party clipboard manager), with a probe writing a promised test item and logging every request, `log stream` on `pboard`, `sharingd` and Spotlight alongside:
+
+| Written | `public.file-url` | `public.png` |
+|---|---|---|
+| Normally | `pboard` itself, 15–45 ms after every write ("Remote pasteboard fetching local data", its Universal Clipboard and content-type pipeline, Handoff off or not), then Spotlight's history ("Siri AI", `SUISFileURLPasteboardExtractor`) about 60 ms after, from `pboard`'s copy | Nobody, until an app pastes |
+| `currentHostOnly` | Nobody until a paste. Spotlight skips promised data ("extractor class: (null)"), and indexes the item once a paste has resolved it | Nobody until a paste |
+
+A provider that gives nothing isn't asked again: the reader gets nothing, and so does every later one, so early readers can't be turned away. Written normally, the file URL is used up before any paste, and a terminal's ⌘V (Ghostty pastes the file's path) could never be seen; kept on this Mac, nothing here reads before a paste. The keys cover the rest: a third-party clipboard manager that saves images reads the PNG at its next poll, with no paste keys held, and from then on the pasteboard answers pastes itself, so the card stays. That's the safe way to be wrong.
+
+**When a file goes** (`PasteboardShots.Retention`). Nothing is deleted when a card leaves. ⌘Z steps pushed past the limit of 20 (`ShelfController.onUndoExpired`) hand over their files (not a Move to Trash step's: those files are in the Trash), each with its earliest time: when the cards left, plus 10 s after a paste, 30 s after a drop, nothing after a dismissal or Clear shelf (`Departure.grace`). On each expiry, and on each tick while any wait, a file is deleted off the main thread once its time has come, if no card or undo step points at its path and the clipboard doesn't hold it. `clipboardFiles` is the Pasteboard files of Margin's last clipboard write (a capture, a shelf copy, Copy Path) with the change count after it, kept in `pasteboardClipboard` across a relaunch; it holds while the pasteboard's change count is the same. A shot whose card left while it was saving, and whose step expired meanwhile, is handed over when its save lands.
+
+**At launch,** after `LeftoverSaves` (the Pasteboard folder is one of its folders), `PasteboardShots.cleanUp` deletes the visible regular files in that folder, last written before the launch, that no shelf item holds (by path, or where its bookmark leads, for a file renamed in Finder while Margin was quit) and the clipboard record doesn't keep. Those kept for the clipboard wait in `Retention` until it moves on. No other folder is ever cleaned.
+
+**Paste latency.** A promised item makes the pasting app wait for Margin's main thread. Measured with a test app reading the clipboard as a paste does, right after a capture's write (idle) or 50 ms into the next capture (busy), debug build, median (max), the option off / on:
+
+| Shot | Idle: PNG | file URL | Busy: PNG | file URL |
+|---|---|---|---|---|
+| Small (400 × 120, 9 KB) | 0.9 / 1.7 ms (24 / 3.5) | 1.0 / 2.5 ms | 1.3 / 2.0 ms (9.6 / 10.8) | 1.9 / 4.3 ms |
+| Large (1800 × 1200 noise, 6.5 MB) | 5.8 / 9.6 ms (7.5 / 11) | 1.8 / 3.9 ms | 6.0 / 12.7 ms (8.4 / 23) | 2.5 / 5.1 ms |
+
+A few milliseconds, at most a frame or so during a capture: not worth losing terminal pastes for, so both types stay promised.
+
 ## Threading rules
 
 - **UI and app state are `@MainActor`.** That covers AppKit and SwiftUI, `Preferences`, `ShelfStore` and `RuntimeStatus`. The package uses the Swift 6 language mode with strict concurrency.
@@ -320,6 +353,7 @@ Nothing of recording exists until ⇧⌘5: `RecordingController` is created at l
   - reading a file to copy it, renaming, trashing and untrashing;
   - loading thumbnails from disk (only the cards in view or nearly, two at a time);
   - creating the folder for **Open Screenshots Folder**, and checking whether the Unsaved folder holds shots (**Show Unsaved Shots**: the menu is built synchronously, so it reads a flag this check keeps current, at launch and on each menu open);
+  - deleting Pasteboard files whose time has come, and the launch's cleanup of that folder (`ShelfFiles.deletePasteboardFiles`, `cleanUpPasteboard`). Whether a path is in that folder is decided from the path alone, so the main actor can ask about one in the save folder;
   - Settings' folder icon.
 
   Even the predicted file name is checked against memory, not the disk. Results come back to the main actor, and a background check is applied only to items that haven't changed since it started.
@@ -351,9 +385,10 @@ All of them join every Space and float over full-screen apps.
 
 | Store | Where | Contents |
 |---|---|---|
-| `Preferences` | `UserDefaults`, domain `io.github.jenish-shobhit.margin` | `saveFolder`, `copyEachCapture`, `shutterSound`, `launchAtLogin`, `recordsSystemAudio`, `recordsMicrophone`, `shortcut.<action>` (JSON `KeyCombo`; `recordScreen` among them), `lastArea` (JSON: rect relative to its display, display ID, display size), `firstRunDone`, `completedCaptures`, `showsCaptureHints`, `loginItemConfigured`. `hintCaptures.r<n>` (0.0.5–0.0.7) is removed at launch |
+| `Preferences` | `UserDefaults`, domain `io.github.jenish-shobhit.margin` | `saveFolder`, `copyEachCapture`, `deletesAfterPasting`, `pasteboardClipboard` (JSON: the Pasteboard files on the clipboard as Margin last wrote it, and the change count then), `shutterSound`, `launchAtLogin`, `recordsSystemAudio`, `recordsMicrophone`, `shortcut.<action>` (JSON `KeyCombo`; `recordScreen` among them), `lastArea` (JSON: rect relative to its display, display ID, display size), `firstRunDone`, `completedCaptures`, `showsCaptureHints`, `loginItemConfigured`. `hintCaptures.r<n>` (0.0.5–0.0.7) is removed at launch |
 | `ShelfStore` | `~/Library/Application Support/Margin/shelf.json` | The shelf, oldest first: `id`, `path`, `bookmark`, `createdAt`, `pixelWidth`, `pixelHeight`, `kind` (`screenshot` or `recording`; missing, as in files from 0.0.x, means screenshot) and a recording's `duration`. Rewritten atomically after every change, in the background (see [Threading rules](#threading-rules)). Read item by item: one that can't be read (damaged, or from a newer Margin) is skipped. A file with anything unreadable in it, or that isn't a list at all, is first moved to `shelf.json.bad` (`shelf.json.bad 2`… beside an earlier one), so no save overwrites it |
 | Fallback saves | `~/Library/Application Support/Margin/Unsaved/` | PNGs and recordings that couldn't go to the save folder |
+| Pasteboard shots | `~/Library/Application Support/Margin/Pasteboard/` | Screenshots taken with Delete screenshots after pasting on, while their cards can still come back ([below](#delete-screenshots-after-pasting)) |
 | Undo | Memory | Up to 20 steps. Thumbnails (those the cards had decoded) are kept for the newest 5. Steps restore one at a time (`UndoSequencer`), since each goes back to the indices it had, which holds only once newer steps are back |
 | `RuntimeStatus` | Memory | Hotkey failures and revoked Screen Recording |
 
@@ -410,7 +445,7 @@ More on how these behave:
 
 ## Debug builds
 
-`#if DEBUG` adds `DebugCommandListener`, which receives distributed notifications from `scripts/debug.sh`: `capture-area`, `capture-screen`, `record-area`, `record-screen`, `record-window`, `stop-recording`, `toggle-shelf`, `clear`, `dismiss`, `restore-last`, `copy`, `show` and `dump-state`. It also adds `CaptureSimulation`, which fakes extra displays and failing captures for testing.
+`#if DEBUG` adds `DebugCommandListener`, which receives distributed notifications from `scripts/debug.sh` (its `dump-state` includes `pasteboard`: the option, the watched write and every read of it with the keys held, the files waiting, the clipboard record and the undo steps): `capture-area`, `capture-screen`, `record-area`, `record-screen`, `record-window`, `stop-recording`, `toggle-shelf`, `clear`, `dismiss`, `restore-last`, `copy`, `show` and `dump-state`. It also adds `CaptureSimulation`, which fakes extra displays and failing captures for testing.
 
 Bench builds (`scripts/build.sh --bench`: release optimisation plus `-DMARGIN_BENCH`) have the listener too, but not `CaptureSimulation`. `scripts/bench.sh` drives them with its further commands (`hotkey`, `capture-window`, `select`, `click`, `key`, `cancel`, `mark`), which call the live overlay session's handlers in-process, and reads the `timing` log ([Building › Benchmarks](building.md#benchmarks)).
 
