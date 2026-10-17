@@ -113,8 +113,10 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         } catch {
             throw RecorderError.file(error.localizedDescription)
         }
-        // The index at the front, so a browser or chat app can start playing before it has the whole file.
-        writer.shouldOptimizeForNetworkUse = true
+        // The index stays at the end (no `shouldOptimizeForNetworkUse`): moving it to the front rewrites the whole movie
+        // when it's finished, which takes as much free space again and seconds for a long one, and a file played or
+        // uploaded from disk doesn't need it first.
+        writer.shouldOptimizeForNetworkUse = false
         let video = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings(size: size, fps: source.fps))
         video.expectsMediaDataInRealTime = true
         guard writer.canAdd(video) else { throw RecorderError.failed("The video track couldn’t be set up") }
@@ -295,8 +297,8 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         await withCheckedContinuation { c in queue.async { [self] in c.resume(returning: stats) } }
     }
 
-    /// Stops capturing and finishes the file: the last frame is held until the stop, the index is written (moved to the
-    /// front). `at` is when the stop was asked for, on the host clock the frames are stamped with.
+    /// Stops capturing and finishes the file: the last frame is held until the stop, and the index is written. `at` is when
+    /// the stop was asked for, on the host clock the frames are stamped with.
     func stop(at end: CMTime = CMClockGetTime(CMClockGetHostTimeClock())) async -> Outcome {
         try? await stream.stopCapture()
         return await withCheckedContinuation { (c: CheckedContinuation<Outcome, Never>) in

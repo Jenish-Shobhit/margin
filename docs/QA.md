@@ -164,7 +164,7 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] H.264 at the native size and the display's rate up to 60 fps, AAC sound when on; text is sharp at 100%
 - [ ] Record system audio on: what the Mac plays is in it, Margin's own sounds aren't; no new permission prompt
 - [ ] Record microphone on: Settings asks for microphone permission once; denied, it says so with Open Privacy Settings, and a recording says "Recording without the microphone"; with both on there are two sound tracks
-- [ ] A recording cut off by a crash leaves a hidden temp file, removed at the next recording into that folder
+- [ ] A recording cut off by a crash leaves a hidden temp file, removed at the next recording into that folder (a finished one whose rename never happened gets its name there instead)
 
 **On the shelf**
 

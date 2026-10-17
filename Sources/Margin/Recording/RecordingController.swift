@@ -59,26 +59,8 @@ struct FinishedRecording {
 final class RecordingController {
     enum State: Equatable { case idle, starting, recording, stopping }
 
-    /// Why a recording stopped, and what the toast says when it wasn't the user.
-    enum StopReason: Equatable {
-        case user, quit
-        case displayGone, windowClosed, sleep, sessionChanged, diskFull, stoppedBySystem, permission
-        case error(String)
-
-        var note: String? {
-            switch self {
-            case .user, .quit: nil
-            case .displayGone: "Recording stopped: the display was disconnected"
-            case .windowClosed: "Recording stopped: the window closed"
-            case .sleep: "Recording stopped: the Mac went to sleep"
-            case .sessionChanged: "Recording stopped: another user took over the Mac"
-            case .diskFull: "Recording stopped: the disk is almost full"
-            case .stoppedBySystem: "Recording stopped by macOS"
-            case .permission: "Recording stopped: Margin lost Screen Recording permission"
-            case .error(let why): "Recording stopped: \(why)"
-            }
-        }
-    }
+    /// Why a recording stopped, and what the toast says when it wasn't the user (MarginKit, tested).
+    typealias StopReason = RecordingStop
 
     private(set) var state: State = .idle
     var isActive: Bool { state != .idle }
@@ -210,7 +192,7 @@ final class RecordingController {
 
     /// Creates the temp file in the save folder (or, if that can't be written or is nearly full, in Unsaved, as a
     /// screenshot would) and starts the recorder. Off the main thread: the first write to ~/Desktop can wait on its privacy
-    /// prompt. Leftovers of recordings cut off in an earlier run go first.
+    /// prompt. Leftovers of an earlier run go first: a finished movie gets its name, one cut off is removed.
     @concurrent
     private nonisolated static func open(_ source: RecordingSource, saveFolder: URL, fallbackFolder: URL,
                                          callbacks: ScreenRecorder.Callbacks) async throws -> Opened {
@@ -218,7 +200,9 @@ final class RecordingController {
         for (folder, isFallback) in [(saveFolder, false), (fallbackFolder, true)] {
             do {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-                RecordingFiles.removeLeftovers(in: folder, writtenBefore: ProcessLaunch.date ?? Date())
+                for leftover in RecordingFiles.handleLeftovers(in: folder, writtenBefore: ProcessLaunch.date ?? Date()) {
+                    RecordingLog.log.notice("Leftover recording: \(String(describing: leftover), privacy: .public)")
+                }
                 // A recording that would stop at once for lack of space doesn't start there.
                 if let free = RecordingFiles.freeBytes(at: folder), free < RecordingFiles.minimumFreeBytes {
                     throw ScreenRecorder.RecorderError.full
@@ -280,18 +264,8 @@ final class RecordingController {
     /// What ScreenCaptureKit (or the writer) stopping the stream means.
     nonisolated static func stopReason(for error: any Error) -> StopReason {
         let ns = error as NSError
-        guard ns.domain == SCStreamErrorDomain, let code = SCStreamError.Code(rawValue: ns.code) else {
-            return .error(ns.localizedDescription)
-        }
-        switch code {
-        case .userStopped, .systemStoppedStream: return .stoppedBySystem
-        case .userDeclined: return .permission
-        case .noWindowList: return .windowClosed
-        case .noDisplayList, .noCaptureSource: return .displayGone
-        // `insufficientStorage` (macOS 27 and later).
-        case _ where ns.code == -3822: return .diskFull
-        default: return .error(ns.localizedDescription)
-        }
+        let domain = ns.domain == SCStreamErrorDomain ? RecordingStop.streamErrorDomain : ns.domain
+        return RecordingStop.forStreamError(domain: domain, code: ns.code, description: ns.localizedDescription)
     }
 
     // MARK: While recording
