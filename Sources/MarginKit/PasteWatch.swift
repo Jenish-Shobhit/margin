@@ -107,8 +107,12 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
         MainActor.assumeIsolated { provide(type, for: item) }
     }
 
+    /// Everything promised has been given, or the pasteboard has moved on: the images can go (the pasteboard has them).
     public nonisolated func pasteboardFinishedWithDataProvider(_ pasteboard: NSPasteboard) {
-        MainActor.assumeIsolated { isFinished = true }
+        MainActor.assumeIsolated {
+            isFinished = true
+            for key in entries.keys { entries[key]?.png = nil }
+        }
     }
 
     private func provide(_ type: NSPasteboard.PasteboardType, for item: NSPasteboardItem) {
@@ -123,8 +127,9 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
         reads.append((type.rawValue, entry.id, Date().timeIntervalSince(writtenAt), held))
         guard entry.watched, held.isPaste, pasted.insert(entry.id).inserted else { return }
         if reporting.isEmpty {
-            DispatchQueue.main.asyncAfter(deadline: .now() + reportDelay) { [weak self] in
-                MainActor.assumeIsolated { self?.report() }
+            // Held until then: the pasteboard may be done with the watch before the report is.
+            DispatchQueue.main.asyncAfter(deadline: .now() + reportDelay) {
+                MainActor.assumeIsolated { self.report() }
             }
         }
         reporting.insert(entry.id)
@@ -137,11 +142,12 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
     }
 
     /// Gives the pasteboard everything still promised, so the clipboard keeps the shot once Margin has quit. Call
-    /// while the watch is current (`changeCount` is the pasteboard's).
+    /// while the watch is current (`changeCount` is the pasteboard's); once it's finished there's nothing left to give.
     public func fulfil() {
+        guard !isFinished else { return }
         for item in items {
             guard let entry = entries[ObjectIdentifier(item)] else { continue }
-            if let png = entry.png, !item.types.isEmpty { item.setData(png, forType: .png) }
+            if let png = entry.png { item.setData(png, forType: .png) }
             if let url = entry.fileURL, url.isFileURL { item.setString(url.absoluteURL.absoluteString, forType: .fileURL) }
         }
     }

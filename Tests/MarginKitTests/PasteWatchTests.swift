@@ -123,6 +123,24 @@ import Testing
         #expect(pasted == [[a, b]])
     }
 
+    /// Once a paste has read everything, the pasteboard is done with the watch, and Margin may let it go: the paste is
+    /// still reported, and the image is no longer held.
+    @Test func aPasteIsReportedAfterTheWatchIsLetGo() async {
+        let pb = NSPasteboard.withUniqueName()
+        defer { pb.releaseGlobally() }
+        let keys = Keys()
+        var pasted: [[UUID]] = []
+        var w: PasteWatch? = watch(keys) { pasted.append($0) }
+        w?.write([.init(id: a, png: shot, fileURL: url)], to: pb)
+        keys.held = PasteKeys(v: true, command: true)
+        _ = pb.data(forType: .png)
+        _ = pb.pasteboardItems?.first?.string(forType: .fileURL)
+        #expect(w?.isFinished == true)
+        w = nil
+        await settle()
+        #expect(pasted == [[a]])
+    }
+
     @Test func unwatchedItemsNeverReport() async {
         let pb = NSPasteboard.withUniqueName()
         defer { pb.releaseGlobally() }

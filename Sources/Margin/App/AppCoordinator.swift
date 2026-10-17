@@ -413,7 +413,7 @@ final class AppCoordinator {
             shelf.setClipboardMark(nil)
         }
         clipboardMoved(to: changeCount)
-        if let watch = pasteWatch, watch.isFinished || watch.changeCount != changeCount { pasteWatch = nil }
+        if let watch = pasteWatch, watch.changeCount != changeCount { pasteWatch = nil }
         deletePasteboardFilesDue()
         if needsPermission { refreshPermission() }
     }
