@@ -153,10 +153,18 @@ public enum UpdateError: Error, Equatable, Sendable {
         }
     }
 
+    /// A description from the system or the helper, in the message's own sentence: without its full stop, so
+    /// "(Could not connect to the server.)." reads "(Could not connect to the server).".
+    static func clause(_ detail: String) -> String {
+        var text = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+        while text.hasSuffix(".") { text.removeLast() }
+        return text
+    }
+
     public var message: String {
         switch self {
         case .offline(let detail):
-            "Margin couldn’t reach GitHub (\(detail)). Check your internet connection and try again."
+            "Margin couldn’t reach GitHub (\(Self.clause(detail))). Check your internet connection and try again."
         case .httpStatus(let status):
             "GitHub answered with an error (HTTP \(status)). Try again later."
         case .rateLimited:
@@ -170,13 +178,13 @@ public enum UpdateError: Error, Equatable, Sendable {
         case .noDownload(let version):
             "Margin \(version) has no \(GitHubRelease.assetName(for: version)) to download yet."
         case .download(let detail):
-            "The download failed (\(detail))."
+            "The download failed (\(Self.clause(detail)))."
         case .incompleteDownload:
             "The download is incomplete. Try again."
         case .checksumMismatch:
             "The download doesn’t match the file on GitHub: it may have been damaged on the way. Try again."
         case .unzip(let detail):
-            "The download couldn’t be unzipped (\(detail))."
+            "The download couldn’t be unzipped (\(Self.clause(detail)))."
         case .noAppInDownload:
             "The download doesn’t contain Margin.app."
         case .wrongBundle(let id):
@@ -184,7 +192,7 @@ public enum UpdateError: Error, Equatable, Sendable {
         case .wrongVersion(let found, let expected):
             "The downloaded app is version \(found ?? "unknown"), not \(expected), so it wasn’t installed."
         case .badSignature(let detail):
-            "The downloaded app’s code signature isn’t valid (\(detail)), so it wasn’t installed."
+            "The downloaded app’s code signature isn’t valid (\(Self.clause(detail))), so it wasn’t installed."
         case .differentSigner:
             "The downloaded app isn’t signed with the same certificate as this copy of Margin, so it wasn’t installed."
         case .runningCopyUnsigned:
@@ -196,10 +204,10 @@ public enum UpdateError: Error, Equatable, Sendable {
         case .folderNotWritable(let folder):
             "Margin can’t replace itself: you don’t have permission to change “\(folder)”. Install the new version from the releases page, or ask an administrator."
         case .helper(let detail):
-            "The installer couldn’t start (\(detail))."
+            "The installer couldn’t start (\(Self.clause(detail)))."
         case .helperFailed(_, let detail):
             // Under the window's title, "Margin X wasn't installed.": what the helper logged, as a sentence.
-            "\(detail.map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? "The installer didn’t finish"). There’s more in ~/Library/Logs/Margin/Update.log."
+            "\(detail.map(Self.clause).map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? "The installer didn’t finish"). There’s more in ~/Library/Logs/Margin/Update.log."
         }
     }
 }

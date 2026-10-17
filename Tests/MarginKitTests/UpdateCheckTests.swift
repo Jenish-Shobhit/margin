@@ -140,6 +140,12 @@ import Testing
             #expect(error.message.count > 20, "\(error)")
             #expect(error.message.hasSuffix("."), "\(error)")
         }
+        // A system description keeps the sentence's punctuation single.
+        #expect(UpdateError.offline("Could not connect to the server.").message
+                == "Margin couldn’t reach GitHub (Could not connect to the server). Check your internet connection and try again.")
+        #expect(UpdateError.download("The request timed out.").message == "The download failed (The request timed out).")
+        #expect(UpdateError.helperFailed(version: "0.0.20", detail: "couldn't move it.").message
+                == "Couldn't move it. There’s more in ~/Library/Logs/Margin/Update.log.")
         #expect(!UpdateError.rateLimited.isInstallError)
         #expect(UpdateError.differentSigner.isInstallError)
         #expect(UpdateError.folderNotWritable("/Applications").opensReleasesPage)
