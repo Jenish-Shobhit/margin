@@ -29,6 +29,8 @@ struct SettingsView: View {
                     .help("Screenshots aren’t saved to your folder. One you paste (⌘V) or drag into an app leaves the shelf, and its file is deleted once Restore Last Removed can’t bring it back. Screen recordings are always saved.")
                 Toggle("Shutter sound", isOn: Binding(get: { model.shutterSound }, set: model.setShutterSound))
                 Toggle("Show key hints while capturing", isOn: Binding(get: { model.showsCaptureHints }, set: model.setShowsCaptureHints))
+                Toggle("Check for updates automatically", isOn: Binding(get: { model.checksForUpdates }, set: model.setChecksForUpdates))
+                    .help("At launch and once a day, Margin asks GitHub for its latest release. Nothing about you is sent.")
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: model.setLaunchAtLogin))
                     if model.loginNeedsApproval {

@@ -19,6 +19,9 @@ Answers to the problems people run into most. If yours isn't here, [open an issu
 - [A recording has no sound, or no microphone](#a-recording-has-no-sound-or-no-microphone)
 - [A recording won't paste into an app](#a-recording-wont-paste-into-an-app)
 - [A display says "Can't capture this display"](#a-display-says-cant-capture-this-display)
+- [An update didn't install](#an-update-didnt-install)
+- [Margin can't write to Applications](#margin-cant-write-to-applications)
+- [Update Margin on the website does nothing](#update-margin-on-the-website-does-nothing)
 - [Reporting a bug](#reporting-a-bug)
 
 ## Margin can't be opened
@@ -187,6 +190,33 @@ A recording is copied as its **file**, not as data: apps that accept a pasted fi
 ## A display says "Can't capture this display"
 
 macOS doesn't offer that display for capture. This happens with some Sidecar, AirPlay and DisplayLink setups. The display is dimmed and can't be selected on; capture on another display.
+
+## An update didn't install
+
+The update window says what stopped it. Nothing was replaced, and your Margin keeps working.
+
+- **"Couldn't check for updates"**: Margin couldn't reach GitHub (no connection, a proxy or firewall in the way) or GitHub answered with an error. "Too many update checks from your network" is GitHub's limit of 60 an hour per address, shared by everything on your network that uses its API; try again later.
+- **"The download is incomplete"** or **"doesn't match the file on GitHub"**: the file was cut short or changed on the way. Click **Try Again**.
+- **"The downloaded app isn't Margin"**, **"is version …, not …"**, **"code signature isn't valid"** or **"isn't signed with the same certificate"**: the download isn't the release it should be, so Margin refused it. Try again later, and if it keeps happening, [report it](https://github.com/Jenish-Shobhit/margin/security/advisories/new): it may be a problem with the release.
+- **"This copy of Margin isn't signed with a certificate"**: you built Margin yourself without the Margin Dev certificate (it's signed ad hoc), so there's nothing to check the download against. Install the release by hand once (**Open Releases Page**); macOS asks for Screen Recording again for that copy.
+- **"macOS is running Margin from a temporary, read-only copy"**: Margin was opened straight from Downloads, so macOS runs it from a hidden copy (App Translocation). Quit it, move Margin.app to Applications, open it from there, and check again.
+- **"Margin 0.1.2 wasn't installed."** after Margin quit and came back as the old version: the helper that swaps the app couldn't finish, so it put the old one back. The line under it says why, and `~/Library/Logs/Margin/Update.log` has each step.
+
+To go back to the version you had, quit Margin, find **Margin 0.1.1.app** (the old version number) in the Trash, rename it Margin.app and drag it into Applications, replacing the new one. Finder's **Put Back** doesn't know where it came from, because Margin moved it there itself after quitting.
+
+## Margin can't write to Applications
+
+"Margin can't replace itself: you don't have permission to change "/Applications"" means your account isn't an administrator, or Margin.app belongs to another user. Margin opens the releases page instead:
+
+1. Download the new `Margin-<version>.zip` and unzip it.
+2. Drag the new Margin.app into Applications and choose **Replace**. macOS asks for an administrator's name and password.
+3. Open it as usual. It's signed like the old one, so Screen Recording permission carries over.
+
+## Update Margin on the website does nothing
+
+- **Your browser asks first.** Chrome, Safari and Firefox ask whether to open Margin; allow it.
+- **Your Margin is too old.** Versions before 0.1.1 don't know `margin://` links, so nothing opens (Safari says it can't open the page). Download the new version from the same page and replace Margin.app in Applications.
+- **Margin isn't in Applications** or was never opened: open it once, then try again. Or choose **Check for Updates…** from Margin's menu bar icon, which does the same.
 
 ## Reporting a bug
 

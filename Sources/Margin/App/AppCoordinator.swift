@@ -129,11 +129,14 @@ final class AppCoordinator {
         if !prefs.firstRunDone || !permissionGranted {
             FirstRunWindowController.shared.show()
         }
-        if permissionGranted {
-            Task { await capture.prewarm() }
-        }
+        // The automatic update check waits for this, so it never competes with getting captures ready.
+        let prewarm = permissionGranted ? Task { await capture.prewarm() } : nil
         enableLoginItemOnFirstLaunch()
         refreshUnsavedShots()
+        // Not during a capture or a recording: the update window would be in it.
+        UpdateController.shared.start(
+            after: prewarm, isBusy: { [weak self] in self.map { $0.capture.isCapturing || $0.recording.isActive } ?? false },
+            showToast: { [weak self] text in self?.shelf.showToast(text) })
 
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }

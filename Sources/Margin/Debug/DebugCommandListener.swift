@@ -162,6 +162,7 @@ final class DebugCommandListener: NSObject {
             let text = parts.dropFirst().joined(separator: " ")
             CaptureLog.timing.info("mark: \(text, privacy: .public)")
         default:
+            if UpdateDebugCommands.run(parts) { return }
             Self.log.error("unknown debug command: \(command, privacy: .public)")
         }
     }
