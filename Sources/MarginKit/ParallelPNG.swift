@@ -18,8 +18,9 @@ import zlib
 /// - every row uses the Up filter, zlib uses level 1 and the window libpng picks, and the image data is cut into 16 KB
 ///   IDAT chunks.
 ///
-/// Each band boundary costs a few bytes, so files are within a fraction of a percent of ImageIO's; with one band the
-/// file is ImageIO's, byte for byte.
+/// Each band boundary costs a few bytes and moves deflate's block boundaries, so a busy shot's file is within 0.01% of
+/// ImageIO's size and a flat one's within a few KB (as it's small, that can be 4% larger or 8% smaller); with one band
+/// the file is ImageIO's, byte for byte.
 enum ParallelPNG {
     /// Filtered bytes per band (a full 2940 × 1912 display makes 87): enough bands that the slower efficiency cores
     /// take fewer of them (bands go to whichever core is free), few enough that their fixed costs don't show.
