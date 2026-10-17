@@ -14,6 +14,10 @@ Answers to the problems people run into most. If yours isn't here, [open an issu
 - [Launch at login needs approval](#launch-at-login-needs-approval)
 - [Where are my screenshots?](#where-are-my-screenshots)
 - [The frozen screen won't go away](#the-frozen-screen-wont-go-away)
+- [⇧⌘5 opens the macOS screenshot toolbar](#5-opens-the-macos-screenshot-toolbar)
+- [A recording stopped by itself](#a-recording-stopped-by-itself)
+- [A recording has no sound, or no microphone](#a-recording-has-no-sound-or-no-microphone)
+- [A recording won't paste into an app](#a-recording-wont-paste-into-an-app)
 - [A display says "Can't capture this display"](#a-display-says-cant-capture-this-display)
 - [Reporting a bug](#reporting-a-bug)
 
@@ -57,15 +61,15 @@ If macOS keeps asking after you've allowed it:
 
 macOS's own screenshot shortcuts are still on, and macOS gets the keys before any app. The menu bar menu shows this as **macOS still uses ⇧⌘4 — Fix…**.
 
-- Click that item, or open Settings, and choose **Turn off for me** (in the Welcome window) or **Turn off macOS screenshot shortcuts** (in Settings). Margin switches off the four macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4, ⌃⇧⌘4), and the change applies at once.
-- To do it by hand: **System Settings › Keyboard › Keyboard Shortcuts… › Screenshots**, and untick those four.
+- Click that item, or open Settings, and choose **Turn off for me** (in the Welcome window) or **Turn off macOS screenshot shortcuts** (in Settings). Margin switches off the five macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4, ⌃⇧⌘4, and ⇧⌘5 for "Screenshot and recording options"), and the change applies at once.
+- To do it by hand: **System Settings › Keyboard › Keyboard Shortcuts… › Screenshots**, and untick those five.
 
 If turning them off reports a problem:
 
 - **"Something changed the shortcuts back"**: System Settings, open on its Keyboard pane, can write the old settings back. Quit System Settings and try again.
 - **"Saved, but macOS hasn't applied it yet"**: log out and back in.
 
-⇧⌘5 stays with macOS for screen recording; Margin doesn't use it.
+Since 0.1.0 Margin records the screen with ⇧⌘5, so it turns that one off too. If you'd rather keep macOS's toolbar on ⇧⌘5, give Margin's **Record screen** another shortcut in Settings.
 
 ## A shortcut does nothing
 
@@ -153,6 +157,33 @@ To find one from the shelf, choose **Reveal in Finder** from its card's menu.
 
 Press **Esc** or right-click. If the frozen picture never appeared, the overlay cancels itself after 3 seconds and the shelf shows "Couldn't capture the screen". Switching apps with ⌘Tab also cancels it.
 
+## ⇧⌘5 opens the macOS screenshot toolbar
+
+macOS's own "Screenshot and recording options" shortcut is still on. If you turned off the screenshot shortcuts with an older Margin, that one was left on: the menu bar shows **macOS still uses ⇧⌘5 — Fix…** and the Record screen row in Settings says "macOS uses ⇧⌘5 first". Choose **Turn off for me** (or **Turn off macOS screenshot shortcuts** in Settings), or untick "Screenshot and recording options" in **System Settings › Keyboard › Keyboard Shortcuts… › Screenshots**. **Record Screen** in the menu bar works either way.
+
+## A recording stopped by itself
+
+Margin keeps what was recorded and says why on the shelf:
+
+- **"the display was disconnected"**: a display (or area) recording ends with its display. A window recording carries on when its window moves to another display.
+- **"the window closed"**: a window recording ends with its window.
+- **"the Mac went to sleep"** or **"another user took over the Mac"**: sleep, the displays sleeping (locking the screen) and fast user switching end a recording. Idle display sleep doesn't happen while recording.
+- **"the disk is almost full"**: Margin stops while about 400 MB are still free, so it can finish the file (a movie without its index doesn't play). It doesn't start a recording on a disk with less: it records into Unsaved, on your startup disk, or says "Can't record: the disk is almost full". Free some space, or choose a save folder on another disk.
+- **"Recording stopped by macOS"**: someone stopped it from macOS's screen-recording indicator in the menu bar, or macOS ended it.
+
+"Couldn't save the recording" means the file couldn't be finished: nothing usable was written. If Margin crashes or is forced to quit mid-recording, the unfinished movie can't be played; its hidden temp file (`.margin-recording-….mp4`) is removed the next time you record into that folder.
+
+## A recording has no sound, or no microphone
+
+- Sound is **off by default**. Turn on **Record system audio** and/or **Record microphone** in Settings; they apply to the next recording.
+- **No microphone**: macOS asks for permission when you turn Record microphone on. If you said no, Settings shows "Margin isn't allowed to use the microphone": allow Margin in **System Settings › Privacy & Security › Microphone** (**Open Privacy Settings** goes there). A recording started without permission says "Recording without the microphone" and records the rest.
+- **Only one of the two plays**: with both on, the movie has two sound tracks (the Mac's first, the microphone's second). QuickTime Player plays both; some players and web pages play only the first.
+- System audio never includes Margin's own sounds (the start tick, the shutter of a screenshot taken meanwhile).
+
+## A recording won't paste into an app
+
+A recording is copied as its **file**, not as data: apps that accept a pasted file (Finder, Slack, Mail, most chat apps and web pages) take it; a terminal types its path. Apps that only accept pasted images can't take a video; drag the card in instead, which works wherever a movie file can be dropped.
+
 ## A display says "Can't capture this display"
 
 macOS doesn't offer that display for capture. This happens with some Sidecar, AirPlay and DisplayLink setups. The display is dimmed and can't be selected on; capture on another display.
@@ -165,4 +196,4 @@ macOS doesn't offer that display for capture. This happens with some Sidecar, Ai
 log show --last 10m --info --predicate 'subsystem == "io.github.jenish-shobhit.margin"'
 ```
 
-Logs include file names and paths of your screenshots, so look them over before you paste them.
+Logs include file names and paths of your screenshots and recordings, so look them over before you paste them.

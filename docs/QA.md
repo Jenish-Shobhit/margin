@@ -1,10 +1,10 @@
 # Margin QA checklist
 
-Manual checks for every release (spec §12), kept in step with Margin 0.0.15. Run them on the installed build (`scripts/build.sh --install --run`) unless a step says otherwise.
+Manual checks for every release (spec §12), kept in step with Margin 0.1.0. Run them on the installed build (`scripts/build.sh --install --run`) unless a step says otherwise.
 
-Debug builds can drive captures without a mouse: `scripts/debug.sh capture-area x y w h`, `capture-screen`, `toggle-shelf`, `clear` and `dump-state`. See [building.md](building.md#the-debug-hook).
+Debug builds can drive captures and recordings without a mouse: `scripts/debug.sh capture-area x y w h`, `capture-screen`, `record-area x y w h`, `record-screen`, `record-window <id>`, `stop-recording`, `toggle-shelf`, `clear` and `dump-state`. See [building.md](building.md#the-debug-hook).
 
-Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off for me**, or Settings › **Turn off macOS screenshot shortcuts**) so it receives ⇧⌘3 and ⇧⌘4.
+Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off for me**, or Settings › **Turn off macOS screenshot shortcuts**) so it receives ⇧⌘3, ⇧⌘4 and ⇧⌘5.
 
 ## Build and launch
 
@@ -26,7 +26,7 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] ⇧⌘2 falls back to ⇧⌘4 when the last area's display is gone, or at another resolution
 - [ ] ⇧⌘2 captures the same part of the same display after the arrangement changes (another display added, removed or moved, or the lid closed)
 - [ ] A window closed between hover and click shows the toast "Couldn't capture that window"; ⇧⌘3 on a display ScreenCaptureKit can't capture shows "Couldn't capture this display"
-- [ ] ⌃⇧⌘4, ⌃⇧⌘3 and ⌃⇧⌘2 do the same as without ⌃
+- [ ] ⌃⇧⌘4, ⌃⇧⌘3, ⌃⇧⌘2 and ⌃⇧⌘5 do the same as without ⌃
 - [ ] ⇧⌘1 tucks and shows the shelf
 - [ ] Shortcuts changed in Settings take effect immediately, ⌃ twins included; the old ones stop working
 - [ ] With a German (QWERTZ) input source, a shortcut recorded on the key right of T reads Z in Settings and the menu; with French (AZERTY), the key right of Tab reads A and ⇧⌘4 still reads ⇧⌘4; with "Dvorak – QWERTY ⌘", ⇧⌘ on the key QWERTY calls Z reads ⇧⌘Z and is refused as Redo, and ⌃⌥ on it reads ⌃⌥;. Switching input source with Settings open renames them
@@ -126,6 +126,54 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] The shutter sound plays on success only, and follows the alert volume
 - [ ] It's silent when UI sound effects or Settings › Shutter sound are off
 
+## Screen recording (§14.4)
+
+**Choosing** (⇧⌘5, or Record Screen in the menu bar)
+
+- [ ] The frozen overlay appears as for ⇧⌘4; the hint bar reads Drag an area · Space Window · Click for the whole screen · Esc Cancel, and while drawing the area hints end with ↩ Record
+- [ ] A drag records that area: the file's pixel size is the area's at the display's scale (rounded down to even)
+- [ ] A click without a drag records the whole display it's on; so does ↩ before anything is selected
+- [ ] Space, then a click on a window, records that window alone (no shadow; the hint bar has no ⌥ Keep shadow); a covered or moved window is still recorded whole
+- [ ] Esc or right-click: nothing is recorded, the status item doesn't change
+- [ ] ⇧⌘5 with the ⇧⌘4 overlay up does nothing; ⇧⌘4 during a recording takes a screenshot as usual
+- [ ] Without Screen Recording permission, ⇧⌘5 opens First run step 1, as ⇧⌘4 does
+
+**While recording**
+
+- [ ] The menu bar shows a red stop glyph and m:ss, ticking each second; its menu starts with Stop Recording ⇧⌘5 and has no Record Screen
+- [ ] The app that was in front gets its focus back when the overlay closes (a recorded window looks focused)
+- [ ] ⇧⌘5 again, or Stop Recording, stops it: the card flies in from what was recorded within half a second
+- [ ] With Shutter sound on, a short tick when it starts; no shutter sound
+- [ ] A screenshot taken meanwhile: the shelf, fly-in and toast don't appear in the recording; opening Settings meanwhile, it does (as in a shot)
+- [ ] `dump-state`'s `recording` shows the size, fps (60 on a 60 Hz or 120 Hz display), bit rate, and `framesDropped` stays 0 for a full-display recording of moving content
+- [ ] The display doesn't idle-sleep during a long recording
+
+**Stopping by itself** (each keeps what was recorded, with a toast saying why)
+
+- [ ] The recorded window closes ("the window closed")
+- [ ] The recorded display is unplugged ("the display was disconnected"); a window recording carries on
+- [ ] The Mac sleeps, the displays sleep (lock the screen), or another user takes over
+- [ ] The save folder's disk falls under about 400 MB free (a small disk image as the save folder, then a big file onto it): "the disk is almost full", and the movie plays; a recording into a folder already that full goes to Unsaved
+- [ ] Stopped from macOS's screen-recording indicator in the menu bar ("Recording stopped by macOS")
+- [ ] Quitting Margin while recording saves it first (the file plays, no `.margin-recording-…mp4` left)
+
+**The file**
+
+- [ ] `Screen Recording yyyy-MM-dd at HH.mm.ss.mp4` (the start time) in the save folder; ` (2)` on a clash; Unsaved (with its toast) when the folder can't be written
+- [ ] It plays in QuickTime Player, Safari/Chrome (drag it in), and pasted or dragged into Slack, WhatsApp and Claude
+- [ ] H.264 at the native size and the display's rate up to 60 fps, AAC sound when on; text is sharp at 100%
+- [ ] Record system audio on: what the Mac plays is in it, Margin's own sounds aren't; no new permission prompt
+- [ ] Record microphone on: Settings asks for microphone permission once; denied, it says so with Open Privacy Settings, and a recording says "Recording without the microphone"; with both on there are two sound tracks
+- [ ] A recording cut off by a crash leaves a hidden temp file, removed at the next recording into that folder
+
+**On the shelf**
+
+- [ ] The card shows the first frame, ▶ and the length at the bottom-left (hidden on hover, where the meta line reads `HH:mm · 0:12 · W × H`)
+- [ ] Click copies the file (`public.file-url` only; ⌘V in Finder pastes the movie, in Ghostty its path) and moves the ⌘V mark; with Copy each capture on, the finished recording is on the clipboard with the mark
+- [ ] Drag, double-click (QuickTime), Space (Quick Look plays it), Rename… (keeps `.mp4`), Move to Trash, ✕, ⌘Z and the pile work as for screenshots
+- [ ] After a relaunch the card is back with its poster frame; a `shelf.json` from 0.0.x loads with every card a screenshot
+- [ ] VoiceOver reads "Screen recording, HH:mm, 0:12, W × H"
+
 ## Timing targets (§3)
 
 Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobhit.margin" && category == "timing"'` or `scripts/debug.sh dump-state`. Without `--level info` the per-step lines such as `hotkeyToFirstFrozen` don't show.
@@ -142,6 +190,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] Toasts, the overlay, the hint bar and the magnifier never appear in shots
 - [ ] `screencapture -x` *does* show the shelf (sanity check)
 - [ ] Settings, the welcome window and About stay visible when the frozen frame lands, appear in area and ⇧⌘3 shots, and window mode can pick them (also right after opening Settings for the first time)
+- [ ] The same holds for recordings: the shelf, tab, fly-ins, toasts and overlay never appear in one; Settings does
 
 ## The shelf (§4)
 
@@ -294,7 +343,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] Reduce transparency: glass (pile, tab, toasts) falls back to solid
 - [ ] VoiceOver (or Accessibility Inspector) on the shelf:
   - [ ] window "Margin Shelf"; the pile, then the cards top to bottom; only the tab while tucked
-  - [ ] a card reads "Screenshot, HH:mm, W × H" (+ "selected", "copied, ready to paste", "saving"), with the file name as help
+  - [ ] a card reads "Screenshot, HH:mm, W × H" ("Screen recording, HH:mm, 0:12, W × H") (+ "selected", "copied, ready to paste", "saving"), with the file name as help
   - [ ] its actions (Copy, Open, Quick Look, Show in Finder, Copy Path, Rename, Remove from shelf, Move to Trash) work; Press copies and leaves the keyboard with your app; ✕ and ••• are buttons inside it
   - [ ] toasts are announced; moving the VoiceOver cursor onto the shelf never takes the keyboard from your app
 
@@ -303,7 +352,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **The icon and its items**
 
 - [ ] The template icon follows the menu bar's appearance
-- [ ] Items: Capture Area, Capture Window, Capture Screen, Repeat Last Area, Tuck Shelf (Show Shelf while tucked), Restore Last Removed, Open Screenshots Folder, Show Unsaved Shots (only while the Unsaved folder holds shots), Settings… (⌘,), About Margin <version>, Quit Margin (⌘Q)
+- [ ] Items: Capture Area, Capture Window, Capture Screen, Repeat Last Area, Record Screen (Stop Recording, first, while recording), Tuck Shelf (Show Shelf while tucked), Restore Last Removed, Open Screenshots Folder, Show Unsaved Shots (only while the Unsaved folder holds shots), Settings… (⌘,), About Margin <version>, Quit Margin (⌘Q)
 - [ ] The shortcuts shown match Settings
 - [ ] With the menu open, ⇧⌘3 (or ⇧⌘4) does nothing, then or after the menu closes (Esc, or choosing Settings…); with a card's ••• menu open too. Pressed right after Esc or a choice (while the menu fades out), it works
 - [ ] After the shelf has had the keys once (⌘-click a card, then Esc), with TextEdit in front: open the menu bar menu and close it with Esc, or choose Restore Last Removed or Capture Screen: typing still goes to TextEdit (not the shelf; ⌫ removes no card). With the shelf holding the keys when the menu opens, it keeps them
@@ -331,6 +380,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
   - [ ] `dump-state` lists each OSStatus under `hotkeys`
 - [ ] A macOS screenshot shortcut still on that Margin also uses (e.g. only "Save picture of selected area as a file"):
   - [ ] the menu shows a quiet "macOS still uses ⇧⌘4 — Fix…" above Settings (no dot), which opens First run at step 2
+  - [ ] with 28–31 off but "Screenshot and recording options" on (a Mac that turned them off before 0.1.0), it reads "macOS still uses ⇧⌘5 — Fix…"
   - [ ] with three or more it reads "macOS still uses N of Margin's shortcuts — Fix…"
   - [ ] after turning the shortcut off in System Settings and reopening the menu, the item is gone (it's checked each time the menu opens)
 
@@ -344,8 +394,8 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **The steps**
 
 - [ ] Step 1 requests access, deep-links to Screen & System Audio Recording, polls, and offers "Relaunch Margin" when needed; relaunch works
-- [ ] Step 2's checklist of the four macOS shortcuts updates live (missing entry = enabled); the ⇧⌘5 note shows
-- [ ] Step 2: **Turn off for me** turns all four off at once with no logout, and the boxes tick
+- [ ] Step 2's checklist of the five macOS shortcuts (⇧⌘5's "Screenshot and recording options" last) updates live (missing entry = enabled); the note "Margin records the screen with ⇧⌘5" shows
+- [ ] Step 2: **Turn off for me** turns all five off at once with no logout, and the boxes tick; ⇧⌘5 then records instead of opening the macOS toolbar
 - [ ] Step 2: "Open Keyboard Shortcuts" opens Keyboard settings
 - [ ] Step 2: a failure shows the reason under the buttons
 - [ ] Step 3 says "Press ⇧⌘4" and the real launch-at-login state (on, off, or waiting for approval with "Open Login Items")
@@ -361,7 +411,8 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 
 **The settings**
 
-- [ ] Six settings (Save to, Copy each capture, Shutter sound, Show key hints while capturing, Launch at login, Shortcuts), plus the macOS screenshot shortcuts row
+- [ ] The settings (Save to, Copy each capture, Shutter sound, Show key hints while capturing, Launch at login, Record system audio, Record microphone, Shortcuts), plus the macOS screenshot shortcuts row
+- [ ] Record system audio and Record microphone are off by default; turning the microphone on asks for permission once
 - [ ] Save to: the folder picker changes where the next capture lands
 
 **Launch at login**
@@ -371,7 +422,8 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 
 **Shortcut recorders**
 
-- [ ] Recorders for Area, Screen, Repeat area and Tuck shelf; recording the current shortcut works
+- [ ] Recorders for Area, Screen, Repeat area, Tuck shelf and Record screen; recording the current shortcut works
+- [ ] While macOS's ⇧⌘5 is on, the Record screen row warns "macOS uses ⇧⌘5 first. Turn off its screenshot shortcuts below." (any row a macOS screenshot shortcut takes first does); ⇧⌘5 recorded for another action is refused as a system shortcut then, and allowed once it's off
 - [ ] A combo without ⌘ or ⌃ is refused with a message
 - [ ] A combo another action uses is refused, naming that action
 - [ ] Esc cancels recording; Delete resets to the default
@@ -379,6 +431,6 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 
 **macOS screenshot shortcuts row**
 
-- [ ] The status line is right ("All four are on, so macOS takes them before Margin.", "All four are off.")
-- [ ] The button turns them off when any are on, and reads **Restore macOS screenshot shortcuts** once all four are off
+- [ ] The status line is right ("All five are on, so macOS takes them before Margin.", "⇧⌘5 is on, so macOS takes it before Margin.", "All five are off.")
+- [ ] The button turns them off when any are on, and reads **Restore macOS screenshot shortcuts** once all five are off
 - [ ] Restore re-enables them at once
