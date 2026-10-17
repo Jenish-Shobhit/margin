@@ -147,7 +147,9 @@ import Testing
         #expect(!UpdateError.checksumMismatch.opensReleasesPage)
         #expect(UpdateError.noDownload("0.0.20").message.contains("Margin-0.0.20.zip"))
         #expect(UpdateError.helperFailed(version: "0.0.20", detail: "couldn't move it").message
-                == "Margin 0.0.20 wasn’t installed: couldn't move it. There’s more in ~/Library/Logs/Margin/Update.log.")
+                == "Couldn't move it. There’s more in ~/Library/Logs/Margin/Update.log.")
+        #expect(UpdateError.helperFailed(version: "0.0.20", detail: nil).message
+                == "The installer didn’t finish. There’s more in ~/Library/Logs/Margin/Update.log.")
     }
 }
 

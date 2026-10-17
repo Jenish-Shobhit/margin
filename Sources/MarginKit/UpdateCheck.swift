@@ -197,8 +197,9 @@ public enum UpdateError: Error, Equatable, Sendable {
             "Margin can’t replace itself: you don’t have permission to change “\(folder)”. Install the new version from the releases page, or ask an administrator."
         case .helper(let detail):
             "The installer couldn’t start (\(detail))."
-        case .helperFailed(let version, let detail):
-            "Margin \(version) wasn’t installed\(detail.map { ": " + $0 } ?? ""). There’s more in ~/Library/Logs/Margin/Update.log."
+        case .helperFailed(_, let detail):
+            // Under the window's title, "Margin X wasn't installed.": what the helper logged, as a sentence.
+            "\(detail.map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? "The installer didn’t finish"). There’s more in ~/Library/Logs/Margin/Update.log."
         }
     }
 }
