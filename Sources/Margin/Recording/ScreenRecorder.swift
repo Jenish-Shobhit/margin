@@ -196,7 +196,10 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         let config = SCStreamConfiguration()
         config.width = Int(size.width)
         config.height = Int(size.height)
-        config.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(source.fps))
+        // A shade under a frame (0.9 of one): refreshes come a little early or late, and an interval of exactly 1/fps
+        // skips the early ones (about one in fourteen at 60 Hz, each shown twice as long). Still never two refreshes
+        // of a 120 Hz display in a 60 fps recording.
+        config.minimumFrameInterval = CMTime(value: 9, timescale: CMTimeScale(source.fps * 10))
         config.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         config.colorSpaceName = CGColorSpace.sRGB
         config.colorMatrix = CGDisplayStream.yCbCrMatrix_ITU_R_709_2
