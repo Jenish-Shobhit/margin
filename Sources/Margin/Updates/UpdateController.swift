@@ -454,7 +454,20 @@ final class UpdateController {
     }
 
     var debugState: [String: Any] {
-        [
+        let name: String, message: Any
+        switch phase {
+        case .idle: (name, message) = ("idle", NSNull())
+        case .checking: (name, message) = ("checking", NSNull())
+        case .upToDate: (name, message) = ("upToDate", NSNull())
+        case .available(let u): (name, message) = ("available \(u.versionString)", NSNull())
+        case .downloading(let u, let f, let r, let t): (name, message) = ("downloading \(u.versionString)", "\(f ?? -1) \(r)/\(t)")
+        case .verifying(let u): (name, message) = ("verifying \(u.versionString)", NSNull())
+        case .relaunching(let u): (name, message) = ("relaunching \(u.versionString)", NSNull())
+        case .failed(let e, let u): (name, message) = ("failed \(u?.versionString ?? "-")", e.message)
+        }
+        return [
+            "phaseName": name,
+            "message": message,
             "phase": "\(phase)",
             "checking": checkTask != nil,
             "installing": installTask != nil,
