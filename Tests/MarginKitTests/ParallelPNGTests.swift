@@ -257,6 +257,12 @@ import zlib
             width: 600, height: 400, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 2400, space: p3,
             bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue), provider: straight.dataProvider!,
             decode: nil, shouldInterpolate: false, intent: .defaultIntent))
+        // Inverted colour: drawn, about 1 in 13 of these pixels comes out one off ImageIO's.
+        let decoded = try #require(CGImage(
+            width: 600, height: 400, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 2400, space: p3,
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue),
+            provider: Self.image(width: 600, height: 400, content: .alphaNoise).dataProvider!,
+            decode: [1, 0, 1, 0, 1, 0, 0, 1], shouldInterpolate: false, intent: .defaultIntent))
         let others: [CGImage] = [
             try context(16, CGImageAlphaInfo.premultipliedLast.rawValue),
             try context(32, CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.floatComponents.rawValue,
@@ -264,6 +270,7 @@ import zlib
             try context(8, CGImageAlphaInfo.noneSkipLast.rawValue),
             try context(8, CGImageAlphaInfo.none.rawValue, CGColorSpaceCreateDeviceGray()),
             unpremultiplied,
+            decoded,
         ]
         for image in others {
             #expect(ParallelPNG.encode(image, scale: 2) == nil)

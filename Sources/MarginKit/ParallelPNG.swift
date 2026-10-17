@@ -34,11 +34,12 @@ enum ParallelPNG {
     }
 
     /// The PNG, or nil when this image isn't one it writes as ImageIO would: anything but 8-bit premultiplied RGB with
-    /// alpha (16-bit, float, opaque or straight-alpha layouts, other colour models), or if ImageIO's chunks for it
-    /// aren't the ones it knows. `bands` overrides the band count (tests).
+    /// alpha (16-bit, float, opaque or straight-alpha layouts, other colour models), an image with a decode array
+    /// (drawing applies it with other rounding than ImageIO's), or if ImageIO's chunks for it aren't the ones it knows.
+    /// `bands` overrides the band count (tests).
     static func encode(_ image: CGImage, scale: CGFloat, bands: Int? = nil, workers: Int = workers) -> Data? {
         let width = image.width, height = image.height
-        guard width > 0, height > 0, image.bitsPerComponent == 8, image.bitsPerPixel == 32,
+        guard width > 0, height > 0, image.bitsPerComponent == 8, image.bitsPerPixel == 32, image.decode == nil,
               image.alphaInfo == .premultipliedFirst || image.alphaInfo == .premultipliedLast,
               let space = image.colorSpace, space.model == .rgb, space.supportsOutput,
               let metadata = Metadata(of: image, scale: scale)

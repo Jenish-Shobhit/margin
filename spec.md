@@ -121,7 +121,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
     - The Up-filtered rows are cut into bands. Each band is deflated on a core of its own at level 1, as a raw stream primed with the previous band's last 32 KB and ended with a sync flush. The bands join into one zlib stream, whose Adler-32 is combined from theirs.
     - The chunks around the image data are the ones ImageIO writes for that image (from its PNG of a 1 × 1 crop, with the `eXIf`'s pixel size set): `iCCP` (or `sRGB` for sRGB), `cICP` where the space has one, `eXIf`, `pHYs`. The samples are ImageIO's too: vImage unpremultiplies with ImageIO's rounding.
     - So the file decodes to the same pixels with the same metadata, within 1% of ImageIO's size (usually 0.1%). With one band it would be ImageIO's file byte for byte, and the tests check that.
-    - Smaller shots, and any format but 8-bit premultiplied RGB with alpha (16-bit, float, opaque or straight alpha), go to ImageIO, as does any image whose ImageIO chunks it doesn't know.
+    - Smaller shots, and any format but 8-bit premultiplied RGB with alpha (16-bit, float, opaque or straight alpha), go to ImageIO, as does an image with a decode array (drawing it rounds differently) and any image whose ImageIO chunks it doesn't know.
   - Keep the display's color profile.
   - Set DPI to 72 × scale (144 on Retina), as macOS does.
   - Tag the file the way `screencapture` does: the `kMDItemIsScreenCapture`, `kMDItemScreenCaptureType` (selection, window, display) and `kMDItemScreenCaptureGlobalRect` extended attributes, set on the temp file before it's renamed into place.
