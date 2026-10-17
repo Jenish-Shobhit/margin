@@ -39,6 +39,8 @@ options for run / ab / launch:
   --record-b             ab: build B's blocks run while Margin records the bench window (with --animate, the
                          recording encodes every frame); give the same app twice to measure captures during a recording
   --seconds <s>          record: how long each phase lasts (default 30)
+  --retake               when another app was left in front and nobody has used the Mac for --idle seconds, bring
+                         the bench window back in front (as at the start) instead of waiting for a click
   --warmup <count>       untimed captures per suite after each launch (default 1)
   --shelf <file|empty>   launch: the shelf.json to launch with
   --scratch <dir>        where shots, backups and results go (default .build/bench-scratch)
@@ -74,6 +76,7 @@ struct Options {
     var animate = false
     var recordB = false
     var seconds = 30.0
+    var retake = false
 
     init(_ args: [String]) {
         var it = args.makeIterator()
@@ -110,6 +113,7 @@ struct Options {
             case "--animate": animate = true
             case "--record-b": recordB = true
             case "--seconds": seconds = Double(value(a)) ?? 30
+            case "--retake": retake = true
             case "-h", "--help": command = "help"
             default: positional.append(a)
             }
@@ -450,7 +454,8 @@ final class Bench {
             stopRequested = true
             return false
         }
-        if await Gate.wait(idle: options.idle, maxWait: options.maxPause, stop: { self.stopRequested }) { return true }
+        let retake: (() -> Void)? = options.retake ? { [weak self] in self?.canvas?.show() } : nil
+        if await Gate.wait(idle: options.idle, maxWait: options.maxPause, retake: retake, stop: { self.stopRequested }) { return true }
         if !stopRequested { say("the bench window wasn't in front for \(Int(options.maxPause)) s; stopping") }
         stopRequested = true
         return false
@@ -769,19 +774,25 @@ final class Bench {
         return rows.last.flatMap { Double($0.split(separator: " ").last.map(String.init) ?? "") }
     }
 
-    /// One phase of `record`: Margin's CPU (%, from its CPU time) and energy impact over `seconds`.
+    /// One phase of `record`: Margin's CPU (%, from its CPU time) and energy impact over `seconds`. Nil if someone used
+    /// the Mac or another app came forward meanwhile: the round is done again once it's quiet.
     func measure(_ phase: String, seconds: Double) async -> (cpu: Double, energy: Double)? {
         guard let pid = Margin.pid, let before = Self.cpuSeconds(pid) else { return nil }
         let wall = Date()
-        let energy = await Task.detached { Self.energy(pid, seconds: Int(seconds)) }.value
-        while Date().timeIntervalSince(wall) < seconds, !stopRequested {
+        let energy = Task.detached { Self.energy(pid, seconds: Int(seconds)) }
+        var interrupted = false
+        while Date().timeIntervalSince(wall) < seconds, !stopRequested, !interrupted {
             await sleep(ms: 250)
-            if Gate.userActive() { say("\(phase): the Mac is in use; stopping"); stopRequested = true }
+            if Gate.userActive() || !Gate.allowed(Gate.frontPID()) {
+                say("\(phase): the Mac is in use or another app is in front; doing this round again later")
+                interrupted = true
+            }
         }
-        guard !stopRequested, let after = Self.cpuSeconds(pid) else { return nil }
+        let power = await energy.value
+        guard !stopRequested, !interrupted, let after = Self.cpuSeconds(pid) else { return nil }
         let cpu = (after - before) / Date().timeIntervalSince(wall) * 100
-        say("\(phase): Margin \(String(format: "%.1f", cpu))% CPU, energy impact \(energy.map { String(format: "%.1f", $0) } ?? "–")")
-        return (cpu, energy ?? .nan)
+        say("\(phase): Margin \(String(format: "%.1f", cpu))% CPU, energy impact \(power.map { String(format: "%.1f", $0) } ?? "–")")
+        return (cpu, power ?? .nan)
     }
 
     func record() async {
@@ -789,14 +800,19 @@ final class Bench {
         await setUp()
         guard await relaunch(app: options.app) else { await tearDown(); return }
         var rows: [(String, Double, String)] = []
-        for i in 0..<n where !stopRequested {
+        var i = 0, attempts = 0
+        while i < n, attempts < n * 4, !stopRequested {
+            attempts += 1
             guard await ready() else { break }
-            guard let idle = await measure("idle \(i)", seconds: options.seconds) else { break }
+            guard let idle = await measure("idle \(i)", seconds: options.seconds) else { continue }
             // The whole display: the pointer's, which is the bench's on a single display.
             let whole = NSScreen.screens.count == 1 ? nil : canvas?.screen.frame
             guard await startRecording(area: whole) else { break }
             let live = await state()?["recording"] as? [String: Any]
-            guard let busy = await measure("recording \(i)", seconds: options.seconds) else { await stopRecording(); break }
+            guard let busy = await measure("recording \(i)", seconds: options.seconds) else {
+                await stopRecording()
+                continue
+            }
             let done = await stopRecording()
             let last = done?["last"] as? [String: Any]
             let duration = last?["duration"] as? Double ?? .nan
@@ -815,6 +831,7 @@ final class Bench {
                 results.append(s)
                 append(s)
             }
+            i += 1
             await sleep(ms: 2000)
         }
         await tearDown()
