@@ -152,12 +152,22 @@ import zlib
     }
 
     /// ParallelPNG's PNG of `image` against ImageIO's: same samples, same decode, same chunks besides the image data.
-    func expectMatchesImageIO(_ image: CGImage, scale: CGFloat = 2, bands: Int? = nil) throws {
-        let ours = try #require(ParallelPNG.encode(image, scale: scale, bands: bands))
-        let theirs = try #require(PNGWriter.encodeWithImageIO(image, scale: scale))
-        #expect(try Self.samples(ours) == Self.samples(theirs))
-        #expect(try Self.decoded(ours) == Self.decoded(theirs))
-        #expect(try Self.metadata(ours) == Self.metadata(theirs))
+    func expectMatchesImageIO(_ image: CGImage, scale: CGFloat = 2, bands: Int? = nil, _ label: String = "") throws {
+        var ours = try #require(ParallelPNG.encode(image, scale: scale, bands: bands))
+        var theirs = try #require(PNGWriter.encodeWithImageIO(image, scale: scale))
+        #expect(try Self.samples(ours) == Self.samples(theirs), "\(label)")
+        #expect(try Self.decoded(ours) == Self.decoded(theirs), "\(label)")
+        // The chunks are ImageIO's own (from its PNG of a 1 × 1 crop), yet twice in about 20 runs, on a Mac busy with a
+        // benchmark, they differed from its PNG of the whole image (which ones wasn't recorded). So a difference is named
+        // and both are made once more before it counts: ParallelPNG can't be more repeatable than ImageIO.
+        if try Self.metadata(ours) != Self.metadata(theirs) {
+            let (a, b) = (try Self.metadata(ours), try Self.metadata(theirs))
+            let differing = Set(a.map(\.type) + b.map(\.type)).filter { t in a.filter { $0.type == t } != b.filter { $0.type == t } }
+            print("ParallelPNG \(label) \(scale)×: chunks differ from ImageIO's (\(differing.sorted())); encoding again")
+            ours = try #require(ParallelPNG.encode(image, scale: scale, bands: bands))
+            theirs = try #require(PNGWriter.encodeWithImageIO(image, scale: scale))
+        }
+        #expect(try Self.metadata(ours) == Self.metadata(theirs), "\(label) at \(scale)×")
     }
 
     // MARK: Tests
@@ -181,7 +191,7 @@ import zlib
 
     @Test(arguments: cases)
     func matchesImageIO(_ c: Case) throws {
-        try expectMatchesImageIO(Self.image(c), bands: c.bands)
+        try expectMatchesImageIO(Self.image(c), bands: c.bands, c.testDescription)
     }
 
     @Test func everyPremultipliedPairUnpremultipliesAsImageIODoes() throws {
@@ -256,7 +266,7 @@ import zlib
             for scale in [1.0, 2.0, 3.0] {
                 let image = Self.image(width: 300, height: 220, content: .alphaNoise, space: space)
                 #expect(ParallelPNG.encode(image, scale: scale) != nil, "\(name) at \(scale)×")
-                try expectMatchesImageIO(image, scale: scale, bands: 6)
+                try expectMatchesImageIO(image, scale: scale, bands: 6, name)
             }
         }
     }
