@@ -104,6 +104,14 @@ public final class Preferences {
             .appendingPathComponent("Margin/Unsaved", isDirectory: true)
     }
 
+    /// Where screenshots go while "Delete screenshots after pasting" is on (spec §14.2):
+    /// `~/Library/Application Support/Margin/Pasteboard`. Margin's own, so it never raises a privacy prompt, and every
+    /// file in it lives only as long as its card can come back (`PasteboardShots`).
+    public nonisolated static var pasteboardFolder: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Margin/Pasteboard", isDirectory: true)
+    }
+
     /// Posted (object: the `Preferences`) when `isRecordingShortcut` changes. It isn't a settings change,
     /// so `didChange` isn't posted for it.
     public static let recordingShortcutDidChange = Notification.Name("MarginPreferencesRecordingShortcutDidChange")
@@ -116,6 +124,14 @@ public final class Preferences {
     public var copyEachCapture: Bool {
         get { defaults.object(forKey: "copyEachCapture") as? Bool ?? true }
         set { set(newValue, "copyEachCapture") }
+    }
+
+    /// "Delete screenshots after pasting" (spec §14.2): new screenshots go to `pasteboardFolder` instead of `saveFolder`,
+    /// and one pasted into another app leaves the shelf, its file deleted once ⌘Z can't bring it back. Off unless turned
+    /// on in Settings.
+    public var deletesAfterPasting: Bool {
+        get { defaults.object(forKey: "deletesAfterPasting") as? Bool ?? false }
+        set { set(newValue, "deletesAfterPasting") }
     }
 
     public var shutterSound: Bool {
@@ -155,6 +171,13 @@ public final class Preferences {
     public var firstRunDone: Bool {
         get { defaults.bool(forKey: "firstRunDone") }
         set { set(newValue, "firstRunDone") }
+    }
+
+    /// The Pasteboard folder's files on the clipboard as Margin last wrote it, while it holds any (spec §14.2). Kept so
+    /// that a relaunch doesn't delete a file the clipboard still offers. Internal state: setting it posts no `didChange`.
+    public var pasteboardClipboard: PasteboardShots.ClipboardFiles? {
+        get { defaults.data(forKey: "pasteboardClipboard").flatMap { try? JSONDecoder().decode(PasteboardShots.ClipboardFiles.self, from: $0) } }
+        set { defaults.set(newValue.flatMap { try? JSONEncoder().encode($0) }, forKey: "pasteboardClipboard") }
     }
 
     /// Nil when unset, unreadable or in the old global format (see `LastArea`).
