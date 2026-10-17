@@ -51,9 +51,10 @@ extension ShelfController {
         let items = liveItems
         let wanted = items.map { ThumbnailLoads.Load(id: $0.id, path: $0.path) }
         for load in thumbnailLoads.start(wanted, hasImage: { cards[$0]?.thumbnail != nil }) {
-            let size = items.first { $0.id == load.id }?.pixelSize ?? .zero
+            guard var item = items.first(where: { $0.id == load.id }) else { continue }
+            item.path = load.path
             Task { [weak self] in
-                let box = await ShelfThumbnails.load(url: URL(fileURLWithPath: load.path), pixelSize: size)
+                let box = await ShelfThumbnails.load(item)
                 self?.thumbnailLoaded(load, box)
             }
         }

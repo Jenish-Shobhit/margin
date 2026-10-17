@@ -7,9 +7,15 @@ import MarginKit
 /// selection instead ("adjusting"): release keeps it, then handles, dragging inside, arrow nudges and
 /// ↩ fine-tune and capture. Space toggles window mode, except while dragging, where holding it moves
 /// the selection.
+///
+/// ⇧⌘5 opens the same session to choose what to record (`Purpose.record`): an area or a window as for a screenshot,
+/// and a click without a drag (or ↩ with nothing selected) for the whole display.
 @MainActor
 final class OverlaySession {
     typealias Mode = OverlayFrame.Mode
+
+    /// What the choice is for: a screenshot (⇧⌘4, Capture Window) or a screen recording (⇧⌘5).
+    enum Purpose { case capture, record }
 
     enum Phase {
         case idle
@@ -27,6 +33,7 @@ final class OverlaySession {
     static let minimumPixels: CGFloat = 4
 
     let panels: [OverlayPanel]
+    let purpose: Purpose
     private let cache: ShareableContentCache
     private let showsHUD: Bool
 
@@ -35,6 +42,8 @@ final class OverlaySession {
     var onArea: ((CGRect, DisplayInfo, CGImage, CGRect, CGFloat) -> Void)?
     /// The clicked window and whether ⌥ (keep shadow) was held.
     var onWindow: ((CapturableWindow, Bool) -> Void)?
+    /// Choosing what to record: the whole display (a click without a drag, or ↩ with nothing selected).
+    var onScreen: ((DisplayInfo) -> Void)?
     var onCancel: (() -> Void)?
 
     private(set) var mode: Mode = .area
@@ -56,6 +65,9 @@ final class OverlaySession {
     /// mid-drag. Nil once Space has moved the selection.
     private var unsnappedAnchor: CGPoint?
     private var lastDrag = CGPoint.zero
+    /// The selection being drawn began outside a kept one: a click without a drag just clears that, even when choosing
+    /// what to record (where a click on its own records the whole display).
+    private var replacesSelection = false
     private var spaceHeld = false
     /// When the held arrow key began repeating (`NSEvent.timestamp`), for nudge acceleration.
     private var nudgeRepeatStart: TimeInterval?
@@ -71,10 +83,12 @@ final class OverlaySession {
     private(set) var isFinished = false
 
     /// `mode`: `.area` for ⌘⇧4, `.window` for the menu's Capture Window. Space switches either way.
-    init(panels: [OverlayPanel], cache: ShareableContentCache, mode: Mode = .area, showsHUD: Bool) {
+    init(panels: [OverlayPanel], cache: ShareableContentCache, mode: Mode = .area, purpose: Purpose = .capture,
+         showsHUD: Bool) {
         self.panels = panels
         self.cache = cache
         self.mode = mode
+        self.purpose = purpose
         self.showsHUD = showsHUD
         mouse = NSEvent.mouseLocation
     }
@@ -218,6 +232,7 @@ final class OverlaySession {
             }
         }
         // Start a new selection on this display.
+        replacesSelection = if case .adjusting = phase { true } else { false }
         selectionDisplay = d
         prepareSnapping(on: d)
         let start = SelectionMath.align(SelectionMath.clamp(p, to: d.frame), in: d.frame, scale: scale(d))
@@ -284,6 +299,12 @@ final class OverlaySession {
                 commitArea()
                 return
             }
+            // Choosing what to record, a click is the whole display it's on (one outside a kept selection clears it).
+            if purpose == .record, !replacesSelection, let d = selectionDisplay {
+                isFinished = true
+                onScreen?(d)
+                return
+            }
             // Too small: ignored, still selecting.
             clearSelection()
         case .pinned, .moving, .resizing:
@@ -340,6 +361,7 @@ final class OverlaySession {
         case Key.returnKey, Key.enter:
             switch phase {
             case .dragging, .pinned, .adjusting: if mode == .area { commitArea() }
+            case .idle where purpose == .record && mode == .area: commitScreen()
             default: break
             }
         case Key.space:
@@ -489,6 +511,13 @@ final class OverlaySession {
         onArea?(rect, d, image, pixelRect(rect, on: d), scale(d))
     }
 
+    /// Choosing what to record: the display under the pointer, if it's frozen (one that can't be captured can't be recorded).
+    private func commitScreen() {
+        guard let d = display(containing: mouse), images[d.id] != nil else { return }
+        isFinished = true
+        onScreen?(d)
+    }
+
     /// The selection if it's at least 4 × 4 pixels.
     private var validSelection: (CGRect, DisplayInfo)? {
         guard let sel = selection, let d = selectionDisplay else { return nil }
@@ -554,6 +583,7 @@ final class OverlaySession {
             f.showsLoupe = showsMagnifier && mode == .area
         }
         f.showsHUD = showsHUD
+        f.recording = purpose == .record
         f.held = held
         if case .dragging = phase { f.drawing = true }
         for p in panels { p.overlayView.render(f) }
@@ -562,7 +592,7 @@ final class OverlaySession {
     /// The keys held right now that change what happens: ⇧ / ⌥ shape a selection being drawn (Space moves it
     /// instead), and ⌥ keeps the shadow in window mode.
     private var held: HUDView.Held {
-        if mode == .window { return modifiers.contains(.option) ? .keepShadow : [] }
+        if mode == .window { return purpose == .capture && modifiers.contains(.option) ? .keepShadow : [] }
         guard case .dragging = phase else { return [] }
         if spaceHeld { return .move }
         var h: HUDView.Held = []

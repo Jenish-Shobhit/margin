@@ -94,22 +94,33 @@ final class HUDView: NSView {
     }
 
     /// While drawing a selection, Space moves it; otherwise it switches to window mode. "Z Magnifier" is
-    /// highlighted while the loupe is on.
-    static func areaItems(drawing: Bool, held: Held, magnifier: Bool) -> [Item] {
+    /// highlighted while the loupe is on. Choosing what to record, ↩ records the selection.
+    static func areaItems(drawing: Bool, held: Held, magnifier: Bool, recording: Bool = false) -> [Item] {
         [
             Item(key: "Space", label: drawing ? "Move" : "Window", highlighted: held.contains(.move), reserve: drawing ? "Window" : "Move"),
             Item(key: "⇧", label: "Square", highlighted: held.contains(.square)),
             Item(key: "⌥", label: "From center", highlighted: held.contains(.fromCenter)),
             Item(key: "←↑→↓", label: "Nudge"), Item(key: "Z", label: "Magnifier", highlighted: magnifier),
-            Item(key: "↩", label: "Capture"), Item(key: "Esc", label: "Cancel"),
+            Item(key: "↩", label: recording ? "Record" : "Capture"), Item(key: "Esc", label: "Cancel"),
         ]
     }
 
-    static func windowItems(held: Held) -> [Item] {
+    /// ⇧⌘5 before anything is selected (spec §14.4): what each way of choosing records.
+    static func recordItems() -> [Item] {
         [
-            Item(key: nil, label: "Click to capture"), Item(key: "⌥", label: "Keep shadow", highlighted: held.contains(.keepShadow)),
-            Item(key: "Space", label: "Area"), Item(key: "Esc", label: "Cancel"),
+            Item(key: nil, label: "Drag an area"), Item(key: "Space", label: "Window"),
+            Item(key: nil, label: "Click for the whole screen"), Item(key: "Esc", label: "Cancel"),
         ]
+    }
+
+    /// A recorded window never has its shadow: no ⌥ then.
+    static func windowItems(held: Held, recording: Bool = false) -> [Item] {
+        recording
+            ? [Item(key: nil, label: "Click to record"), Item(key: "Space", label: "Area"), Item(key: "Esc", label: "Cancel")]
+            : [
+                Item(key: nil, label: "Click to capture"), Item(key: "⌥", label: "Keep shadow", highlighted: held.contains(.keepShadow)),
+                Item(key: "Space", label: "Area"), Item(key: "Esc", label: "Cancel"),
+            ]
     }
 
     private static let keyFont = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)

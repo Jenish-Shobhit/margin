@@ -31,6 +31,13 @@ enum ShelfFiles {
     static func check<Value: Sendable>(
         _ items: [ShelfItem], then work: @escaping @Sendable (URL) -> Value?
     ) async -> [Result<Value>] {
+        await check(items) { _, url in work(url) }
+    }
+
+    /// `check`, with each item handed to `work` along with its file (a screenshot and a recording are copied differently).
+    static func check<Value: Sendable>(
+        _ items: [ShelfItem], then work: @escaping @Sendable (ShelfItem, URL) -> Value?
+    ) async -> [Result<Value>] {
         await Task.detached(priority: .userInitiated) {
             items.map { item in
                 let status = status(of: item)
@@ -39,7 +46,7 @@ enum ShelfFiles {
                 case .unknown: item.url
                 case .gone: nil
                 }
-                return Result(item: item, status: status, value: url.flatMap(work))
+                return Result(item: item, status: status, value: url.flatMap { work(item, $0) })
             }
         }.value
     }

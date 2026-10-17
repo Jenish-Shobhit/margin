@@ -48,6 +48,9 @@ final class CaptureController: CaptureControlling {
     /// window closed, a display ScreenCaptureKit can't capture… Not part of `CaptureControlling`: the
     /// coordinator holds this class itself.
     var onFailure: ((String) -> Void)?
+    /// ⇧⌘5's choice of what to record, made in the same overlay (spec §14.4), once it has closed. Not part of
+    /// `CaptureControlling` either.
+    var onRecord: ((RecordingTarget) -> Void)?
     var isCapturing: Bool { session != nil }
 
     /// Latest timings in ms, for the DEBUG `dump-state` hook.
@@ -56,6 +59,8 @@ final class CaptureController: CaptureControlling {
     var currentSession: OverlaySession? { session }
 
     private let cache = ShareableContentCache()
+    /// The cached displays and windows, with Margin's capture UI excluded: what a recording records too.
+    var shareableContent: ShareableContentCache { cache }
     private let pool = OverlayPanelPool()
     private let timings = CaptureTimings.shared
     private var session: OverlaySession?
@@ -193,7 +198,12 @@ final class CaptureController: CaptureControlling {
         begin(in: .window)
     }
 
-    private func begin(in mode: OverlaySession.Mode) {
+    /// ⇧⌘5: the same frozen overlay, choosing what to record: an area, a window (Space), or the whole display (a click).
+    func beginRecordingChoice() {
+        begin(in: .area, purpose: .record)
+    }
+
+    private func begin(in mode: OverlaySession.Mode, purpose: OverlaySession.Purpose = .capture) {
         guard session == nil else { return }
         let clock = Stopwatch()
         // The overlay can be key only with the first frame; until then its keys would reach the frontmost app (Space
@@ -221,13 +231,20 @@ final class CaptureController: CaptureControlling {
         let early = cache.needsRefresh(for: displays) ? nil : Self.captureAll(jobs(for: displays), grab: grab)
 
         pool.sync()
-        let session = OverlaySession(panels: pool.panels(for: displays), cache: cache, mode: mode,
+        let session = OverlaySession(panels: pool.panels(for: displays), cache: cache, mode: mode, purpose: purpose,
                                      showsHUD: Preferences.shared.showsCaptureHints)
-        session.onArea = { [weak self] rect, display, image, pixelRect, scale in
-            self?.finishArea(rect, display: display, image: image, pixelRect: pixelRect, scale: scale)
-        }
-        session.onWindow = { [weak self] window, keepShadow in
-            self?.finishWindow(window, keepShadow: keepShadow)
+        switch purpose {
+        case .capture:
+            session.onArea = { [weak self] rect, display, image, pixelRect, scale in
+                self?.finishArea(rect, display: display, image: image, pixelRect: pixelRect, scale: scale)
+            }
+            session.onWindow = { [weak self] window, keepShadow in
+                self?.finishWindow(window, keepShadow: keepShadow)
+            }
+        case .record:
+            session.onArea = { [weak self] rect, display, _, _, _ in self?.finishRecordingChoice(.area(rect, display)) }
+            session.onWindow = { [weak self] window, _ in self?.finishRecordingChoice(.window(window)) }
+            session.onScreen = { [weak self] display in self?.finishRecordingChoice(.display(display)) }
         }
         session.onCancel = { [weak self] in self?.endSession() }
         self.session = session
@@ -585,6 +602,13 @@ final class CaptureController: CaptureControlling {
         onCapture?(CaptureResult(image: standIn.image, thumbnail: standIn.thumbnail, png: png, scale: standIn.scale,
                                  sourceRect: window.frame, displayID: displayID, kind: .window, date: standIn.date,
                                  windowShot: windowShot))
+    }
+
+    /// The overlay comes down and focus goes back to the app that had it, then the recording starts: by its first frame
+    /// that app (a recorded window's, often) has its focused look again.
+    private func finishRecordingChoice(_ target: RecordingTarget) {
+        endSession()
+        onRecord?(target)
     }
 
     // MARK: ⌘⇧3

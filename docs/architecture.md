@@ -1,10 +1,11 @@
 # Architecture
 
-How Margin 0.0.15 is put together, for anyone changing it. The product rules live in [`spec.md`](../spec.md); this page describes the code that implements them.
+How Margin 0.1.0 is put together, for anyone changing it. The product rules live in [`spec.md`](../spec.md); this page describes the code that implements them.
 
 - [Targets and folders](#targets-and-folders)
 - [The contracts](#the-contracts)
 - [From hotkey to shelf](#from-hotkey-to-shelf)
+- [Screen recording](#screen-recording)
 - [Threading rules](#threading-rules)
 - [Windows and focus](#windows-and-focus)
 - [Persistence](#persistence)
@@ -29,6 +30,8 @@ flowchart LR
     Hotkeys --> App
     MenuBar --> App
     App --> Capture
+    App --> Recording
+    Recording --> Capture
     Capture --> Overlay
     App --> Shelf
     App --> Onboarding
@@ -43,27 +46,29 @@ flowchart LR
 
 | File | Responsibility |
 |---|---|
-| `FileNamer.swift` | `Screenshot yyyy-MM-dd at HH.mm.ss.png` (en_US_POSIX, 24-hour, ASCII spaces) and ` (2)` collisions |
+| `FileNamer.swift` | `Screenshot yyyy-MM-dd at HH.mm.ss.png` and `Screen Recording yyyy-MM-dd at HH.mm.ss.mp4` (en_US_POSIX, 24-hour, ASCII spaces) and ` (2)` collisions |
 | `Geometry.swift` | AppKit ↔ CG coordinate flips, point → pixel rects, snapping to window edges |
 | `WindowPicking.swift` | Which on-screen windows window mode picks, by layer and size: normal and floating windows, system UI that covers, overlays and menus it skips. And whether a window shows whole, with nothing in front overlapping it (window mode's stand-in) |
 | `ShelfLayout.swift` | Card sizes, slots, how many cards fit and the `+N older` pile |
 | `ShelfCardPlan.swift` | Which cards are live, with a view and a decoded thumbnail (the visible ones, the pile's fan and the next few in the pile), and `ThumbnailLoads`: a few decodes at a time, in that order, without retrying a file that couldn't be read |
-| `ShelfStore.swift` | `ShelfItem` (path, bookmark, date, pixel size; whether its volume is mounted) and the ordered, JSON-persisted list |
+| `ShelfStore.swift` | `ShelfItem` (path, bookmark, date, pixel size, kind: screenshot or recording, a recording's duration; whether its volume is mounted) and the ordered, JSON-persisted list |
 | `ShelfFileWriter.swift` | `shelf.json`'s writes on a serial background queue: always the newest list, a burst of changes in a write or two |
 | `PNGWriter.swift` | The one PNG encode (ImageIO's file: Up filter, colour profile, DPI) and the atomic write: temp file, then an exclusive rename |
 | `ParallelPNG.swift` | That same file with the deflate spread over every core: bands of rows deflated pigz-style and joined into one zlib stream, around ImageIO's own chunks for the image. `PNGWriter` uses it from two bands of rows (about 360 × 360 pixels) up |
 | `LeftoverSaves.swift` | At launch, the temp files of saves cut off before their rename: a complete PNG back under its card's name, or a new one; the rest deleted |
-| `ClipboardMark.swift` | The ⌘V mark's change-count bookkeeping, and `ClipboardWriter` (PNG + file URL per item; Copy Path's plain text) |
+| `ClipboardMark.swift` | The ⌘V mark's change-count bookkeeping, and `ClipboardWriter` (PNG + file URL per item, a recording's file URL alone; Copy Path's plain text) |
 | `Preferences.swift` | `KeyCombo`, `ShortcutAction` (defaults, ⌃ twins, conflicts), `LastArea` and the `Preferences` store |
 | `KeyCombo+Display.swift` | `⇧⌘4`-style strings in ⌃⌥⇧⌘ order, key names and Carbon ↔ AppKit modifiers |
 | `KeyboardLayout.swift` | What the character keys type on the user's keyboard layout (`UCKeyTranslate`), so shortcuts read as the keys are labelled: with ⌘ held for a combo with ⌘, as menus name it ("Dvorak – QWERTY ⌘" types QWERTY then). A snapshot taken on the main thread at launch and on every input source change |
 | `RuntimeStatus.swift` | Live state shared across the app: hotkey failures, revoked Screen Recording |
 | `RunningCopies.swift` | Which of two running copies of Margin gives way: the one launched later |
-| `SystemShortcuts.swift` | Reading the macOS screenshot shortcuts (IDs 28–31) |
+| `SystemShortcuts.swift` | Reading the macOS screenshot shortcuts (IDs 28–31, and 184: ⇧⌘5's toolbar) |
+| `RecordingFormat.swift` | A recording's frame rate (the display's, at most 60), its encoded size (native, even, within H.264 level 5.2), bit rate (pixels × fps × 0.075) and how its length reads |
+| `RecordingFiles.swift` | A recording's hidden temp file, its final name, the leftovers of cut-off recordings, and free space |
 | `SystemShortcuts+Write.swift` | Turning them off or on: the pure dictionary rewrite, `activateSettings -u`, and the check that it stuck |
 | `LoginItem.swift` | `SMAppService.mainApp` state and registration |
 | `ShelfUndo.swift` | `UndoSequencer`: the shelf's ⌘Z one step at a time, so a quick second ⌘Z waits for a slow first one. `TrashedFile.putBack`: a trashed shot back home (or already there, after Finder's Put Back) |
-| `ShutterSound.swift` | The system Screen Capture sound, honouring "Play user interface sound effects" |
+| `ShutterSound.swift` | The system Screen Capture sound, and a recording's start tick (`begin_record`), honouring "Play user interface sound effects" |
 | `UnsavedShots.swift` | Whether the Unsaved folder holds shots (for the menu's Show Unsaved Shots), and the toast after a capture went there |
 | `SemanticVersion.swift` | Versions as tags and `CFBundleShortVersionString` write them (`v0.0.20`, `0.0.20`), in semantic-version order |
 | `GitHubRelease.swift` | GitHub's latest-release JSON, and the release's `Margin-<version>.zip` |
@@ -74,7 +79,8 @@ flowchart LR
 
 | Folder | Responsibility |
 |---|---|
-| `App/` | `main.swift` (accessory app), `AppDelegate`, `LaunchGuard` (one copy at a time), `AppCoordinator` (wires everything, permission state, ⌘V mark), `AppCoordinator+Save` (the save pipeline), `Contracts.swift`, and `MainMenu` (a hidden main menu that gives text fields and windows their standard key equivalents) |
+| `App/` | `main.swift` (accessory app), `AppDelegate`, `LaunchGuard` (one copy at a time), `AppCoordinator` (wires everything, permission state, ⌘V mark), `AppCoordinator+Save` (the save pipeline), `AppCoordinator+Recording` (⇧⌘5, and a finished recording onto the shelf and the clipboard), `Contracts.swift`, and `MainMenu` (a hidden main menu that gives text fields and windows their standard key equivalents) |
+| `Recording/` | `RecordingController` (one recording's life: target, start, the menu bar's clock, what stops it, the finished file) and `ScreenRecorder` (`SCStream` into `AVAssetWriter`) |
 | `Capture/` | `CaptureController` (area, window, screen, repeat area), `ScreenGrabber` (ScreenCaptureKit calls and cropping), `ShareableContentCache`, `Displays`, logging and timings, and `CaptureSimulation` (DEBUG-only fakes) |
 | `Overlay/` | The frozen-screen overlay: `OverlayPanel` and its pool, `OverlaySession` (selection state machine and keys), `OverlayView` (layers), `OverlayChrome` (hint bar, magnifier, pills), `SelectionMath` and `AreaFlash` |
 | `Shelf/` | `ShelfController` (layout, tuck, peek, toasts) and its extensions: `+Actions` (every interaction, undo, drag-out), `+Files` (disk checks) and `+Cards` (which items have a live card, and decoding its thumbnail). Also the views (`ShelfCardView`, `ShelfPileView`, `ShelfChrome`), `ShelfAccessibility` (what VoiceOver sees: the cards, pile and tab as buttons with actions, and toasts as announcements), `ShelfDrag`, `ShelfFlyIn`, `ShelfFiles` (all disk access), `ShelfThumbnails` and `ShelfStyle` |
@@ -107,7 +113,7 @@ flowchart LR
 - `isCapturing`;
 - the callbacks `onCapture` and `onPermissionMissing`.
 
-`CaptureController` also has `onFailure`, outside the protocol: a short message for any failure but permission, which the coordinator shows as an error toast in the shelf.
+`CaptureController` also has, outside the protocol: `onFailure`, a short message for any failure but permission, which the coordinator shows as an error toast in the shelf; `beginRecordingChoice()` and `onRecord` (⇧⌘5's overlay and the `RecordingTarget` chosen in it); and `shareableContent`, the cache a recording takes its filters from.
 
 **`ShelfControlling`** (implemented by `ShelfController`):
 
@@ -245,11 +251,71 @@ The thumbnail is made while the encode runs, on another thread of the same QoS. 
 - A one-second timer compares the pasteboard's `changeCount` with the one recorded after Margin's last write. When they differ, the ⌘V mark clears. Copy Path clears it at once, since the clipboard then holds paths, not an image. Margin never reads the clipboard's contents.
 - Drag-out writes a plain `NSURL` per item and offers `.copy` only. A non-empty drop operation without ⌥ removes the cards, as one undo step. The drag never makes the shelf key, so ⌘Z after a drop belongs to the app that took it; the menu's **Restore Last Removed** (`undo(fromMenu:)`) is the way back.
 
+## Screen recording
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant AC as AppCoordinator
+    participant CC as CaptureController
+    participant RC as RecordingController
+    participant SR as ScreenRecorder (its queue)
+    participant SC as ShelfController
+    AC->>CC: beginRecordingChoice() (⇧⌘5)
+    CC->>CC: frozen overlay, purpose .record
+    CC->>RC: onRecord(target), once the overlay is down
+    RC->>SR: start(source, temp file) off the main thread
+    SR-->>RC: first frame (the clock and the tick)
+    AC->>RC: stop() (⇧⌘5 again, the menu)
+    RC->>SR: stop(at:) → finishWriting
+    RC->>RC: rename, poster frame (off the main thread)
+    RC->>AC: onFinished(FinishedRecording)
+    AC->>SC: add + itemDidSave, clipboard
+```
+
+Nothing of recording exists until ⇧⌘5: `RecordingController` is created at launch but observes nothing, has no timer and touches no framework until `start`. The capture path doesn't change (the overlay checks its purpose only in its callbacks), and AVFoundation, VideoToolbox and CoreMedia were loaded already, by ScreenCaptureKit.
+
+**Choosing.** ⇧⌘5 opens the same `OverlaySession` with `purpose: .record`: a drag gives `onArea`, Space and a click `onWindow`, and a click without a drag (a selection under 4 × 4 px) or ↩ with nothing selected `onScreen`, the display under the pointer. The hint bar shows `HUDView.recordItems()` until a selection exists, then the area items with ↩ Record; window mode has no ⌥ Keep shadow. `CaptureController.finishRecordingChoice` takes the overlay down, gives focus back, and hands the `RecordingTarget` (`.display`, `.area(rect, display)`, `.window`) to the coordinator, which starts the recording.
+
+**The source** (`RecordingController.source`). A display and an area use the display's target from `ShareableContentCache`, the same filter as screenshots: Margin excluded as an app, its ordinary windows (Settings, First run, About) kept. When the cache rebuilds its targets during a recording (a Margin window appears, an app launches), `targetsChanged` hands the stream the new filter. An area is the display's `sourceRect`, in the display's points from its top-left corner, at its pixel size. A window is `SCContentFilter(desktopIndependentWindow:)`, sized from `SCShareableContent.info` (off the main thread), opaque, without its shadow, scaled to fit (preserving the aspect ratio) if it grows. The frame rate is the display's `maximumFramesPerSecond`, at most 60; `RecordingFormat.videoSize` keeps the native size up to H.264 level 5.2 (4K at 60 fps) and scales bigger displays down.
+
+**Starting** (`RecordingController.open`, off the main thread). The save folder is created if needed, its `.margin-recording-<uuid>.mp4` leftovers from before this launch are dealt with (`RecordingFiles.handleLeftovers`: a finished movie, whose top-level boxes include its `moov` index, gets its name; one cut off is removed), and the recorder starts on a new temp file there. A folder that can't be written, or has less than 400 MB free, falls back to Unsaved, as a screenshot would. Microphone permission is checked (`AVCaptureDevice.authorizationStatus`) and asked only if it's undetermined; Settings asks when the toggle is turned on, so a recording rarely waits.
+
+**`ScreenRecorder`.** One `SCStream` (420v, sRGB, BT.709 matrix, cursor shown, `queueDepth` 6, `minimumFrameInterval` 0.9/fps: exactly 1/fps skips the refreshes that come a little early, about one in fourteen at 60 Hz) and one `AVAssetWriter` (MPEG-4, the index at the end: `shouldOptimizeForNetworkUse` would rewrite the whole movie at the stop, needing as much free space again), with a hardware H.264 input (High profile, `RecordingFormat.bitRate`, a key frame every 2 s, no B-frames) and AAC inputs for system audio (48 kHz stereo; `excludesCurrentProcessAudio`) and the microphone (SCStream's `captureMicrophone`, mono), each its own track. Every output's samples arrive on one serial queue, where the writer lives:
+
+- only `.complete` frames are appended, the IOSurface-backed sample buffer as it is: no copy and no colour conversion before the encoder;
+- the session starts at the first frame's time; audio before it is dropped;
+- a frame the encoder isn't ready for (`isReadyForMoreMediaData`) is dropped and counted, never queued;
+- the newest frame is kept, and appended again at the stop's time if the screen stopped changing before then (ScreenCaptureKit sends no frame for a still screen), so the file lasts as long as the recording did.
+
+`stop(at:)` stops the stream, then on the queue appends that tail frame, marks the inputs finished, ends the session and `finishWriting`. No frame at all, or a writer that failed, leaves nothing (the temp file is removed).
+
+**While recording.** `observe()` adds, only now, what stops a recording: `willSleep`, `screensDidSleep` and `sessionDidResignActive`, a display change that removes the recorded display, a 0.25 s timer (the menu bar's clock changes once a second; each second it checks that a recorded window still exists in `CGWindowList`, on screen or not (minimized, hidden or on another Space it's still recorded, its last frame held), and that the folder's volume has 400 MB free, off the main thread), and ScreenCaptureKit stopping the stream (`stream(_:didStopWithError:)`: a closed window, whose capture source goes, `noCaptureSource`; a gone display, the user stopping it from macOS's indicator, lost permission) or the writer failing. Each stops it the same way as ⇧⌘5, keeping what was recorded, and says why in a toast. A `PreventUserIdleDisplaySleep` power assertion holds meanwhile. All of it goes when the recording ends.
+
+**Finishing** (`RecordingController.place`, off the main thread). The temp file is renamed to `Screen Recording <start>.mp4` (` (2)`… on a clash, never replacing a file), bookmarked, and its first frame decoded at the card's 2× size with `AVAssetImageGenerator` (`ShelfThumbnails.poster`, which also makes recording cards' thumbnails at launch). The coordinator (`handleRecording`) adds the card and marks it saved at once (no pending state: the file exists), flies it in from the recorded rect, and with Copy each capture puts the file URL on the clipboard as the newest capture. Quitting while recording stops it and waits for the file (at most 15 s) through the same `savesInFlight` count as screenshots.
+
+**Measured** (MacBook Air M2, 1470 × 956 pt at 2×: 2940 × 1912 pixels, 60 Hz, macOS 27, bench builds; `scripts/bench.sh record` and `ab --animate --record-b`, 17 Oct 2026):
+
+| | |
+|---|---|
+| Margin's CPU, recording the whole display at 60 fps (everything moving) | 7.8% of one core (0.0% idle); `top`'s energy impact about 7.7 (0 idle). Memory flat over 5 minutes (23–25 MB) |
+| The system's share | `VTEncoderXPCService` about 6% of a core, `replayd` 2%; the window server no busier than for the moving content itself |
+| Frames | 60 a second: 18,050 in a 301 s recording, one skipped, none dropped |
+| File | 66–88 MB a minute for that content (9–12 Mbit/s against a 25.3 Mbit/s target); a mostly still screen far less |
+| Stop → file in place | about 150 ms for a few seconds of recording; 140–270 ms after 5 minutes |
+| Screenshots during a recording (median, 20 each, with 0.0.19's parallel PNG encode) | ⇧⌘4 freeze 49.6 vs 51.0 ms (+3%), file 22.1 vs 21.2 ms; ⇧⌘3 file 24.4 vs 23.2 ms: nothing 10% or more slower. The recording skipped 6 of 4,846 frames meanwhile, one at a time, and dropped none |
+| Screenshots with this code, not recording, against 0.0.19 | files and thumbnails unchanged; the ⇧⌘4 freeze's all-frozen time 6–12% later in two runs (4–8 ms, p 0.005 and 0.016), its first frozen frame +16% in one (p 0.003) and −1% in the other |
+
+`proc_pidinfo`'s CPU times are Mach time units (125/3 ns on Apple silicon), which the bench now converts: read as nanoseconds they gave 0.2%.
+
+**On the shelf.** A recording is a `ShelfItem` with `kind: .recording` and its `duration`. The card adds a ▶ length badge (bottom-left, swapped for the meta line on hover); a copy (click, ⌘C) writes its file URL alone (`ClipboardWriter.write(_ entries:)`, never reading the movie), and everything else (drag, open, Quick Look, rename, trash, undo) works on its file as for a PNG.
+
 ## Threading rules
 
 - **UI and app state are `@MainActor`.** That covers AppKit and SwiftUI, `Preferences`, `ShelfStore` and `RuntimeStatus`. The package uses the Swift 6 language mode with strict concurrency.
 - **The main thread never touches the save folder.** The first access to `~/Desktop` can block on the Desktop-folder privacy prompt, and the save folder could be on a slow volume. So these all run in detached tasks:
   - writing PNGs and checking whether shelf files exist (`ShelfFiles`);
+  - a recording's temp file, its fallback, leftovers and free space, renaming it into place and its poster frame (`RecordingController.open` and `place`);
   - putting back the leftovers of saves cut off, at launch (`LeftoverSaves`);
   - reading a file to copy it, renaming, trashing and untrashing;
   - loading thumbnails from disk (only the cards in view or nearly, two at a time);
@@ -257,7 +323,7 @@ The thumbnail is made while the encode runs, on another thread of the same QoS. 
   - Settings' folder icon.
 
   Even the predicted file name is checked against memory, not the disk. Results come back to the main actor, and a background check is applied only to items that haven't changed since it started.
-- **ScreenCaptureKit and pixel work run off the main thread:** captures, crops, encodes, a new shot's thumbnail and downsampling files. `SCShareableContent` is never fetched on the hotkey path. A shot's PNG encode is spread over every core at user-initiated QoS ([The PNG encode](#the-png-encode)), below the main thread's user-interactive.
+- **ScreenCaptureKit and pixel work run off the main thread:** captures, crops, encodes, a new shot's thumbnail and downsampling files. `SCShareableContent` is never fetched on the hotkey path. A shot's PNG encode is spread over every core at user-initiated QoS ([The PNG encode](#the-png-encode)), below the main thread's user-interactive. A recording's samples, and its `AVAssetWriter`, live on `ScreenRecorder`'s serial queue; the main actor hears about the first frame and an interruption through callbacks given at the start.
 - **Nothing touches ScreenCaptureKit before permission is confirmed.** An early call can raise the system prompt at a random moment, long before the user reaches **Allow…**. `CGPreflightScreenCaptureAccess` (6–10 ms) runs on the hotkey path only until access is confirmed.
 - **Blocking system work stays off the main thread.** `SystemShortcuts.setEnabled` waits on `activateSettings` and asserts it isn't on the main thread; the UI calls `setEnabledInBackground`.
 - **The one exception is `shelf.json`.** It lives in Application Support, which never prompts, and it's read on the main actor at launch. The list itself lives on the main actor; each change hands a copy of it to `ShelfFileWriter`, which encodes and writes it on a serial queue (1–2 ms for 200 cards that the main actor used to wait for, twice per capture, and once 441 ms). A change made while a write waits to start replaces what that write will write, so the file always ends with the newest list and a burst of changes is a write or two. Two waits keep the order that matters: the save pipeline writes a capture's PNG only once the file has its card (`waitForWrites`), and quitting flushes the queue.
@@ -285,9 +351,9 @@ All of them join every Space and float over full-screen apps.
 
 | Store | Where | Contents |
 |---|---|---|
-| `Preferences` | `UserDefaults`, domain `io.github.jenish-shobhit.margin` | `saveFolder`, `copyEachCapture`, `shutterSound`, `launchAtLogin`, `shortcut.<action>` (JSON `KeyCombo`), `lastArea` (JSON: rect relative to its display, display ID, display size), `firstRunDone`, `completedCaptures`, `showsCaptureHints`, `loginItemConfigured`. `hintCaptures.r<n>` (0.0.5–0.0.7) is removed at launch |
-| `ShelfStore` | `~/Library/Application Support/Margin/shelf.json` | The shelf, oldest first: `id`, `path`, `bookmark`, `createdAt`, `pixelWidth`, `pixelHeight`. Rewritten atomically after every change, in the background (see [Threading rules](#threading-rules)). Read item by item: one that can't be read (damaged, or from a newer Margin) is skipped. A file with anything unreadable in it, or that isn't a list at all, is first moved to `shelf.json.bad` (`shelf.json.bad 2`… beside an earlier one), so no save overwrites it |
-| Fallback saves | `~/Library/Application Support/Margin/Unsaved/` | PNGs that couldn't go to the save folder |
+| `Preferences` | `UserDefaults`, domain `io.github.jenish-shobhit.margin` | `saveFolder`, `copyEachCapture`, `shutterSound`, `launchAtLogin`, `recordsSystemAudio`, `recordsMicrophone`, `shortcut.<action>` (JSON `KeyCombo`; `recordScreen` among them), `lastArea` (JSON: rect relative to its display, display ID, display size), `firstRunDone`, `completedCaptures`, `showsCaptureHints`, `loginItemConfigured`. `hintCaptures.r<n>` (0.0.5–0.0.7) is removed at launch |
+| `ShelfStore` | `~/Library/Application Support/Margin/shelf.json` | The shelf, oldest first: `id`, `path`, `bookmark`, `createdAt`, `pixelWidth`, `pixelHeight`, `kind` (`screenshot` or `recording`; missing, as in files from 0.0.x, means screenshot) and a recording's `duration`. Rewritten atomically after every change, in the background (see [Threading rules](#threading-rules)). Read item by item: one that can't be read (damaged, or from a newer Margin) is skipped. A file with anything unreadable in it, or that isn't a list at all, is first moved to `shelf.json.bad` (`shelf.json.bad 2`… beside an earlier one), so no save overwrites it |
+| Fallback saves | `~/Library/Application Support/Margin/Unsaved/` | PNGs and recordings that couldn't go to the save folder |
 | Undo | Memory | Up to 20 steps. Thumbnails (those the cards had decoded) are kept for the newest 5. Steps restore one at a time (`UndoSequencer`), since each goes back to the indices it had, which holds only once newer steps are back |
 | `RuntimeStatus` | Memory | Hotkey failures and revoked Screen Recording |
 
@@ -306,8 +372,9 @@ More on how these behave:
   - **Without permission:** a capture shortcut opens first run at step 1 instead of touching ScreenCaptureKit.
   - **Revocation:** preflight is cached per process, so a revocation while running shows up as a capture error (`SCStreamError.userDeclined`). That sets `RuntimeStatus.screenRecordingRevoked`, which keeps the warning up until ScreenCaptureKit works again (a capture, or just its freeze, when Esc cancels it) or Margin relaunches. The menu bar's dot follows each change of it (`StatusMenuController` observes `RuntimeStatus.didChange`).
   - **Relaunch Margin** starts `/bin/sh`, which waits for this process to exit and then `open`s the bundle. It deliberately doesn't use `open -n`, so there's never a second copy.
-- **One copy at a time.** Two copies would both register the shortcuts (one ⇧⌘3, two files) and each keep its own `shelf.json`. So `applicationDidFinishLaunching` asks `LaunchGuard` first: when an older copy with the same bundle ID runs (`RunningCopies`: launch date, then process ID, so two copies starting together agree), this one does nothing else. After 0.5 s it reopens the older one with `NSWorkspace.openApplication(at:)`, as Finder would (its `applicationShouldHandleReopen` shows Settings), and it quits if that copy still runs after `terminationTimeout` + 2 s; if it goes first (it was quitting for a relaunch), this one starts after all.
+- **One copy at a time.** Two copies would both register the shortcuts (one ⇧⌘3, two files) and each keep its own `shelf.json`. So `applicationDidFinishLaunching` asks `LaunchGuard` first: when an older copy with the same bundle ID runs (`RunningCopies`: launch date, then process ID, so two copies starting together agree), this one does nothing else. After 0.5 s it reopens the older one with `NSWorkspace.openApplication(at:)`, as Finder would (its `applicationShouldHandleReopen` shows Settings), and it quits if that copy still runs after the longer of `terminationTimeout` and `recordingTerminationTimeout`, + 2 s (17 s); if it goes first (it was quitting for a relaunch), this one starts after all.
 - **Files.** The default save folder is in `~/Desktop`, so macOS shows its Desktop-folder prompt on first write, with the reason from `NSDesktopFolderUsageDescription` (`Info.plist` also has the Documents, Downloads, removable and network volume strings, for a folder chosen in Settings). That's the reason for the off-main rule. A denied write falls back to Unsaved, and the menu offers **Show Unsaved Shots** while that folder holds shots.
+- **Microphone.** Asked for only when Record microphone is turned on (or a recording finds it undetermined), with `NSMicrophoneUsageDescription`. The hardened runtime needs the `com.apple.security.device.audio-input` entitlement (`Resources/Margin.entitlements`, signed in by `build.sh`) or it refuses silently; entitlements aren't part of the designated requirement, so the Screen Recording permission is unchanged. System audio needs nothing beyond Screen Recording.
 - **Launch at login** uses `SMAppService.mainApp`. It's registered once, on the first launch from `/Applications` (never from a dev copy elsewhere). Settings shows `SMAppService`'s real status, including "requires approval".
 - **No Accessibility or Input Monitoring.** Carbon hotkeys don't need them.
 
@@ -315,7 +382,7 @@ More on how these behave:
 
 `HotkeyCenter` registers with Carbon's `RegisterEventHotKey` on the application event target, with the signature `'MRGN'`.
 
-- **What it registers:** `Preferences.registeredCombos()`, which is each action's shortcut plus the ⌃ twin of each capture action.
+- **What it registers:** `Preferences.registeredCombos()`, which is each action's shortcut plus the ⌃ twin of each capture action (Record Screen's included). ⇧⌘5 starts the choice of what to record, or stops the recording under way (`AppCoordinator.toggleRecording`).
 - **When it re-registers:** whenever the shortcuts change.
 - **While recording:** everything is unregistered while a Settings recorder is listening (`Preferences.isRecordingShortcut`), so pressing the current shortcut records it instead of firing it. The recorder is a local event monitor, so it sees every key Margin's windows get, a sheet's too: it stops when the Settings window resigns key, a sheet or alert included, and when **Choose…** opens the folder panel (⇧⌘G there is the panel's Go to Folder).
 - **Failures:** two actions on one combo, Carbon's `eventHotKeyExistsErr`, or any other `OSStatus`. They go to `RuntimeStatus.hotkeyFailures`. The menu bar shows a warning dot and an item that opens Settings, and Settings shows a message under the shortcut.
@@ -327,13 +394,14 @@ More on how these behave:
 **Reading** (`SystemShortcuts.current()`) costs little:
 
 - It reads `AppleSymbolicHotKeys` from `com.apple.symbolichotkeys` with `CFPreferencesCopyAppValue`, after synchronizing.
-- IDs 28–31 are the four screenshot shortcuts. A missing entry means enabled.
+- IDs 28–31 are the four screenshot shortcuts, and 184 is ⇧⌘5's "Screenshot and recording options" (Margin's Record Screen since 0.1.0). A missing entry means enabled.
+- `otherEnabledCombos`, the system shortcuts a recorder refuses, leaves out 28–31 but includes 184 while it's on (with its default binding when the entry is missing): ⇧⌘5 is refused for every action but Record Screen, whose default it is. It used to be in `ReservedShortcuts.common`.
 - `conflicts(_:with:)` lists the enabled ones whose binding is one of Margin's combos.
 - It runs when the menu opens, every second while first run is open, and when Settings opens or becomes key.
 
 **Writing** (`SystemShortcuts.setEnabled`) happens only when the user clicks **Turn off for me**, **Turn off macOS screenshot shortcuts** or **Restore macOS screenshot shortcuts**:
 
-1. `applying(enabled:ids:to:)`, a pure function, sets `enabled` for 28–31 and keeps everything else: other IDs, each entry's `value` (so a binding the user changed survives), and any other keys. A missing entry gets the macOS default binding. If the stored value isn't a dictionary at all, nothing is written.
+1. `applying(enabled:ids:to:)`, a pure function, sets `enabled` for 28–31 and 184 and keeps everything else: other IDs, each entry's `value` (so a binding the user changed survives), and any other keys. A missing entry gets the macOS default binding. If the stored value isn't a dictionary at all, nothing is written.
 2. The result is written with `CFPreferencesSetAppValue` and synchronized.
 3. `/System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u` runs, with a 5 s timeout, so the change applies without logging out.
 4. Margin waits until the saved preferences and the live state agree for 0.3 s. It reads the live state through SkyLight's private `CGSIsSymbolicHotKeyEnabled`, read-only, loaded with `dlsym`.
@@ -342,9 +410,9 @@ More on how these behave:
 
 ## Debug builds
 
-`#if DEBUG` adds `DebugCommandListener`, which receives distributed notifications from `scripts/debug.sh`: `capture-area`, `capture-screen`, `toggle-shelf`, `clear`, `dismiss`, `restore-last` and `dump-state`. It also adds `CaptureSimulation`, which fakes extra displays and failing captures for testing.
+`#if DEBUG` adds `DebugCommandListener`, which receives distributed notifications from `scripts/debug.sh`: `capture-area`, `capture-screen`, `record-area`, `record-screen`, `record-window`, `stop-recording`, `toggle-shelf`, `clear`, `dismiss`, `restore-last`, `copy`, `show` and `dump-state`. It also adds `CaptureSimulation`, which fakes extra displays and failing captures for testing.
 
-Bench builds (`scripts/build.sh --bench`: release optimisation plus `-DMARGIN_BENCH`) have the listener too, but not `CaptureSimulation`. `scripts/bench.sh` drives them with its further commands (`hotkey`, `capture-window`, `select`, `click`, `cancel`, `mark`), which call the live overlay session's handlers in-process, and reads the `timing` log ([Building › Benchmarks](building.md#benchmarks)).
+Bench builds (`scripts/build.sh --bench`: release optimisation plus `-DMARGIN_BENCH`) have the listener too, but not `CaptureSimulation`. `scripts/bench.sh` drives them with its further commands (`hotkey`, `capture-window`, `select`, `click`, `key`, `cancel`, `mark`), which call the live overlay session's handlers in-process, and reads the `timing` log ([Building › Benchmarks](building.md#benchmarks)).
 
 Release builds contain neither. [Building › The debug hook](building.md#the-debug-hook) has the commands and the safety rules.
 
@@ -352,7 +420,7 @@ Release builds contain neither. [Building › The debug hook](building.md#the-de
 
 Spec §14.3. `UpdateController.shared` owns it all; the pure parts are in `MarginKit` and tested there.
 
-**Checks.** `AppCoordinator.start` hands `UpdateController.start` its prewarm task. The launch check waits for that task, then 3 s more, and runs if one is due (`UpdateSchedule`: none got an answer in the last hour; afterwards 24 h after the last answer, looked at by an hourly timer). It's skipped while **Check for updates automatically** is off, while the window shows something unanswered, and, for a minute at a time, while a capture is under way (`capture.isCapturing`). A check is one `GET` of the latest release in an ephemeral `URLSession` (`UpdateNetwork.latestRelease`), off the main actor; only its result comes back to it. `UpdateCheck.decide` compares the tag with `CFBundleShortVersionString`. Check for Updates… and `margin://update` run the same check as a manual one: it shows "Checking…", then the result, error or "up to date" included, and offers a skipped version too. A manual check during an automatic one takes over that one's result.
+**Checks.** `AppCoordinator.start` hands `UpdateController.start` its prewarm task. The launch check waits for that task, then 3 s more, and runs if one is due (`UpdateSchedule`: none got an answer in the last hour; afterwards 24 h after the last answer, looked at by an hourly timer). It's skipped while **Check for updates automatically** is off, while the window shows something unanswered, and, for a minute at a time, during a capture or a recording (`capture.isCapturing`, `recording.isActive`), whose shot the window would be in. A check is one `GET` of the latest release in an ephemeral `URLSession` (`UpdateNetwork.latestRelease`), off the main actor; only its result comes back to it. `UpdateCheck.decide` compares the tag with `CFBundleShortVersionString`. Check for Updates… and `margin://update` run the same check as a manual one: it shows "Checking…", then the result, error or "up to date" included, and offers a skipped version too. A manual check during an automatic one takes over that one's result.
 
 **URL scheme.** `CFBundleURLTypes` registers `margin`. `AppDelegate.application(_:open:)` hands the URL to `UpdateController.open`, which accepts `margin://update` (`MarginURL`) and ignores everything else. At a launch by URL the call can come before `start`; the check then waits for it. It never installs.
 

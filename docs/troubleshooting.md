@@ -14,6 +14,10 @@ Answers to the problems people run into most. If yours isn't here, [open an issu
 - [Launch at login needs approval](#launch-at-login-needs-approval)
 - [Where are my screenshots?](#where-are-my-screenshots)
 - [The frozen screen won't go away](#the-frozen-screen-wont-go-away)
+- [⇧⌘5 opens the macOS screenshot toolbar](#5-opens-the-macos-screenshot-toolbar)
+- [A recording stopped by itself](#a-recording-stopped-by-itself)
+- [A recording has no sound, or no microphone](#a-recording-has-no-sound-or-no-microphone)
+- [A recording won't paste into an app](#a-recording-wont-paste-into-an-app)
 - [A display says "Can't capture this display"](#a-display-says-cant-capture-this-display)
 - [An update didn't install](#an-update-didnt-install)
 - [Margin can't write to Applications](#margin-cant-write-to-applications)
@@ -60,15 +64,15 @@ If macOS keeps asking after you've allowed it:
 
 macOS's own screenshot shortcuts are still on, and macOS gets the keys before any app. The menu bar menu shows this as **macOS still uses ⇧⌘4 — Fix…**.
 
-- Click that item, or open Settings, and choose **Turn off for me** (in the Welcome window) or **Turn off macOS screenshot shortcuts** (in Settings). Margin switches off the four macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4, ⌃⇧⌘4), and the change applies at once.
-- To do it by hand: **System Settings › Keyboard › Keyboard Shortcuts… › Screenshots**, and untick those four.
+- Click that item, or open Settings, and choose **Turn off for me** (in the Welcome window) or **Turn off macOS screenshot shortcuts** (in Settings). Margin switches off the five macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4, ⌃⇧⌘4, and ⇧⌘5 for "Screenshot and recording options"), and the change applies at once.
+- To do it by hand: **System Settings › Keyboard › Keyboard Shortcuts… › Screenshots**, and untick those five.
 
 If turning them off reports a problem:
 
 - **"Something changed the shortcuts back"**: System Settings, open on its Keyboard pane, can write the old settings back. Quit System Settings and try again.
 - **"Saved, but macOS hasn't applied it yet"**: log out and back in.
 
-⇧⌘5 stays with macOS for screen recording; Margin doesn't use it.
+Since 0.1.0 Margin records the screen with ⇧⌘5, so it turns that one off too. If you'd rather keep macOS's toolbar on ⇧⌘5, give Margin's **Record screen** another shortcut in Settings.
 
 ## A shortcut does nothing
 
@@ -156,6 +160,33 @@ To find one from the shelf, choose **Reveal in Finder** from its card's menu.
 
 Press **Esc** or right-click. If the frozen picture never appeared, the overlay cancels itself after 3 seconds and the shelf shows "Couldn't capture the screen". Switching apps with ⌘Tab also cancels it.
 
+## ⇧⌘5 opens the macOS screenshot toolbar
+
+macOS's own "Screenshot and recording options" shortcut is still on. If you turned off the screenshot shortcuts with an older Margin, that one was left on: the menu bar shows **macOS still uses ⇧⌘5 — Fix…** and the Record screen row in Settings says "macOS uses ⇧⌘5 first". Choose **Turn off for me** (or **Turn off macOS screenshot shortcuts** in Settings), or untick "Screenshot and recording options" in **System Settings › Keyboard › Keyboard Shortcuts… › Screenshots**. **Record Screen** in the menu bar works either way.
+
+## A recording stopped by itself
+
+Margin keeps what was recorded and says why on the shelf:
+
+- **"the display was disconnected"**: a display (or area) recording ends with its display. A window recording carries on when its window moves to another display.
+- **"the window closed"**: a window recording ends with its window.
+- **"the Mac went to sleep"** or **"another user took over the Mac"**: sleep, the displays sleeping (locking the screen) and fast user switching end a recording. Idle display sleep doesn't happen while recording.
+- **"the disk is almost full"**: Margin stops while about 400 MB are still free, so it can finish the file (a movie without its index doesn't play). It doesn't start a recording on a disk with less: it records into Unsaved, on your startup disk, or says "Can't record: the disk is almost full". Free some space, or choose a save folder on another disk.
+- **"Recording stopped by macOS"**: someone stopped it from macOS's screen-recording indicator in the menu bar, or macOS ended it.
+
+"Couldn't save the recording" means the file couldn't be finished: nothing usable was written. (Stopping before the first frame, with ⇧⌘5 pressed twice quickly, just cancels: no message.) If Margin crashes or is forced to quit mid-recording, the unfinished movie can't be played; its hidden temp file (`.margin-recording-….mp4`) is removed the next time you record into that folder. (A finished one that never got its name gets it then.)
+
+## A recording has no sound, or no microphone
+
+- Sound is **off by default**. Turn on **Record system audio** and/or **Record microphone** in Settings; they apply to the next recording.
+- **No microphone**: macOS asks for permission when you turn Record microphone on. If you said no, Settings shows "Margin isn't allowed to use the microphone": allow Margin in **System Settings › Privacy & Security › Microphone** (**Open Privacy Settings** goes there). A recording started without permission says "Recording without the microphone" and records the rest.
+- **Only one of the two plays**: with both on, the movie has two sound tracks (the Mac's first, the microphone's second). QuickTime Player plays both; some players and web pages play only the first.
+- System audio never includes Margin's own sounds (the start tick, the shutter of a screenshot taken meanwhile).
+
+## A recording won't paste into an app
+
+A recording is copied as its **file**, not as data: apps that accept a pasted file (Finder, Slack, Mail, most chat apps and web pages) take it; a terminal types its path. Apps that only accept pasted images can't take a video; drag the card in instead, which works wherever a movie file can be dropped.
+
 ## A display says "Can't capture this display"
 
 macOS doesn't offer that display for capture. This happens with some Sidecar, AirPlay and DisplayLink setups. The display is dimmed and can't be selected on; capture on another display.
@@ -169,9 +200,9 @@ The update window says what stopped it. Nothing was replaced, and your Margin ke
 - **"The downloaded app isn't Margin"**, **"is version …, not …"**, **"code signature isn't valid"** or **"isn't signed with the same certificate"**: the download isn't the release it should be, so Margin refused it. Try again later, and if it keeps happening, [report it](https://github.com/Jenish-Shobhit/margin/security/advisories/new): it may be a problem with the release.
 - **"This copy of Margin isn't signed with a certificate"**: you built Margin yourself without the Margin Dev certificate (it's signed ad hoc), so there's nothing to check the download against. Install the release by hand once (**Open Releases Page**); macOS asks for Screen Recording again for that copy.
 - **"macOS is running Margin from a temporary, read-only copy"**: Margin was opened straight from Downloads, so macOS runs it from a hidden copy (App Translocation). Quit it, move Margin.app to Applications, open it from there, and check again.
-- **"Margin 0.0.21 wasn't installed: …"** after Margin quit and came back as the old version: the helper that swaps the app couldn't finish, so it put the old one back. The line after the colon says why, and `~/Library/Logs/Margin/Update.log` has each step.
+- **"Margin 0.1.2 wasn't installed: …"** after Margin quit and came back as the old version: the helper that swaps the app couldn't finish, so it put the old one back. The line after the colon says why, and `~/Library/Logs/Margin/Update.log` has each step.
 
-To go back to the version you had, quit Margin, find **Margin 0.0.20.app** (the old version number) in the Trash, rename it Margin.app and drag it into Applications, replacing the new one. Finder's **Put Back** doesn't know where it came from, because Margin moved it there itself after quitting.
+To go back to the version you had, quit Margin, find **Margin 0.1.1.app** (the old version number) in the Trash, rename it Margin.app and drag it into Applications, replacing the new one. Finder's **Put Back** doesn't know where it came from, because Margin moved it there itself after quitting.
 
 ## Margin can't write to Applications
 
@@ -184,7 +215,7 @@ To go back to the version you had, quit Margin, find **Margin 0.0.20.app** (the 
 ## Update Margin on the website does nothing
 
 - **Your browser asks first.** Chrome, Safari and Firefox ask whether to open Margin; allow it.
-- **Your Margin is too old.** Versions before updates arrived don't know `margin://` links, so nothing opens (Safari says it can't open the page). Download the new version from the same page and replace Margin.app in Applications.
+- **Your Margin is too old.** Versions before 0.1.1 don't know `margin://` links, so nothing opens (Safari says it can't open the page). Download the new version from the same page and replace Margin.app in Applications.
 - **Margin isn't in Applications** or was never opened: open it once, then try again. Or choose **Check for Updates…** from Margin's menu bar icon, which does the same.
 
 ## Reporting a bug
@@ -195,4 +226,4 @@ To go back to the version you had, quit Margin, find **Margin 0.0.20.app** (the 
 log show --last 10m --info --predicate 'subsystem == "io.github.jenish-shobhit.margin"'
 ```
 
-Logs include file names and paths of your screenshots, so look them over before you paste them.
+Logs include file names and paths of your screenshots and recordings, so look them over before you paste them.

@@ -71,9 +71,9 @@ final class UpdateController {
     @ObservationIgnored private var staging: URL?
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var lastProgressUpdate = Date.distantPast
-    /// True while a capture is under way: an automatic check waits for it to end.
+    /// True during a capture or a recording: an automatic check waits for it to end (its window would be in it).
     @ObservationIgnored private var isBusy: () -> Bool = { false }
-    /// Shows a line in the shelf ("Updated to Margin 0.0.20").
+    /// Shows a line in the shelf ("Updated to Margin 0.1.2").
     @ObservationIgnored private var showToast: (String) -> Void = { _ in }
     #if DEBUG || MARGIN_BENCH
     /// `scripts/debug.sh update-check <feed>`: a local release instead of GitHub's.
@@ -164,8 +164,8 @@ final class UpdateController {
     }
 
     /// At launch and every hour: checks when the setting is on and one is due, unless the update window is open (it shows
-    /// something the user hasn't answered yet, a failed install's report among them) or a capture is under way (then a
-    /// minute later).
+    /// something the user hasn't answered yet, a failed install's report among them) or a capture or recording is under way
+    /// (then a minute later).
     private func automaticCheck(atLaunch: Bool) {
         guard prefs.checksForUpdates, checkTask == nil, installTask == nil,
               !UpdateWindowController.shared.isVisible, !phase.isInstalling else { return }
@@ -286,7 +286,7 @@ final class UpdateController {
             installTask = nil
             Self.log.notice("Margin \(update.versionString, privacy: .public) verified; quitting so the helper can install it")
             quit()
-            // Quitting waits for saves (3 s), never this long: still here, Margin didn't quit, and the helper has given up.
+            // Quitting waits for saves (3 s) or a recording (15 s), never this long: still here, Margin didn't quit, and the helper has given up.
             try? await Task.sleep(for: .seconds(Double(UpdateInstall.quitWaitTenths) / 10 + 5))
             if case .relaunching = phase {
                 prefs.pendingUpdate = nil

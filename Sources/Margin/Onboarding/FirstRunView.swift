@@ -67,7 +67,7 @@ struct FirstRunView: View {
         case .pending:
             Detail("Turn off the macOS screenshot shortcuts.")
         case .now:
-            Detail("Margin turns off the four macOS screenshot shortcuts so it can use them. You can restore them in Settings.")
+            Detail("Margin turns off the macOS screenshot shortcuts so it can use their keys. You can restore them in Settings.")
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(model.shortcuts) { shortcut in
                     Tick(title: shortcut.title, keys: shortcut.keys, ok: !model.conflictIDs.contains(shortcut.id))
@@ -92,9 +92,10 @@ struct FirstRunView: View {
             if let error = model.turnOffError {
                 Warning(error).padding(.top, 6)
             }
-            HStack(spacing: 4) {
-                Kbd("⇧⌘5")
-                Text("stays with macOS for screen recording.")
+            HStack(spacing: 0) {
+                Text("Margin records the screen with ")
+                Kbd(model.recordShortcut)
+                Text(".")
             }
             .font(.system(size: 12))
             .foregroundStyle(.secondary)

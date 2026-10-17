@@ -10,6 +10,7 @@
 // is in front (checked before every capture; it pauses otherwise).
 import AppKit
 import CoreGraphics
+import Darwin
 
 let usage = """
 usage: bench <command> [options]
@@ -20,6 +21,8 @@ usage: bench <command> [options]
   report <file>…         the table again from results files (two files, or two builds in one: A/B)
   encode <png>…          PNG encode options on real captures, offline (time, size, thumbnail decode)
   micro                  offline timings of small steps on the main thread (names, prefs, shelf.json…)
+  record                 a screen recording of the whole main display (the bench window over all of it, animated):
+                         Margin's CPU and energy with and without it, frames dropped, and the file's size
   make-shelf <dir> <n> [<png>]
                          <dir>/shelf.json with n cards (APFS clones of <png>, or of a busy 2940×1912 one) for
                          launch --shelf
@@ -32,6 +35,12 @@ options for run / ab / launch:
   --real-hotkey          area suites: post a real ⇧⌘4 (needs Accessibility; macOS's own ⇧⌘4 must be off)
   --sound                leave the shutter sound on
   --block <count>        ab: trials per build before switching (default 5)
+  --animate              something on the bench window moves every frame, as a screen being recorded would
+  --record-b             ab: build B's blocks run while Margin records the bench window (with --animate, the
+                         recording encodes every frame); give the same app twice to measure captures during a recording
+  --seconds <s>          record: how long each phase lasts (default 30)
+  --retake               when another app was left in front and nobody has used the Mac for --idle seconds, bring
+                         the bench window back in front (as at the start) instead of waiting for a click
   --warmup <count>       untimed captures per suite after each launch (default 1)
   --shelf <file|empty>   launch: the shelf.json to launch with
   --scratch <dir>        where shots, backups and results go (default .build/bench-scratch)
@@ -64,6 +73,10 @@ struct Options {
     var maxPause = 600.0
     var idle = 20.0
     var relaunchGap = 30.0
+    var animate = false
+    var recordB = false
+    var seconds = 30.0
+    var retake = false
 
     init(_ args: [String]) {
         var it = args.makeIterator()
@@ -97,6 +110,10 @@ struct Options {
             case "--max-pause": maxPause = Double(value(a)) ?? 600
             case "--idle": idle = Double(value(a)) ?? 20
             case "--relaunch-gap": relaunchGap = Double(value(a)) ?? 30
+            case "--animate": animate = true
+            case "--record-b": recordB = true
+            case "--seconds": seconds = Double(value(a)) ?? 30
+            case "--retake": retake = true
             case "-h", "--help": command = "help"
             default: positional.append(a)
             }
@@ -238,20 +255,52 @@ final class Canvas {
     let main: NSWindow
     let document: NSWindow
 
-    init(content: Content) {
+    /// `animate`: a bar sweeps across and a block spins, every frame (Core Animation: the render server moves them, not
+    /// the bench). `wholeScreen`: the window covers the whole display, menu bar and Dock included, above everything but
+    /// Margin's shelf and overlay, so a recording of the display sees nothing but the bench.
+    init(content: Content, animate: Bool = false, wholeScreen: Bool = false) {
         screen = NSScreen.screens[0]
         let photo = content == .photo
             ? makePhoto(width: Int(screen.frame.width * screen.backingScaleFactor), height: Int(screen.frame.height * screen.backingScaleFactor))
             : nil
-        let frame = screen.visibleFrame
+        let frame = wholeScreen ? screen.frame : screen.visibleFrame
         main = CanvasWindow(contentRect: frame, styleMask: [.borderless], backing: .buffered, defer: false)
         main.contentView = CanvasView(frame: CGRect(origin: .zero, size: frame.size), content: content, photo: photo, title: "Bench")
         main.isReleasedWhenClosed = false
+        if wholeScreen { main.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue - 1) }
+        if animate, let view = main.contentView { Self.addMotion(to: view) }
         let doc = CGRect(x: frame.midX - 450, y: frame.midY - 300, width: 900, height: 600)
         document = NSWindow(contentRect: doc, styleMask: [.titled], backing: .buffered, defer: false)
         document.title = "Bench window"
         document.contentView = CanvasView(frame: CGRect(origin: .zero, size: doc.size), content: content, photo: photo, title: "Window")
         document.isReleasedWhenClosed = false
+    }
+
+    /// A sweeping bar and a spinning block, forever.
+    private static func addMotion(to view: NSView) {
+        view.wantsLayer = true
+        guard let root = view.layer else { return }
+        let bar = CALayer()
+        bar.backgroundColor = NSColor.systemOrange.cgColor
+        bar.frame = CGRect(x: 0, y: 40, width: 120, height: view.bounds.height - 80)
+        root.addSublayer(bar)
+        let sweep = CABasicAnimation(keyPath: "position.x")
+        sweep.fromValue = 60
+        sweep.toValue = view.bounds.width - 60
+        sweep.duration = 2
+        sweep.autoreverses = true
+        sweep.repeatCount = .infinity
+        bar.add(sweep, forKey: "sweep")
+        let block = CALayer()
+        block.backgroundColor = NSColor.systemTeal.cgColor
+        block.frame = CGRect(x: view.bounds.midX - 150, y: view.bounds.midY - 150, width: 300, height: 300)
+        root.addSublayer(block)
+        let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+        spin.fromValue = 0
+        spin.toValue = Double.pi * 2
+        spin.duration = 3
+        spin.repeatCount = .infinity
+        block.add(spin, forKey: "spin")
     }
 
     func show() {
@@ -317,7 +366,8 @@ final class Bench {
         do { try collector.start() } catch { fail("log stream failed: \(error.localizedDescription)") }
         await sleep(ms: 1000) // log stream takes a moment to attach
         if showCanvas {
-            canvas = Canvas(content: options.content)
+            canvas = Canvas(content: options.content, animate: options.animate || options.command == "record",
+                            wholeScreen: options.command == "record")
             await waitForIdle()
             canvas?.show()
             await sleep(ms: 500)
@@ -404,7 +454,8 @@ final class Bench {
             stopRequested = true
             return false
         }
-        if await Gate.wait(idle: options.idle, maxWait: options.maxPause, stop: { self.stopRequested }) { return true }
+        let retake: (() -> Void)? = options.retake ? { [weak self] in self?.canvas?.show() } : nil
+        if await Gate.wait(idle: options.idle, maxWait: options.maxPause, retake: retake, stop: { self.stopRequested }) { return true }
         if !stopRequested { say("the bench window wasn't in front for \(Int(options.maxPause)) s; stopping") }
         stopRequested = true
         return false
@@ -603,9 +654,12 @@ final class Bench {
                 say("block \(blockIndex + 1)/\(blocks): build \(label) (\(app))")
                 guard await relaunch(app: app) else { stopRequested = true; break outer }
                 let count = min(options.block, n - blockIndex * options.block)
+                let recording = label == "B" && options.recordB
+                if recording, !(await startRecording(area: canvas?.main.frame)) { stopRequested = true; break outer }
                 for suite in options.suites where !stopRequested {
                     await runSuite(suite, build: label, count: count, trialOffset: blockIndex * options.block)
                 }
+                if recording { await stopRecording() }
             }
         }
         await tearDown()
@@ -663,6 +717,131 @@ final class Bench {
         print(Stats.report(results))
     }
 
+    // MARK: Recording
+
+    /// Starts a recording of `area` (AppKit global points; the display under the pointer when nil) and waits for its
+    /// first frame.
+    func startRecording(area: CGRect?) async -> Bool {
+        guard await ready(), let start = await collector.mark("record-start") else { return false }
+        if let r = area {
+            post("record-area \(r.minX) \(r.minY) \(r.width) \(r.height)")
+        } else {
+            post("record-screen")
+        }
+        guard await collector.wait(for: ["recordingStart"], since: start, timeout: 10) != nil else {
+            say("the recording didn't start in 10 s")
+            post("stop-recording")
+            return false
+        }
+        return true
+    }
+
+    /// Stops the recording and waits until it's saved. Returns its state (`dump-state`'s `recording`).
+    @discardableResult
+    func stopRecording() async -> [String: Any]? {
+        guard let start = await collector.mark("record-stop") else { return nil }
+        post("stop-recording")
+        _ = await collector.wait(for: ["recordingStopToFile"], since: start, timeout: 30)
+        return await state()?["recording"] as? [String: Any]
+    }
+
+    /// Margin's `dump-state`.
+    func state() async -> [String: Any]? {
+        let url = URL(fileURLWithPath: "/tmp/margin-state.json")
+        try? FileManager.default.removeItem(at: url)
+        post("dump-state")
+        for _ in 0..<50 {
+            await sleep(ms: 100)
+            if let data = try? Data(contentsOf: url), let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                return json
+            }
+        }
+        return nil
+    }
+
+    /// CPU seconds a process has used so far (user + system). `pti_total_*` are Mach absolute time units, not
+    /// nanoseconds: on Apple silicon a unit is 125/3 ns, so dividing by 1e9 alone reads 1/41.7 of the real figure.
+    nonisolated static func cpuSeconds(_ pid: pid_t) -> Double? {
+        var info = proc_taskinfo()
+        let size = Int32(MemoryLayout<proc_taskinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &info, size) == size else { return nil }
+        var timebase = mach_timebase_info_data_t()
+        mach_timebase_info(&timebase)
+        let units = Double(info.pti_total_user + info.pti_total_system)
+        return units * Double(timebase.numer) / Double(timebase.denom) / 1e9
+    }
+
+    /// `top`'s energy impact ("POWER") for `pid`, averaged over `seconds`: its second sample covers that span.
+    nonisolated static func energy(_ pid: pid_t, seconds: Int) -> Double? {
+        guard let out = try? shell("/usr/bin/top", ["-l", "2", "-s", "\(seconds)", "-pid", "\(pid)", "-stats", "pid,power"]) else { return nil }
+        let rows = out.split(separator: "\n").filter { $0.trimmingCharacters(in: .whitespaces).hasPrefix("\(pid) ") }
+        return rows.last.flatMap { Double($0.split(separator: " ").last.map(String.init) ?? "") }
+    }
+
+    /// One phase of `record`: Margin's CPU (%, from its CPU time) and energy impact over `seconds`. Nil if someone used
+    /// the Mac or another app came forward meanwhile: the round is done again once it's quiet.
+    func measure(_ phase: String, seconds: Double) async -> (cpu: Double, energy: Double)? {
+        guard let pid = Margin.pid, let before = Self.cpuSeconds(pid) else { return nil }
+        let wall = Date()
+        let energy = Task.detached { Self.energy(pid, seconds: Int(seconds)) }
+        var interrupted = false
+        while Date().timeIntervalSince(wall) < seconds, !stopRequested, !interrupted {
+            await sleep(ms: 250)
+            if Gate.userActive() || !Gate.allowed(Gate.frontPID()) {
+                say("\(phase): the Mac is in use or another app is in front; doing this round again later")
+                interrupted = true
+            }
+        }
+        let power = await energy.value
+        guard !stopRequested, !interrupted, let after = Self.cpuSeconds(pid) else { return nil }
+        let cpu = (after - before) / Date().timeIntervalSince(wall) * 100
+        say("\(phase): Margin \(String(format: "%.1f", cpu))% CPU, energy impact \(power.map { String(format: "%.1f", $0) } ?? "–")")
+        return (cpu, power ?? .nan)
+    }
+
+    func record() async {
+        let n = max(1, options.n ?? 1)
+        await setUp()
+        guard await relaunch(app: options.app) else { await tearDown(); return }
+        var rows: [(String, Double, String)] = []
+        var i = 0, attempts = 0
+        while i < n, attempts < n * 4, !stopRequested {
+            attempts += 1
+            guard await ready() else { break }
+            guard let idle = await measure("idle \(i)", seconds: options.seconds) else { continue }
+            // The whole display: the pointer's, which is the bench's on a single display.
+            let whole = NSScreen.screens.count == 1 ? nil : canvas?.screen.frame
+            guard await startRecording(area: whole) else { break }
+            let live = await state()?["recording"] as? [String: Any]
+            guard let busy = await measure("recording \(i)", seconds: options.seconds) else {
+                await stopRecording()
+                continue
+            }
+            let done = await stopRecording()
+            let last = done?["last"] as? [String: Any]
+            let duration = last?["duration"] as? Double ?? .nan
+            let file = try? FileManager.default.contentsOfDirectory(at: shots, includingPropertiesForKeys: [.fileSizeKey])
+                .filter { $0.pathExtension == "mp4" }.max { ($0.path) < ($1.path) }
+            let bytes = Double((try? file?.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+            rows += [("cpu.idle", idle.cpu, "%"), ("cpu.recording", busy.cpu, "%"), ("energy.idle", idle.energy, ""),
+                     ("energy.recording", busy.energy, ""), ("duration", duration, "s"),
+                     ("framesWritten", Double(last?["framesWritten"] as? Int ?? 0), ""),
+                     ("framesDropped", Double(last?["framesDropped"] as? Int ?? 0), ""),
+                     ("fileMB", bytes / 1e6, "MB"), ("MBPerMinute", bytes / 1e6 / duration * 60, "MB"),
+                     ("width", Double(live?["width"] as? Int ?? 0), "px"), ("height", Double(live?["height"] as? Int ?? 0), "px"),
+                     ("fps", Double(live?["fps"] as? Int ?? 0), ""), ("bitRateMbps", Double(live?["bitRate"] as? Int ?? 0) / 1e6, "")]
+            for (m, v, u) in rows.suffix(13) {
+                let s = Sample(build: "A", suite: "record", trial: i, metric: m, value: v, unit: u)
+                results.append(s)
+                append(s)
+            }
+            i += 1
+            await sleep(ms: 2000)
+        }
+        await tearDown()
+        print(Stats.report(results))
+    }
+
     /// A real ⇧⌘4 reaches Margin only if macOS's own screenshot shortcut is off (it takes the combo first).
     private func checkRealHotkey() {
         let shortcuts = SystemShortcuts.current()
@@ -707,7 +886,7 @@ case "make-shelf":
                           source: options.positional.count == 3 ? URL(fileURLWithPath: options.positional[2]).standardizedFileURL : nil)
     }
     exit(0)
-case "run", "ab", "launch":
+case "run", "ab", "launch", "record":
     if options.command == "ab", options.positional.count != 2 { fail("ab <A.app> <B.app>") }
     let app = NSApplication.shared
     app.setActivationPolicy(.regular)
@@ -725,6 +904,7 @@ case "run", "ab", "launch":
         case "run": await bench.run()
         case "ab": await bench.ab(URL(fileURLWithPath: options.positional[0]).standardizedFileURL.path,
                                   URL(fileURLWithPath: options.positional[1]).standardizedFileURL.path)
+        case "record": await bench.record()
         default: await bench.launch()
         }
         exit(0)

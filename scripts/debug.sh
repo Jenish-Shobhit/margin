@@ -7,7 +7,11 @@
 #   scripts/debug.sh clear                          remove every item from the shelf (undoable)
 #   scripts/debug.sh dismiss [n]                    remove the n newest cards (undoable), keeping the keys where they are
 #   scripts/debug.sh restore-last                   Restore Last Removed (the shelf's ⌘Z)
-#   scripts/debug.sh dump-state                     print the app state (shelf, mark, timings…) as JSON
+#   scripts/debug.sh dump-state                     print the app state (shelf, mark, recording, timings…) as JSON
+#   scripts/debug.sh record-area <x> <y> <w> <h>    record a rect (AppKit global points), no overlay
+#   scripts/debug.sh record-screen                  record the display under the pointer
+#   scripts/debug.sh record-window [<id>]           record a window (by window number; the frontmost without one)
+#   scripts/debug.sh stop-recording                 stop and save the recording, as ⇧⌘5 does
 #
 # Commands are posted as the distributed notification io.github.jenish-shobhit.margin.debug with the
 # command string as its object. Release builds don't listen.

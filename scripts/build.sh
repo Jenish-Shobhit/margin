@@ -68,6 +68,9 @@ if [[ "$HOOK" == 1 && "$INSTALL" == 1 ]]; then hook_install_warning; fi
 
 PLIST_SRC="$ROOT/Resources/Info.plist"
 ICON_SRC="$ROOT/Resources/AppIcon.icns"
+# The hardened runtime's entitlements: audio input, for screen recordings with the microphone. Not part of the
+# designated requirement, so the Screen Recording permission doesn't change with them.
+ENTITLEMENTS="$ROOT/Resources/Margin.entitlements"
 VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST_SRC")
 
 # 1. Build ------------------------------------------------------------------------------------
@@ -112,7 +115,7 @@ IDENTITY_HASH=$(security find-identity -p codesigning 2>/dev/null \
   | awk -v name="\"$IDENTITY_NAME\"" 'index($0, name) { print $2; exit }')
 if [[ -n "$IDENTITY_HASH" ]]; then
   say "Signing with \"$IDENTITY_NAME\" ($IDENTITY_HASH)"
-  codesign --force --options runtime --timestamp=none --sign "$IDENTITY_HASH" "$APP"
+  codesign --force --options runtime --timestamp=none --entitlements "$ENTITLEMENTS" --sign "$IDENTITY_HASH" "$APP"
 else
   warn "################################################################################"
   warn "#  No \"$IDENTITY_NAME\" code-signing identity in the keychain: signing ad-hoc."
@@ -120,7 +123,7 @@ else
   warn "#  Fix: Keychain Access > Certificate Assistant > Create a Certificate…,"
   warn "#       name \"$IDENTITY_NAME\", type Code Signing, then rebuild."
   warn "################################################################################"
-  codesign --force --options runtime --timestamp=none --sign - "$APP"
+  codesign --force --options runtime --timestamp=none --entitlements "$ENTITLEMENTS" --sign - "$APP"
 fi
 codesign --verify --strict "$APP"
 

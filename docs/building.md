@@ -73,7 +73,8 @@ The tests cover `MarginKit`, the app's pure logic:
 - key-combo display and conflicts;
 - preferences and the hint counter;
 - the login item state;
-- parsing and rewriting the macOS screenshot shortcuts.
+- parsing and rewriting the macOS screenshot shortcuts, ⇧⌘5's 184 among them;
+- recording names, temp files and leftovers, the frame rate, encoded size and bit rate rules, and durations; `shelf.json` with recordings, and from before them.
 
 They never touch real system state: they use temporary folders, throwaway `UserDefaults` suites, and fake executables in place of `activateSettings`. One test is off by default because it mounts a volume: `MARGIN_DISK_IMAGE_TESTS=1 scripts/test.sh` also attaches and detaches a small disk image in a temporary folder, to check that a shot on an unplugged disk keeps its card.
 
@@ -89,7 +90,7 @@ The script runs these steps:
 
 1. **Build** with `swift build --build-system native -c <config> --arch arm64` (release unless `--debug`).
 2. **Assemble** `.build/app/<config>/Margin.app`: the binary, `Resources/Info.plist`, `PkgInfo` and `Resources/AppIcon.icns`.
-3. **Sign** with the hardened runtime: the **Margin Dev** identity if the keychain has it, otherwise ad-hoc with a loud warning (see below). It then checks the result with `codesign --verify --strict`.
+3. **Sign** with the hardened runtime and `Resources/Margin.entitlements` (audio input, for recordings with the microphone): the **Margin Dev** identity if the keychain has it, otherwise ad-hoc with a loud warning (see below). It then checks the result with `codesign --verify --strict`.
 4. `--install`: quit every running Margin (matched by bundle ID, forced after 5 s), then replace `/Applications/Margin.app`.
 5. `--zip`: write `dist/Margin-<version>.zip` with `ditto`, without extended attributes, so a plain `unzip` doesn't leave `._` files that break the signature.
 6. `--run`: open the app (the installed copy with `--install`).
@@ -191,6 +192,10 @@ scripts/debug.sh toggle-shelf                   # tuck / show
 scripts/debug.sh clear                          # empty the shelf (undoable)
 scripts/debug.sh dismiss 4                      # the 4 newest cards off the shelf (undoable)
 scripts/debug.sh restore-last                   # Restore Last Removed
+scripts/debug.sh record-area 100 100 800 500    # record a rect (AppKit global points), no overlay
+scripts/debug.sh record-screen                  # record the display under the pointer
+scripts/debug.sh record-window 1234             # record that window (its window number)
+scripts/debug.sh stop-recording                 # stop and save, as ⇧⌘5 does
 scripts/debug.sh dump-state                     # print the state as JSON
 ```
 
@@ -199,10 +204,11 @@ scripts/debug.sh dump-state                     # print the state as JSON
   - the shelf's items and paths, which have a live card (`cards`: in the pile or not, with a decoded thumbnail or not), the tuck state, the ⌘V mark and the pasteboard change count;
   - the permission state and the login item;
   - each hotkey registration and its `OSStatus`;
-  - the overlay's mode while a capture is up (`overlay.mode`), and who has focus (`focus`: Margin's key window, whether it's active, the frontmost app);
-  - the last capture's timings.
+  - the overlay's mode and purpose while a capture is up (`overlay.mode`, `overlay.purpose`: `capture` or `record`), and who has focus (`focus`: Margin's key window, whether it's active, the frontmost app);
+  - the last capture's timings;
+  - the recording (`recording`: its state, target, encoded size, fps, bit rate, temp file, frames written and dropped, and the last one's duration), each item's kind (`itemKinds`) and the status item (`statusItem`: its title, whether it shows the recording glyph, the menu's items).
 - To check visuals, take a `screencapture -x`: it sees the shelf, while Margin's own captures never do.
-- `scripts/bench.sh` also uses `hotkey <action>`, `capture-window`, `select x y w h`, `click x y`, `cancel` and `mark <text>`, which drive a live overlay in-process (see `DebugCommandListener.swift`).
+- `scripts/bench.sh` also uses `hotkey <action>`, `capture-window`, `select x y w h`, `click x y [window=<id>]`, `key space|return|escape`, `cancel` and `mark <text>`, which drive a live overlay in-process (see `DebugCommandListener.swift`); `click … window=<id>` clicks only if that window is the one window mode would pick there, so a test never captures or records another app's window. `copy [n]` copies the n-th newest card as a click does, and `show settings|first-run|shortcuts|none` opens or closes Margin's windows.
 
 **Any process running as your user can post that notification.** A debug build can therefore be made to capture the screen, clear the shelf or write its state to `/tmp`. That's why:
 
@@ -258,6 +264,8 @@ scripts/bench.sh run --app <app> --n 30   # 30 of each: ⇧⌘4 small / medium /
 scripts/bench.sh ab <A.app> <B.app>       # two builds interleaved in blocks of 5, with the change and a p-value
 scripts/bench.sh launch --shelf empty     # launch → ready, and memory (--shelf <file> for a full shelf)
 scripts/bench.sh make-shelf <dir> 200 [<png>]  # a shelf.json of 200 cards for that (clones of <png>)
+scripts/bench.sh ab <app> <app> --animate --record-b   # captures with and without a recording under way
+scripts/bench.sh record --app <app> --seconds 30       # a full-display recording: CPU, energy, drops, file size
 scripts/bench.sh encode <png>…            # PNG filter options on real captures: time, size, thumbnail decode
 scripts/bench.sh micro                    # small main-thread steps in isolation
 scripts/bench.sh report <results.jsonl>   # the table again; two files side by side
@@ -268,9 +276,10 @@ scripts/bench.sh help                     # every option
 - It drives the same calls a shortcut and a drag make (`hotkey captureArea`, then `select`), so everything but the window server's hand-over of the key is measured; `--real-hotkey` posts a real ⇧⌘4 instead (it needs Accessibility, and macOS's own ⇧⌘4 off).
 - Captures see the bench's own window, a flat app UI or, with `--content photo`, a busy photo-like image, so PNG times don't depend on what's on screen.
 - It backs up the installed app, Margin's preferences, `shelf.json` and the clipboard, and restores them at the end (or on Ctrl-C). Meanwhile shots go to its scratch folder, with **Copy each capture** and the sound off (`--sound` keeps it).
-- It acts only while its window or Margin is in front and nobody is using the keyboard or mouse: it takes the screen after 20 s without input (`--idle`) and pauses on any input or when another app comes forward.
+- It acts only while its window or Margin is in front and nobody is using the keyboard or mouse: it takes the screen after 20 s without input (`--idle`) and pauses on any input or when another app comes forward. With `--retake`, an app left in front by someone who has since been away for `--idle` seconds goes behind the bench window again, as at the start, instead of waiting for a click on it.
 - It launches Margin at most every 30 s (`--relaunch-gap`), counting from the launch of the copy it quits: relaunched more often, Margin makes macOS ask the user whether it may bypass the system's private window picker. An `ab` of a single suite waits between blocks for that.
 - Profile the same runs with `sample Margin 10 -file out.txt` while it captures.
+- **Recording.** `--animate` adds a bar and a block that move every frame (Core Animation), so a recording encodes a frame per refresh. `ab A B --record-b` records the bench window during build B's blocks; give the same app twice to compare captures with and without a recording. `record` covers the whole main display (menu bar and Dock included, below Margin's shelf) with the animated window and, for each of `--n` rounds, measures Margin's CPU (from its CPU time) and energy impact (`top`'s POWER) for `--seconds` idle, then for as long recording the whole display, then the file: frames written and dropped, MB per minute. The movies go to the scratch folder and are deleted with it.
 
 ## The app icon
 

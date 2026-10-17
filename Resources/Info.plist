@@ -19,7 +19,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.0.19</string>
+	<string>0.1.0</string>
 	<key>CFBundleSupportedPlatforms</key>
 	<array>
 		<string>MacOSX</string>
@@ -36,7 +36,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>19</string>
+	<string>20</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 	<key>LSMinimumSystemVersion</key>
@@ -51,6 +51,8 @@
 	<string>Margin saves your screenshots in the folder you chose in Settings, and shows them on its shelf.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Margin records your microphone with a screen recording when you turn on Record microphone in Settings.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Jenish Shobhit · MIT License</string>
 	<key>NSNetworkVolumesUsageDescription</key>

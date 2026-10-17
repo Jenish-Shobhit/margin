@@ -42,6 +42,13 @@ Every capture is saved to disk, copied to the clipboard and put on a shelf of th
 - Full screen of the display under the pointer (⇧⌘3), and the last area again with no overlay (⇧⌘2).
 - Works across several displays, including ones with different scales.
 
+**Screen recording**
+
+- ⇧⌘5 records an area (drag), a window (Space, then click) or the whole display (click). ⇧⌘5 again stops; the menu bar shows a red stop button and the time meanwhile.
+- MP4 (H.264, AAC) at the display's Retina resolution and refresh rate up to 60 fps, with the pointer, from the hardware encoder. Screenshots keep working while you record, and Margin's shelf and overlay stay out of the movie.
+- System audio and the microphone, both off until you turn them on in Settings.
+- Recordings land on the shelf with their first frame and length: drag, click to copy the file, Space to play it in Quick Look.
+
 **Save and copy**
 
 - PNGs named `Screenshot 2026-10-14 at 17.42.17.png` (24-hour time), written atomically so no app ever sees half a file.
@@ -59,7 +66,7 @@ Every capture is saved to disk, copied to the clipboard and put on a shelf of th
 
 **The app**
 
-- Menu bar only, with no Dock icon. A three-step first-run guide, six settings and launch at login.
+- Menu bar only, with no Dock icon. A three-step first-run guide, a short Settings window and launch at login.
 - Supports light and dark mode, Reduce Motion and Reduce Transparency.
 
 ## Install
@@ -82,7 +89,7 @@ You only do this once per download. If it still won't open, see [Troubleshooting
 A small window walks you through three steps:
 
 1. **Allow Screen Recording.** Click **Allow…**, then turn Margin on in System Settings › Privacy & Security › Screen & System Audio Recording. If macOS doesn't pick it up, click **Relaunch Margin**.
-2. **Hand over the shortcuts.** Click **Turn off for me**. Margin turns off the four macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4 and ⌃⇧⌘4) so it receives those keys. It takes effect at once, with no logout. ⇧⌘5 stays with macOS for screen recording.
+2. **Hand over the shortcuts.** Click **Turn off for me**. Margin turns off the five macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4, ⌃⇧⌘4 and the ⇧⌘5 toolbar) so it receives those keys. It takes effect at once, with no logout.
 3. **Take your first shot.** Press ⇧⌘4. The window closes after your first capture.
 
 Launch at login is on by default. If you skip step 2, the menu bar menu offers "macOS still uses ⇧⌘4 — Fix…" to bring it back. Everything also works from the menu bar icon.
@@ -98,7 +105,7 @@ The [user guide](docs/user-guide.md) covers everything else.
 
 ## Shortcuts
 
-All four global shortcuts can be changed in Settings. The full list is in [docs/shortcuts.md](docs/shortcuts.md).
+All five global shortcuts can be changed in Settings. The full list is in [docs/shortcuts.md](docs/shortcuts.md).
 
 **Global**
 
@@ -107,8 +114,9 @@ All four global shortcuts can be changed in Settings. The full list is in [docs/
 | ⇧⌘4 | Capture an area (press Space for window mode) |
 | ⇧⌘3 | Capture the screen under the pointer |
 | ⇧⌘2 | Capture the last area again, with no overlay |
+| ⇧⌘5 | Record the screen: drag an area, Space for a window, click for the whole display. Again to stop |
 | ⇧⌘1 | Tuck or show the shelf |
-| ⌃⇧⌘4 · ⌃⇧⌘3 · ⌃⇧⌘2 | Same as without ⌃ (every shot is already copied) |
+| ⌃⇧⌘4 · ⌃⇧⌘3 · ⌃⇧⌘2 · ⌃⇧⌘5 | Same as without ⌃ (every shot is already copied) |
 
 **While selecting**
 
@@ -153,6 +161,7 @@ Each capture (with **Copy each capture** on) and each copy from the shelf puts o
 - Only the newest capture writes the clipboard, and a copy you make from the shelf meanwhile wins.
 - If a shot couldn't be saved, the clipboard gets the image only.
 - **Copy Path** in a card's menu puts the path as plain text.
+- A screen recording is copied as its file only (`public.file-url`): apps that take a pasted file get the movie, a terminal its path.
 - The ⌘V pill clears within about a second once something else is copied.
 
 ## Settings
@@ -169,9 +178,11 @@ Open **Settings…** from the menu bar icon.
 | Show key hints while capturing | On | The bar of keys at the top of the screen while you select |
 | Check for updates automatically | On | At launch and once a day, asks GitHub for the latest release |
 | Launch at login | On | Shows what macOS really has, including "waiting for approval" |
-| Shortcuts | ⇧⌘4 · ⇧⌘3 · ⇧⌘2 · ⇧⌘1 | Capture area, Capture screen, Repeat last area, Show or tuck shelf |
+| Record system audio | Off | Recordings include what the Mac plays (not Margin's own sounds) |
+| Record microphone | Off | Recordings include the microphone; turning it on asks for permission |
+| Shortcuts | ⇧⌘4 · ⇧⌘3 · ⇧⌘2 · ⇧⌘1 · ⇧⌘5 | Capture area, Capture screen, Repeat last area, Show or tuck shelf, Record screen |
 
-Under the shortcuts, **macOS screenshot shortcuts** shows whether macOS still owns ⇧⌘3 and ⇧⌘4. It has a button to turn them off, or to restore them once they're all off.
+Under the shortcuts, **macOS screenshot shortcuts** shows whether macOS still owns ⇧⌘3, ⇧⌘4 and ⇧⌘5. It has a button to turn them off, or to restore them once they're all off.
 
 ## Privacy
 
@@ -179,12 +190,12 @@ Margin works entirely on your Mac. It has no analytics, no telemetry and no acco
 
 | What | Where |
 |---|---|
-| Screenshots | Your save folder (default `~/Desktop/Screenshots`). If that can't be written: `~/Library/Application Support/Margin/Unsaved/` |
+| Screenshots and screen recordings | Your save folder (default `~/Desktop/Screenshots`). If that can't be written: `~/Library/Application Support/Margin/Unsaved/` |
 | The shelf's list (paths, Finder bookmarks, dates, pixel sizes) | `~/Library/Application Support/Margin/shelf.json` |
 | Settings, shortcuts, the last area for ⇧⌘2, a few counters | The preferences domain `io.github.jenish-shobhit.margin` |
 | Diagnostics (timings, saved file names, errors) | The macOS unified log, subsystem `io.github.jenish-shobhit.margin`, like any app's logs |
 
-- Margin asks for Screen Recording. macOS also asks before it first writes to your Desktop folder.
+- Margin asks for Screen Recording. macOS also asks before it first writes to your Desktop folder, and for the microphone only if you turn on **Record microphone**. Recordings stay on your Mac like screenshots.
 - It changes the macOS screenshot shortcuts (`com.apple.symbolichotkeys`) only when you click **Turn off for me**, **Turn off macOS screenshot shortcuts** or **Restore macOS screenshot shortcuts**.
 - [SECURITY.md](SECURITY.md) lists everything the app touches.
 

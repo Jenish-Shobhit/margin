@@ -33,7 +33,8 @@ public enum UpdateInstall {
     }
 
     /// How long the helper waits for Margin to quit before it gives up and changes nothing, in tenths of a second.
-    /// Quitting waits for saves at most `AppCoordinator.terminationTimeout` (3 s); this leaves room for more.
+    /// Quitting waits for saves at most `AppCoordinator.terminationTimeout` (3 s), and for a recording to be saved at most
+    /// `recordingTerminationTimeout` (15 s); this leaves room for more.
     public static let quitWaitTenths = 300
 
     /// The detached helper, run as `/bin/sh -c helperScript margin-update <arguments>` (see `helperArguments`). It

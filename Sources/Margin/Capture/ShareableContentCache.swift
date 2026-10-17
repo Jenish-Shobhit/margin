@@ -32,6 +32,9 @@ final class ShareableContentCache {
     private(set) var snapFrames: [CGRect] = []
     private(set) var hasMarginApp = false
     private(set) var isLoaded = false
+    /// After a rebuild of the targets that changed which of Margin's ordinary windows they keep: a display recording under
+    /// way takes the new filter (`RecordingController`). Not after every rebuild (each ⇧⌘4's window list makes one).
+    var onTargetsRebuilt: (() -> Void)?
     /// Margin's ordinary windows the targets keep in shots (see `apply`).
     private var keptWindowIDs: Set<CGWindowID> = []
     /// The displays (NSScreen) that existed when the applied fetch started, with their pixel size then. One of
@@ -190,6 +193,11 @@ final class ShareableContentCache {
         Displays.all.allSatisfy { d in targets[d.id].map { $0.pixelSize == d.pixelSize } ?? true }
     }
 
+    /// A window window mode can pick, by its window number, or the frontmost one (the DEBUG hook's `record-window`).
+    func pickableWindow(id: CGWindowID?) -> CapturableWindow? {
+        stack.lazy.compactMap(\.window).first { id == nil || $0.id == id }
+    }
+
     /// The topmost window under a point (AppKit global points); nil over system UI such as the Dock.
     func window(at point: CGPoint) -> CapturableWindow? {
         stack.first { $0.frame.contains(point) }?.window
@@ -227,12 +235,14 @@ final class ShareableContentCache {
         // (.screenSaver), the overlay and outline (.screenSaver + 1). One opened since this fetch is excluded
         // until the refresh it schedules (`marginWindowChanged`).
         let kept = content.windows.filter { $0.owningApplication?.processID == pid && Self.isOrdinary(level: $0.windowLayer) }
+        let keptChanged = Set(kept.map(\.windowID)) != keptWindowIDs
         keptWindowIDs = Set(kept.map(\.windowID))
         var t: [CGDirectDisplayID: DisplayTarget] = [:]
         for display in content.displays {
             t[display.displayID] = ScreenGrabber.makeDisplayTarget(display: display, excluding: margin, keeping: kept)
         }
         targets = t
+        if keptChanged { onTargetsRebuilt?() }
     }
 
     private func applyWindows(_ content: SCShareableContent) {
