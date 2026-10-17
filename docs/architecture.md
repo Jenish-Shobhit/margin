@@ -269,14 +269,15 @@ Nothing of recording exists until ⇧⌘5: `RecordingController` is created at l
 
 | | |
 |---|---|
-| Margin's CPU, recording the whole display at 60 fps (everything moving) | 0.2% (0.0% idle); `top`'s energy impact about 7 (0 idle) |
-| Frames | 57 a second written of the display's 60 (as many as changed), none dropped |
-| File | 63 MB a minute for that content (8.5 Mbit/s against a 25.3 Mbit/s target); a mostly still screen far less |
-| Stop → file in place | about 150 ms for a few seconds of recording |
-| Screenshots during a recording (median, 30 each) | ⇧⌘4 freeze 48.0 vs 48.1 ms, thumbnail frame 20.1 vs 25.5 ms, file 81.6 vs 81.7 ms; ⇧⌘3 thumbnail frame 21.5 vs 23.7 ms, file 91.7 vs 89.9 ms (+2%). The freeze's p90 rose from 56 to 66 ms; memory 3 MB more |
-| Screenshots with this code, not recording, against 0.0.18 | no significant change (area-medium and ⇧⌘3, 30 each, every p > 0.05 but one ⇧⌘3 frame 11% sooner) |
+| Margin's CPU, recording the whole display at 60 fps (everything moving) | 7.8% of one core (0.0% idle); `top`'s energy impact about 7.7 (0 idle). Memory flat over 5 minutes (23–25 MB) |
+| The system's share | `VTEncoderXPCService` about 6% of a core, `replayd` 2%; the window server no busier than for the moving content itself |
+| Frames | 60 a second: 18,050 in a 301 s recording, one skipped, none dropped |
+| File | 66–88 MB a minute for that content (9–12 Mbit/s against a 25.3 Mbit/s target); a mostly still screen far less |
+| Stop → file in place | about 150 ms for a few seconds of recording; 140–270 ms after 5 minutes |
+| Screenshots during a recording (median, 20 each, with 0.0.19's parallel PNG encode) | ⇧⌘4 freeze 49.6 vs 51.0 ms (+3%), file 22.1 vs 21.2 ms; ⇧⌘3 file 24.4 vs 23.2 ms: nothing 10% or more slower. The recording skipped 6 of 4,846 frames meanwhile, one at a time, and dropped none |
+| Screenshots with this code, not recording, against 0.0.19 | files and thumbnails unchanged; the ⇧⌘4 freeze's all-frozen time 6–12% later in two runs (4–8 ms, p 0.005 and 0.016), its first frozen frame +16% in one (p 0.003) and −1% in the other |
 
-The encoder's and ScreenCaptureKit's own work happens in the media engine, `replayd` and the window server, outside Margin's CPU figure.
+`proc_pidinfo`'s CPU times are Mach time units (125/3 ns on Apple silicon), which the bench now converts: read as nanoseconds they gave 0.2%.
 
 **On the shelf.** A recording is a `ShelfItem` with `kind: .recording` and its `duration`. The card adds a ▶ length badge (bottom-left, swapped for the meta line on hover); a copy (click, ⌘C) writes its file URL alone (`ClipboardWriter.write(_ entries:)`, never reading the movie), and everything else (drag, open, Quick Look, rename, trash, undo) works on its file as for a PNG.
 

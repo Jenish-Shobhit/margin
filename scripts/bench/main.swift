@@ -759,12 +759,16 @@ final class Bench {
         return nil
     }
 
-    /// CPU seconds a process has used so far (user + system).
+    /// CPU seconds a process has used so far (user + system). `pti_total_*` are Mach absolute time units, not
+    /// nanoseconds: on Apple silicon a unit is 125/3 ns, so dividing by 1e9 alone reads 1/41.7 of the real figure.
     nonisolated static func cpuSeconds(_ pid: pid_t) -> Double? {
         var info = proc_taskinfo()
         let size = Int32(MemoryLayout<proc_taskinfo>.size)
         guard proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &info, size) == size else { return nil }
-        return Double(info.pti_total_user + info.pti_total_system) / 1e9
+        var timebase = mach_timebase_info_data_t()
+        mach_timebase_info(&timebase)
+        let units = Double(info.pti_total_user + info.pti_total_system)
+        return units * Double(timebase.numer) / Double(timebase.denom) / 1e9
     }
 
     /// `top`'s energy impact ("POWER") for `pid`, averaged over `seconds`: its second sample covers that span.
