@@ -2,6 +2,21 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.1.0 — 2026-10-17
+
+### Added
+
+- Screen recording with ⇧⌘5. Drag an area, press Space and click a window, or click for the whole display; press ⇧⌘5 again, or choose Stop Recording in the menu bar, to stop. The recording is saved as `Screen Recording … .mp4` (hardware H.264 video, AAC sound) in the save folder, at the display's full Retina resolution and up to 60 frames a second.
+- While recording, the menu bar shows a red stop button and the elapsed time. Screenshots keep working, and Margin's shelf, overlay and toasts stay out of the recording.
+- Recordings land on the shelf with their first frame and their length. A click copies the file; dragging, Quick Look, renaming and undo work as for screenshots.
+- A window recording carries on when the window is minimized or its app hidden, holding its last frame.
+- Settings: Record system audio and Record microphone (both off), and a Record Screen shortcut.
+- A recording stops by itself, keeping what was recorded and saying why, when its display goes or its window closes, the Mac sleeps, or the disk is almost full.
+
+### Changed
+
+- Turn off for me, Turn off and Restore macOS screenshot shortcuts now include macOS's ⇧⌘5 toolbar shortcut. A shortcut that macOS still takes first is flagged under it in Settings.
+
 ## 0.0.19 — 2026-10-17
 
 ### Changed
