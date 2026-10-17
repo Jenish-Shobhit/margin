@@ -409,7 +409,7 @@ extension ShelfController {
         dismiss(ids, exit: .collapse)
     }
 
-    /// ✕, ⌫, swipe: the card leaves; the file stays on disk.
+    /// ✕, ⌫, swipe: the card leaves; the file stays on disk (a Pasteboard one only while ⌘Z can bring the card back).
     func dismiss(_ ids: [UUID], exit: ShelfCardView.Exit) {
         removeItems(ids, kind: .dismiss, exit: exit)
     }
