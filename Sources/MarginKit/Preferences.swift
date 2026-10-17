@@ -79,7 +79,7 @@ public struct LastArea: Codable, Equatable, Sendable {
     }
 }
 
-/// The five user settings plus a little internal state. Posts `Preferences.didChange` on every write.
+/// The user settings plus a little internal state. Posts `Preferences.didChange` on every write.
 @MainActor
 public final class Preferences {
     public static let shared = Preferences()
@@ -140,6 +140,40 @@ public final class Preferences {
     public var firstRunDone: Bool {
         get { defaults.bool(forKey: "firstRunDone") }
         set { set(newValue, "firstRunDone") }
+    }
+
+    // MARK: Updates (spec §14.3)
+
+    /// Check GitHub for a newer release at launch and every 24 hours. On unless turned off in Settings; off, Margin
+    /// makes no network request unless asked to check (the menu, `margin://update`).
+    public var checksForUpdates: Bool {
+        get { defaults.object(forKey: "checksForUpdates") as? Bool ?? true }
+        set { set(newValue, "checksForUpdates") }
+    }
+
+    /// The version Skip This Version was chosen for: automatic checks don't offer it again (a later one they do).
+    public var skippedUpdateVersion: String? {
+        get { defaults.string(forKey: "skippedUpdateVersion") }
+        set { set(newValue, "skippedUpdateVersion") }
+    }
+
+    /// When the last check (automatic or not) got an answer from GitHub.
+    public var lastUpdateCheck: Date? {
+        get { defaults.object(forKey: "lastUpdateCheck") as? Date }
+        set { set(newValue, "lastUpdateCheck") }
+    }
+
+    /// The version Install and Relaunch was installing, and when, until the next launch says how it went.
+    public var pendingUpdate: (version: String, date: Date)? {
+        get {
+            guard let version = defaults.string(forKey: "pendingUpdateVersion"),
+                  let date = defaults.object(forKey: "pendingUpdateDate") as? Date else { return nil }
+            return (version, date)
+        }
+        set {
+            defaults.set(newValue?.date, forKey: "pendingUpdateDate")
+            set(newValue?.version, "pendingUpdateVersion")
+        }
     }
 
     /// Nil when unset, unreadable or in the old global format (see `LastArea`).
