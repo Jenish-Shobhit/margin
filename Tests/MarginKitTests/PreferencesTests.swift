@@ -62,6 +62,17 @@ final class NotificationCounter: @unchecked Sendable {
         #expect(prefs.saveFolder.lastPathComponent == "Shots")
     }
 
+    /// The startup disk ignores case: `…/margin/pasteboard`, written by hand, is the Pasteboard folder too.
+    @Test func thePasteboardFolderIsNeverTheSaveFolderInAnyCase() {
+        let path = Preferences.pasteboardFolder.path
+        for spelling in [path.lowercased(), path.uppercased(), path + "/", path.replacingOccurrences(of: "/Pasteboard", with: "/./pAsteboard")] {
+            prefs.saveFolder = URL(fileURLWithPath: spelling, isDirectory: true)
+            #expect(prefs.saveFolder == Preferences.defaultSaveFolder, "\(spelling)")
+        }
+        prefs.saveFolder = URL(fileURLWithPath: path + " 2", isDirectory: true)
+        #expect(prefs.saveFolder.lastPathComponent == "Pasteboard 2")
+    }
+
     @Test func roundTrips() {
         let folder = URL(fileURLWithPath: "/tmp/My Shots", isDirectory: true)
         prefs.saveFolder = folder

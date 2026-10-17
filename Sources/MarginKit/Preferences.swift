@@ -121,9 +121,15 @@ public final class Preferences {
         get {
             guard let path = defaults.string(forKey: "saveFolder") else { return Self.defaultSaveFolder }
             let folder = URL(fileURLWithPath: path, isDirectory: true)
-            return folder.standardizedFileURL.path == Self.pasteboardFolder.standardizedFileURL.path ? Self.defaultSaveFolder : folder
+            return Self.isPasteboardFolder(folder) ? Self.defaultSaveFolder : folder
         }
         set { set(newValue.path, "saveFolder") }
+    }
+
+    /// Whether `folder` is the Pasteboard folder by its path, in any case: the startup disk ignores case, so
+    /// `…/margin/pasteboard` is the same folder. From the path alone (the getter runs on every capture).
+    nonisolated static func isPasteboardFolder(_ folder: URL) -> Bool {
+        folder.standardizedFileURL.path.caseInsensitiveCompare(pasteboardFolder.standardizedFileURL.path) == .orderedSame
     }
 
     public var copyEachCapture: Bool {
