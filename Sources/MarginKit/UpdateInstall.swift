@@ -38,6 +38,17 @@ public enum UpdateInstall {
         listedSize > 0 ? Int64(listedSize) : 512 << 20
     }
 
+    /// How long after its own launch Margin may relaunch: sooner, macOS asks the user whether it may bypass the system's
+    /// private window picker (docs/building.md).
+    public static let minimumRunTime: TimeInterval = 30
+
+    /// How long an install that's ready waits before Margin quits for the helper: what's left of `minimumRunTime` since
+    /// this copy launched (an update offered at launch and accepted at once), else nothing.
+    public static func relaunchDelay(launchedAt: Date?, now: Date) -> TimeInterval {
+        guard let launchedAt else { return 0 }
+        return min(minimumRunTime, max(0, minimumRunTime - now.timeIntervalSince(launchedAt)))
+    }
+
     /// How long the helper waits for Margin to quit before it gives up and changes nothing, in tenths of a second.
     /// Quitting waits for saves at most `AppCoordinator.terminationTimeout` (3 s), and for a recording to be saved at most
     /// `recordingTerminationTimeout` (15 s); this leaves room for more.

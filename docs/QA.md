@@ -1,6 +1,6 @@
 # Margin QA checklist
 
-Manual checks for every release (spec §12), kept in step with Margin 0.1.0. Run them on the installed build (`scripts/build.sh --install --run`) unless a step says otherwise.
+Manual checks for every release (spec §12), kept in step with Margin 0.1.1. Run them on the installed build (`scripts/build.sh --install --run`) unless a step says otherwise.
 
 Debug builds can drive captures and recordings without a mouse: `scripts/debug.sh capture-area x y w h`, `capture-screen`, `record-area x y w h`, `record-screen`, `record-window <id>`, `stop-recording`, `toggle-shelf`, `clear` and `dump-state`. See [building.md](building.md#the-debug-hook).
 

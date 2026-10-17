@@ -1,6 +1,6 @@
 # Architecture
 
-How Margin 0.1.0 is put together, for anyone changing it. The product rules live in [`spec.md`](../spec.md); this page describes the code that implements them.
+How Margin 0.1.1 is put together, for anyone changing it. The product rules live in [`spec.md`](../spec.md); this page describes the code that implements them.
 
 - [Targets and folders](#targets-and-folders)
 - [The contracts](#the-contracts)
@@ -422,14 +422,14 @@ Spec §14.3. `UpdateController.shared` owns it all; the pure parts are in `Margi
 
 **Checks.** `AppCoordinator.start` hands `UpdateController.start` its prewarm task. The launch check waits for that task, then 3 s more, and runs if one is due (`UpdateSchedule`: none got an answer in the last hour; afterwards 24 h after the last answer, looked at by an hourly timer). It's skipped while **Check for updates automatically** is off, while the window shows something unanswered, and, for a minute at a time, during a capture or a recording (`capture.isCapturing`, `recording.isActive`), whose shot the window would be in; an offer whose answer comes during one waits until it's over (`showOfferWhenIdle`). A check is one `GET` of the latest release in an ephemeral `URLSession` (`UpdateNetwork.latestRelease`), off the main actor; only its result comes back to it. `UpdateCheck.decide` compares the tag with `CFBundleShortVersionString`. Check for Updates… and `margin://update` run the same check as a manual one: it shows "Checking…", then the result, error or "up to date" included, and offers a skipped version too. A manual check during an automatic one takes over that one's result.
 
-**URL scheme.** `CFBundleURLTypes` registers `margin`. `AppDelegate.application(_:open:)` hands the URL to `UpdateController.open`, which accepts `margin://update` (`MarginURL`) and ignores everything else. At a launch by URL the call can come before `start`; the check then waits for it. It never installs.
+**URL scheme.** `CFBundleURLTypes` registers `margin`. `AppDelegate.application(_:open:)` hands the URL to `UpdateController.open`, which accepts `margin://update` (`MarginURL`) and ignores everything else. Its offer has no default button (`askedByLink`): any page or app can open the link, and a Return meant for something else mustn't install. At a launch by URL the call can come before `start`; the check then waits for it. It never installs.
 
 **Install and Relaunch** (`install`, `runInstall`):
 
 1. Refuses at once, opening the releases page, when the running copy isn't a bundle, is translocated, can't write its folder or itself, or isn't signed with a certificate (`UpdateVerifier.runningCopyIsSigned`).
 2. Downloads the zip into an item replacement directory on the app's volume (`UpdateNetwork.download`: a delegate session for progress, https redirects only, stopped as soon as it's bigger than the size GitHub lists, `UpdateInstall.downloadLimit`). The window's progress bar redraws at most every 0.1 s.
 3. In a detached task: the size and SHA-256 (`checkDownload`), `ditto -x -k` (`unzip`), the bundle's `Info.plist` (`UpdateInstall.checkBundleInfo`), `SecStaticCodeCheckValidity` with `codesign --verify --deep --strict`'s flags, and again with the running copy's designated requirement.
-4. Starts the helper (`/bin/sh -c UpdateInstall.helperScript`, see its comment) with the app's path, the verified app, the staging folder, this pid, the Trash folder for the app's volume and the log, sets `Preferences.pendingUpdate`, and quits with `NSApp.terminate` from a run-loop block, so the wait for saves isn't stuck behind the main-queue block it would otherwise run in.
+4. Once Margin has run 30 s (`UpdateInstall.relaunchDelay`, for an update accepted right after launch: relaunched sooner, macOS asks whether Margin may bypass the private window picker), starts the helper (`/bin/sh -c UpdateInstall.helperScript`, see its comment) with the app's path, the verified app, the staging folder, this pid, the Trash folder for the app's volume and the log, sets `Preferences.pendingUpdate`, and quits with `NSApp.terminate` from a run-loop block, so the wait for saves isn't stuck behind the main-queue block it would otherwise run in.
 5. The next launch reads `pendingUpdate` (`reportInstalledUpdate`): the new version shows "Updated to Margin X" in the shelf; the old one (the helper put it back) shows the window with the log's last `FAILED:` line.
 
 Cancel (or Later, or closing the window) during the download cancels the task and deletes the staging folder; once the helper runs, nothing cancels.
