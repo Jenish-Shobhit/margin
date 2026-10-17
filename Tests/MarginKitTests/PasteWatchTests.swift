@@ -3,17 +3,35 @@ import MarginKit
 import Testing
 
 @Suite struct PasteKeysTests {
-    @Test func aPasteIsVWithCommandOrControl() {
-        #expect(PasteKeys(v: true, command: true).isPaste)
-        #expect(PasteKeys(v: true, control: true).isPaste)            // ⌃V: Claude Code, terminals
-        #expect(PasteKeys(v: true, command: true, control: true).isPaste)
+    /// ⌘ or ⌃ held, and a key (the V, which a background app can't name) went down just before the read.
+    @Test func aPasteIsAKeyJustPressedWithCommandOrControl() {
+        #expect(PasteKeys(command: true, sinceKeyDown: 0.01).isPaste(sinceWrite: 2))
+        #expect(PasteKeys(control: true, sinceKeyDown: 0.002).isPaste(sinceWrite: 2))       // ⌃V: terminals, Claude Code
+        #expect(PasteKeys(command: true, control: true, sinceKeyDown: 0.3).isPaste(sinceWrite: 60))
     }
 
-    @Test func anythingElseIsSomeoneLooking() {
-        #expect(!PasteKeys().isPaste)                                  // a clipboard manager, history, another device
-        #expect(!PasteKeys(v: true).isPaste)                           // typing a v
-        #expect(!PasteKeys(command: true).isPaste)                     // ⌘ held for something else
-        #expect(!PasteKeys(command: true, control: true).isPaste)
+    @Test func noModifierIsSomeoneLooking() {
+        #expect(!PasteKeys().isPaste(sinceWrite: 2))                                        // a clipboard manager, history
+        #expect(!PasteKeys(sinceKeyDown: 0.01).isPaste(sinceWrite: 2))                      // typing
+        #expect(!PasteKeys(sinceKeyDown: 0.01, v: true).isPaste(sinceWrite: 2))             // a v typed in front
+    }
+
+    @Test func aModifierHeldWithoutAKeyJustPressedIsntAPaste() {
+        #expect(!PasteKeys(command: true).isPaste(sinceWrite: 2))                           // ⌘ held for a ⌘-click
+        #expect(!PasteKeys(command: true, sinceKeyDown: 0.31).isPaste(sinceWrite: 2))       // a read long after the key
+    }
+
+    /// ⇧⌘3 writes the clipboard while its keys may still be down: a key pressed before the write is the capture's.
+    @Test func theKeyMustComeAfterTheWrite() {
+        #expect(!PasteKeys(command: true, sinceKeyDown: 0.2).isPaste(sinceWrite: 0.18))
+        #expect(PasteKeys(command: true, sinceKeyDown: 0.2).isPaste(sinceWrite: 0.25))
+    }
+
+    /// What reads every change reads within a few tens of milliseconds of it.
+    @Test func readsRightAfterTheWriteNeverCount() {
+        #expect(!PasteKeys(command: true, sinceKeyDown: 0.01).isPaste(sinceWrite: 0.1))
+        #expect(PasteKeys.quietAfterWrite == 0.15 && PasteKeys.keyWindow == 0.3)
+        #expect(PasteKeys(command: true, sinceKeyDown: 0.01).isPaste(sinceWrite: 0.1, quiet: 0))
     }
 }
 
@@ -29,7 +47,7 @@ import Testing
     let a = UUID(), b = UUID()
 
     func watch(_ keys: Keys, pasted: @escaping ([UUID]) -> Void = { _ in }) -> PasteWatch {
-        let watch = PasteWatch(keys: { keys.held }, reportDelay: 0.01)
+        let watch = PasteWatch(keys: { keys.held }, reportDelay: 0.01, quiet: 0)
         watch.onPaste = pasted
         return watch
     }
@@ -63,7 +81,7 @@ import Testing
         var pasted: [[UUID]] = []
         let w = watch(keys) { pasted.append($0) }
         w.write([.init(id: a, png: shot, fileURL: url)], to: pb)
-        keys.held = PasteKeys(v: true, command: true)
+        keys.held = PasteKeys(command: true, sinceKeyDown: 0)
         _ = pb.data(forType: .png)
         await settle()
         #expect(pasted == [[a]])
@@ -79,7 +97,7 @@ import Testing
         let w = watch(keys) { pasted.append($0) }
         w.write([.init(id: a, png: shot, fileURL: url)], to: pb)
         _ = pb.data(forType: .png)                       // a clipboard manager, say
-        keys.held = PasteKeys(command: true)
+        keys.held = PasteKeys(command: true)                 // held, but no key just pressed
         _ = pb.pasteboardItems?.first?.string(forType: .fileURL)
         await settle()
         #expect(pasted.isEmpty && w.pasted.isEmpty)
@@ -96,7 +114,7 @@ import Testing
         let w = watch(keys) { pasted.append($0) }
         w.write([.init(id: a, png: shot, fileURL: url)], to: pb)
         _ = pb.data(forType: .png)
-        keys.held = PasteKeys(v: true, command: true)
+        keys.held = PasteKeys(command: true, sinceKeyDown: 0)
         _ = pb.data(forType: .png)
         await settle()
         #expect(pasted.isEmpty)
@@ -114,7 +132,7 @@ import Testing
         var pasted: [[UUID]] = []
         let w = watch(keys) { pasted.append($0) }
         w.write([.init(id: a, png: shot, fileURL: url), .init(id: b, png: shot, fileURL: url)], to: pb)
-        keys.held = PasteKeys(v: true, control: true)
+        keys.held = PasteKeys(control: true, sinceKeyDown: 0)
         for item in pb.pasteboardItems ?? [] {
             _ = item.data(forType: .png)
             _ = item.string(forType: .fileURL)
@@ -132,7 +150,7 @@ import Testing
         var pasted: [[UUID]] = []
         var w: PasteWatch? = watch(keys) { pasted.append($0) }
         w?.write([.init(id: a, png: shot, fileURL: url)], to: pb)
-        keys.held = PasteKeys(v: true, command: true)
+        keys.held = PasteKeys(command: true, sinceKeyDown: 0)
         _ = pb.data(forType: .png)
         _ = pb.pasteboardItems?.first?.string(forType: .fileURL)
         #expect(w?.isFinished == true)
@@ -150,7 +168,7 @@ import Testing
         let movie = URL(fileURLWithPath: "/Users/me/Desktop/Screenshots/Screen Recording 2026-10-17 at 10.00.00.mp4")
         w.write([.init(id: a, png: nil, fileURL: movie, watched: false), .init(id: b, png: shot, fileURL: url)], to: pb)
         #expect(pb.pasteboardItems?.map(\.types) == [[.fileURL], [.png, .fileURL]])
-        keys.held = PasteKeys(v: true, command: true)
+        keys.held = PasteKeys(command: true, sinceKeyDown: 0)
         let urls = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
         #expect(urls?.map(\.path) == [movie.path, url.path])
         await settle()

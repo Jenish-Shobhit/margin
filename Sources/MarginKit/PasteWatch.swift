@@ -1,31 +1,47 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// The keys held when another app reads Margin's clipboard item: a paste is V with ⌘ (or ⌃, which terminals and
-/// Claude Code use). `CGEventSource` reports them without Input Monitoring or Accessibility.
+/// The keyboard when another app reads Margin's clipboard item, as a background app sees it without Input Monitoring
+/// or Accessibility (`CGEventSource`, combined session state: the keyboard and posted events, such as automation that
+/// pastes for the user). It sees the modifiers and how long ago some key went down, but not which key: checked on
+/// macOS 27.0.1, `keyState` reports V only to the app in front, which a background Margin never is when another app
+/// pastes. `v` is kept for the record.
 public struct PasteKeys: Equatable, Sendable {
-    public var v: Bool
     public var command: Bool
     public var control: Bool
+    /// Seconds since a key last went down (any key; ⌘ and ⌃ themselves don't count).
+    public var sinceKeyDown: TimeInterval
+    public var v: Bool
 
-    public init(v: Bool = false, command: Bool = false, control: Bool = false) {
-        self.v = v
+    public init(command: Bool = false, control: Bool = false, sinceKeyDown: TimeInterval = .infinity, v: Bool = false) {
         self.command = command
         self.control = control
+        self.sinceKeyDown = sinceKeyDown
+        self.v = v
     }
 
-    /// As the event system sees them now: the keyboard and any posted events (automation that pastes for the user).
     public static var current: PasteKeys {
         let flags = CGEventSource.flagsState(.combinedSessionState)
-        return PasteKeys(v: CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(kVK_ANSI_V)),
-                         command: flags.contains(.maskCommand), control: flags.contains(.maskControl))
+        return PasteKeys(command: flags.contains(.maskCommand), control: flags.contains(.maskControl),
+                         sinceKeyDown: CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .keyDown),
+                         v: CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(kVK_ANSI_V)))
     }
 
-    /// Spec §14.2's "pasted": a read of the image or the file while ⌘V or ⌃V is held. A read with no such keys is
-    /// someone looking, not pasting: a clipboard manager or history keeping every copy, a Mac or iPhone fetching it,
-    /// an app peeking at what's there. Those don't count, so the card stays: deleting a shot before the user pasted it
-    /// would lose it, keeping one costs a click. A paste from the Edit menu doesn't count either.
-    public var isPaste: Bool { v && (command || control) }
+    /// The longest a paste's read comes after its key went down: an app reads the clipboard as it handles ⌘V, within a
+    /// few milliseconds (Ghostty 2–10 ms, an AppKit menu's key equivalent 35 ms), slower ones within a frame or two.
+    public static let keyWindow: TimeInterval = 0.3
+    /// Reads this soon after the write never count: what reads every change does it then (the system, measured
+    /// 15–60 ms after a write it can see), and no one pastes that fast on purpose.
+    public static let quietAfterWrite: TimeInterval = 0.15
+
+    /// Spec §14.2's "pasted": a read of the image or the file while ⌘ or ⌃ is held, within `keyWindow` of a key going
+    /// down after Margin wrote the clipboard (the V of ⌘V or ⌃V), and not in its first `quiet` seconds. Anything else is
+    /// someone looking, not pasting: a clipboard manager or history keeping every copy, another device fetching it, an
+    /// app peeking at what's there, a paste from the Edit menu. The card stays then: deleting a shot before the user
+    /// pasted it would lose it, keeping one costs a click.
+    public func isPaste(sinceWrite: TimeInterval, quiet: TimeInterval = quietAfterWrite) -> Bool {
+        (command || control) && sinceKeyDown <= Self.keyWindow && sinceKeyDown < sinceWrite && sinceWrite >= quiet
+    }
 }
 
 /// Watches who reads one clipboard write (spec §14.2). Each item's `public.png` and `public.file-url` are promised
@@ -72,11 +88,14 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
     private var reporting: Set<UUID> = []
     private let keys: () -> PasteKeys
     private let reportDelay: TimeInterval
+    private let quiet: TimeInterval
 
-    /// `keys` reads the keys held at a read (injectable for tests).
-    public init(keys: @escaping () -> PasteKeys = { PasteKeys.current }, reportDelay: TimeInterval = 0.15) {
+    /// `keys` reads the keyboard at a read, and `quiet` is `PasteKeys.isPaste`'s (both injectable for tests).
+    public init(keys: @escaping () -> PasteKeys = { PasteKeys.current }, reportDelay: TimeInterval = 0.15,
+                quiet: TimeInterval = PasteKeys.quietAfterWrite) {
         self.keys = keys
         self.reportDelay = reportDelay
+        self.quiet = quiet
     }
 
     /// Writes one promised item per entry, in order, kept to this Mac, and returns the new change count. A watch writes
@@ -123,9 +142,9 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
         case .fileURL: if let url = entry.fileURL { item.setString(url.absoluteURL.absoluteString, forType: .fileURL) }
         default: return
         }
-        let held = keys()
-        reads.append((type.rawValue, entry.id, Date().timeIntervalSince(writtenAt), held))
-        guard entry.watched, held.isPaste, pasted.insert(entry.id).inserted else { return }
+        let held = keys(), after = Date().timeIntervalSince(writtenAt)
+        reads.append((type.rawValue, entry.id, after, held))
+        guard entry.watched, held.isPaste(sinceWrite: after, quiet: quiet), pasted.insert(entry.id).inserted else { return }
         if reporting.isEmpty {
             // Held until then: the pasteboard may be done with the watch before the report is.
             DispatchQueue.main.asyncAfter(deadline: .now() + reportDelay) {

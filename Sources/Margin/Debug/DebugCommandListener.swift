@@ -262,7 +262,8 @@ final class DebugCommandListener: NSObject {
                 "pasted": w.pasted.map(\.uuidString).sorted(),
                 "reads": w.reads.map { r -> [String: Any] in
                     ["type": r.type, "id": r.id.uuidString, "afterMs": (r.after * 1000).rounded(),
-                     "v": r.keys.v, "command": r.keys.command, "control": r.keys.control]
+                     "command": r.keys.command, "control": r.keys.control,
+                     "sinceKeyDownMs": r.keys.sinceKeyDown.isFinite ? (r.keys.sinceKeyDown * 1000).rounded() : -1, "v": r.keys.v]
                 },
             ] as [String: Any]
         } else {
