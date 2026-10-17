@@ -8,6 +8,8 @@ public enum RecordingStop: Equatable, Sendable {
     /// Margin is quitting.
     case quit
     case displayGone, windowClosed, sleep, sessionChanged, diskFull
+    /// The file came close to the largest its volume takes (this many bytes: FAT32's 4 GiB).
+    case fileSizeLimit(Int64)
     /// Stopped from macOS's screen-recording indicator in the menu bar, or by macOS itself.
     case stoppedBySystem
     case permission
@@ -23,10 +25,17 @@ public enum RecordingStop: Equatable, Sendable {
         case .sleep: "the Mac went to sleep"
         case .sessionChanged: "another user took over the Mac"
         case .diskFull: "the disk is almost full"
+        case .fileSizeLimit(let bytes): "the disk can't hold files over \(Self.size(bytes))"
         case .stoppedBySystem: "macOS stopped it"
         case .permission: "Margin lost Screen Recording permission"
         case .error(let why): why
         }
+    }
+
+    /// A file size limit as people know it: FAT32's 4 GiB less a byte is "4 GB".
+    static func size(_ bytes: Int64) -> String {
+        let gib = Double(bytes) / 1_073_741_824
+        return gib >= 1 ? "\(Int(gib.rounded())) GB" : "\(Int((Double(bytes) / 1_048_576).rounded())) MB"
     }
 
     /// The toast, or nil for a stop that was asked for.

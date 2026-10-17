@@ -136,5 +136,39 @@ import Testing
         let free = try #require(RecordingFiles.freeBytes(at: dir.url))
         #expect(free > 0)
         #expect(RecordingFiles.freeBytes(at: URL(fileURLWithPath: "/nonexistent/folder")) == nil)
+        // The open file's own volume, the same one.
+        let temp = try dir.file(RecordingFiles.tempName(), contents: "movie")
+        let file = try #require(RecordingFile(temp))
+        #expect(try #require(file.freeBytes) > 0)
+        #expect(file.size == 5)
+    }
+
+    @Test func purgeableSpaceCountsOnlyOnANearlyFullDisk() {
+        let gb: Int64 = 1 << 30
+        var asked = 0
+        let important = { () -> Int64? in
+            asked += 1
+            return 20 * gb
+        }
+        // Plenty free: what statfs says, without asking for the slow figure.
+        #expect(RecordingFiles.usableBytes(free: 5 * gb, important: important) == 5 * gb)
+        #expect(asked == 0)
+        // Nearly full, with purgeable space: what macOS would make room for.
+        #expect(RecordingFiles.usableBytes(free: 100 << 20, important: important) == 20 * gb)
+        #expect(asked == 1)
+        // FAT and exFAT say 0; a figure that can't be read is none.
+        #expect(RecordingFiles.usableBytes(free: 100 << 20) { 0 } == 100 << 20)
+        #expect(RecordingFiles.usableBytes(free: 100 << 20) { nil } == 100 << 20)
+    }
+
+    @Test func aFAT32DisksFileSizeLimitStopsARecordingShortOfIt() throws {
+        let fat32: Int64 = 4_294_967_295
+        #expect(!RecordingFiles.isNearSizeLimit(fat32 - 200 * 1024 * 1024, limit: fat32))
+        #expect(RecordingFiles.isNearSizeLimit(fat32 - 100 * 1024 * 1024, limit: fat32))
+        #expect(!RecordingFiles.isNearSizeLimit(fat32 * 4, limit: nil))
+        // APFS's is far beyond any recording.
+        let dir = try TempDir()
+        defer { dir.remove() }
+        #expect(try #require(RecordingFiles.maximumFileSize(at: dir.url)) > 1 << 50)
     }
 }

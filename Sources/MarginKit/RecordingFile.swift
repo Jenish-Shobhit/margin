@@ -25,6 +25,18 @@ public final class RecordingFile: Sendable {
         return URL(fileURLWithPath: path.withUnsafeBufferPointer { String(cString: $0.baseAddress!) })
     }
 
+    /// Its size in bytes, as written so far.
+    public var size: Int64? {
+        var info = stat()
+        return fstat(fd, &info) == 0 ? Int64(info.st_size) : nil
+    }
+
+    /// Bytes free for a recording on its volume, wherever it is now (`RecordingFiles.usableBytes`). Off the main thread.
+    public var freeBytes: Int64? {
+        var fs = statfs()
+        return fstatfs(fd, &fs) == 0 ? RecordingFiles.usableBytes(fs) : nil
+    }
+
     /// Copies its contents into a new file at `url`, never replacing one, from the descriptor (so also once it's been
     /// deleted). A copy that fails is removed. Blocking.
     public func copy(to url: URL) throws {

@@ -177,15 +177,50 @@ public enum RecordingFiles {
         return false
     }
 
-    /// Bytes free for writing on the volume holding `folder` (nil if it can't be read). Cheap (`statfs`), but it's the
-    /// file system: off the main thread.
+    /// Bytes free for a recording on the volume holding `folder` (`usableBytes`; nil if it can't be read). Off the main
+    /// thread.
     public static func freeBytes(at folder: URL) -> Int64? {
         var fs = statfs()
         guard statfs(folder.path, &fs) == 0 else { return nil }
-        return Int64(fs.f_bavail) * Int64(fs.f_bsize)
+        return usableBytes(fs)
     }
 
-    /// Below this much free space a recording stops and keeps what it has: finishing the file needs room for its index,
-    /// and a disk that fills up mid-write loses the whole recording.
+    /// What `statfs` says is free or, on a disk where that's under `minimumFreeBytes`, what macOS would make room for
+    /// something the user asked for, if that's more: APFS counts purgeable space (caches, iCloud Drive files kept on the
+    /// Mac, which it deletes as room is needed) as used, so a nearly full Mac would refuse to record, or stop after a
+    /// second, with gigabytes to spare. That figure (`volumeAvailableCapacityForImportantUsageKey`) takes 7–30 ms on APFS
+    /// against a few µs, so it's only asked on a nearly full disk; on FAT and exFAT it's 0, and `statfs`'s is all there is.
+    static func usableBytes(_ fs: statfs) -> Int64 {
+        usableBytes(free: Int64(fs.f_bavail) * Int64(fs.f_bsize)) {
+            let mount = withUnsafeBytes(of: fs.f_mntonname) { String(cString: $0.bindMemory(to: CChar.self).baseAddress!) }
+            let volume = URL(fileURLWithPath: mount, isDirectory: true)
+            return try? volume.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+                .volumeAvailableCapacityForImportantUsage
+        }
+    }
+
+    static func usableBytes(free: Int64, important: () -> Int64?) -> Int64 {
+        guard free < minimumFreeBytes else { return free }
+        return max(free, important() ?? 0)
+    }
+
+    /// Below this much free space a recording stops and keeps what it has: finishing the file needs room for the rest
+    /// of its last fragment and its index, and a disk that fills up mid-write loses the last second or so.
     public static let minimumFreeBytes: Int64 = 400 * 1024 * 1024
+
+    /// The largest file the volume holding `folder` takes (FAT32: 4 GiB less a byte; APFS and exFAT: about 2^55 and
+    /// 2^63), or nil if it can't be read. A few ms on FAT: off the main thread.
+    public static func maximumFileSize(at folder: URL) -> Int64? {
+        (try? folder.resourceValues(forKeys: [.volumeMaximumFileSizeKey]))?.volumeMaximumFileSize.map(Int64.init)
+    }
+
+    /// How far short of the volume's largest file a recording stops, so the rest of its last fragment and its index
+    /// still fit: 128 MiB, ten seconds at the highest bit rate (`RecordingFormat.bitRateRange`), checked every second.
+    public static let fileSizeMargin: Int64 = 128 * 1024 * 1024
+
+    /// Whether a recording that's `size` bytes so far stops, on a volume whose files are at most `limit` bytes.
+    public static func isNearSizeLimit(_ size: Int64, limit: Int64?) -> Bool {
+        guard let limit else { return false }
+        return size >= limit - fileSizeMargin
+    }
 }

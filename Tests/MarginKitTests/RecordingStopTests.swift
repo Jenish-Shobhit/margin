@@ -35,13 +35,18 @@ import Testing
         #expect(RecordingStop.user.note == nil)
         #expect(RecordingStop.quit.note == nil)
         for stop: RecordingStop in [.displayGone, .windowClosed, .sleep, .sessionChanged, .diskFull, .stoppedBySystem,
-                                    .permission, .error("the encoder stopped")] {
+                                    .permission, .fileSizeLimit(4_294_967_295), .error("the encoder stopped")] {
             let note = stop.note ?? ""
             #expect(note.hasPrefix("Recording stopped"), "\(stop)")
         }
         #expect(RecordingStop.windowClosed.note == "Recording stopped: the window closed")
         #expect(RecordingStop.stoppedBySystem.note == "Recording stopped by macOS")
         #expect(RecordingStop.error("the encoder stopped").note == "Recording stopped: the encoder stopped")
+    }
+
+    @Test func aFileSizeLimitIsSaidAsPeopleKnowIt() {
+        #expect(RecordingStop.fileSizeLimit(4_294_967_295).note == "Recording stopped: the disk can't hold files over 4 GB")
+        #expect(RecordingStop.fileSizeLimit(500 * 1024 * 1024).note == "Recording stopped: the disk can't hold files over 500 MB")
     }
 
     @Test func theToastSaysWhatWasKept() {

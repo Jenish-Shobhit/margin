@@ -10,10 +10,12 @@ import MarginKit
 ///   recording-fault hang-stream   the next stop's `stopCapture` never answers: the file is finished after 3 s anyway
 ///   recording-fault hang-finish   the next stop's `finishWriting` never answers: after 10 s the stop gives up, keeping
 ///                             the file up to its last fragment
+///   recording-fault limit <bytes>|off   recordings from the next one on take their volume to hold files of at most
+///                             that size, as FAT32's 4 GiB (`off`: the volume's own limit again)
 /// Debug builds only: bench builds don't carry them.
 @MainActor
 enum RecordingDebugCommands {
-    static let usage = "usage: recording-fault fail|crash|hang-stream|hang-finish"
+    static let usage = "usage: recording-fault fail|crash|hang-stream|hang-finish|limit <bytes>|limit off"
 
     /// Runs `parts` if it's one of these commands; false otherwise.
     static func run(_ parts: [String], coordinator: AppCoordinator) -> Bool {
@@ -33,6 +35,9 @@ enum RecordingDebugCommands {
             recorder?.faults.withLock { _ = $0.insert(.hangStream) }
         case "hang-finish":
             recorder?.faults.withLock { _ = $0.insert(.hangFinish) }
+        case "limit":
+            RecordingController.debugSizeLimit = parts.count > 2 ? Int64(parts[2]) : nil
+            RecordingLog.log.notice("recording-fault limit: \(RecordingController.debugSizeLimit.map(String.init) ?? "the volume's own", privacy: .public)")
         default:
             RecordingLog.log.error("\(usage, privacy: .public)")
         }

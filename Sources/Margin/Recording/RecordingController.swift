@@ -91,6 +91,12 @@ final class RecordingController {
     private var folder: URL?
     private var usedFallback = false
     private var saveError: String?
+    /// The largest file the temp file's volume takes: FAT32's 4 GiB stops a recording cleanly just short of it.
+    private var sizeLimit: Int64?
+    #if DEBUG
+    /// `scripts/debug.sh recording-fault limit <bytes>`: the next recordings' volume takes files of at most this size.
+    static var debugSizeLimit: Int64?
+    #endif
     /// A stop asked for while starting, done as soon as it has.
     private var pendingStop: StopReason?
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
@@ -133,7 +139,7 @@ final class RecordingController {
                 let opened = try await Self.open(source, saveFolder: saveFolder, fallbackFolder: fallbackFolder,
                                                  callbacks: callbacks)
                 started(opened.recorder, source: source, folder: opened.folder, usedFallback: opened.usedFallback,
-                        saveError: opened.saveError)
+                        saveError: opened.saveError, sizeLimit: opened.sizeLimit)
             } catch {
                 failedToStart(error)
             }
@@ -194,6 +200,8 @@ final class RecordingController {
         let folder: URL
         let usedFallback: Bool
         let saveError: String?
+        /// The largest file the folder's volume takes (`RecordingFiles.maximumFileSize`).
+        let sizeLimit: Int64?
     }
 
     /// Creates the temp file in the save folder (or, if that can't be written or is nearly full, in Unsaved, as a
@@ -221,7 +229,8 @@ final class RecordingController {
                 }
                 let temp = folder.appendingPathComponent(RecordingFiles.tempName())
                 let recorder = try await ScreenRecorder.start(source, to: temp, callbacks: callbacks)
-                return Opened(recorder: recorder, folder: folder, usedFallback: isFallback, saveError: saveError)
+                return Opened(recorder: recorder, folder: folder, usedFallback: isFallback, saveError: saveError,
+                              sizeLimit: RecordingFiles.maximumFileSize(at: folder))
             } catch let error as ScreenRecorder.RecorderError {
                 guard error.isAboutTheFolder, !isFallback else { throw error }
                 saveError = "\(folder.path): \(error.localizedDescription)"
@@ -233,12 +242,17 @@ final class RecordingController {
         throw ScreenRecorder.RecorderError.file(saveError ?? "No folder can be written")
     }
 
-    private func started(_ recorder: ScreenRecorder, source: RecordingSource, folder: URL, usedFallback: Bool, saveError: String?) {
+    private func started(_ recorder: ScreenRecorder, source: RecordingSource, folder: URL, usedFallback: Bool,
+                         saveError: String?, sizeLimit: Int64?) {
         self.recorder = recorder
         self.source = source
         self.folder = folder
         self.usedFallback = usedFallback
         self.saveError = saveError
+        self.sizeLimit = sizeLimit
+        #if DEBUG
+        if let limit = Self.debugSizeLimit { self.sizeLimit = limit }
+        #endif
         state = .recording
         observe()
         RecordingLog.log.notice("Recording \(self.target?.name ?? "?", privacy: .public) at \(Int(source.videoSize.width))×\(Int(source.videoSize.height)) \(source.fps) fps\(source.systemAudio ? " + system audio" : "", privacy: .public)\(source.microphone ? " + microphone" : "", privacy: .public)")
@@ -338,18 +352,22 @@ final class RecordingController {
 
     /// Once a second, off the main thread: a recorded window that has closed, and the space left on the disk.
     private func secondPassed() {
-        guard let folder, !checkingSpace else { return }
+        guard let file = recorder?.file, !checkingSpace else { return }
         checkingSpace = true
         let window: CGWindowID? = if case .window(let w)? = target { w.id } else { nil }
+        let limit = sizeLimit
         Task {
-            let (exists, free) = await Task.detached(priority: .utility) {
-                (window.map(Self.windowExists) ?? true, RecordingFiles.freeBytes(at: folder))
+            // The file's own volume, wherever its folder has gone meanwhile.
+            let (exists, free, size) = await Task.detached(priority: .utility) {
+                (window.map(Self.windowExists) ?? true, file.freeBytes, file.size)
             }.value
             checkingSpace = false
             if !exists {
                 stop(.windowClosed)
             } else if let free, free < RecordingFiles.minimumFreeBytes {
                 stop(.diskFull)
+            } else if let size, let limit, RecordingFiles.isNearSizeLimit(size, limit: limit) {
+                stop(.fileSizeLimit(limit))
             }
         }
     }
@@ -508,6 +526,7 @@ final class RecordingController {
         target = nil
         folder = nil
         saveFolder = nil
+        sizeLimit = nil
         startedAt = nil
         lastShownSecond = -1
         onChange?()
