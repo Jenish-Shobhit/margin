@@ -2,6 +2,14 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.1.1 — 2026-10-18
+
+### Added
+
+- Check for Updates… in the menu bar menu, and Settings › Check for updates automatically (on). Margin asks GitHub for the latest release at launch and once a day, never in the middle of a capture or a recording, and shows what's new with Install and Relaunch, Later and Skip This Version.
+- Install and Relaunch replaces Margin only with the release's own zip, at the size and checksum GitHub lists and signed with the same certificate as your copy, so Screen Recording permission carries over. The old copy goes to the Trash.
+- Margin's website, with Download Margin and Update Margin buttons. `margin://update` checks for updates; it never installs without a click in Margin's window.
+
 ## 0.1.0 — 2026-10-17
 
 ### Added
