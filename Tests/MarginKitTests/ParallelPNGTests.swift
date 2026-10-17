@@ -225,6 +225,23 @@ import zlib
 
     struct SendableImage: @unchecked Sendable { let image: CGImage }
 
+    @Test func cropOfAPaddedFrame() throws {
+        // What an area shot is: a crop (sharing the pixels) of a frame whose rows are padded, as ScreenCaptureKit's are.
+        let frame = Self.image(width: 1203, height: 911, content: .alphaNoise)
+        let bytesPerRow = 1203 * 4 + 64
+        var padded = [UInt8](repeating: 0xEE, count: bytesPerRow * 911)
+        let rows = [UInt8](try #require(frame.dataProvider?.data) as Data)
+        for y in 0..<911 { padded.replaceSubrange((y * bytesPerRow)..<(y * bytesPerRow + 1203 * 4), with: rows[(y * 1203 * 4)..<((y + 1) * 1203 * 4)]) }
+        let paddedFrame = try #require(CGImage(
+            width: 1203, height: 911, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: bytesPerRow, space: frame.colorSpace!,
+            bitmapInfo: frame.bitmapInfo, provider: CGDataProvider(data: Data(padded) as CFData)!, decode: nil,
+            shouldInterpolate: false, intent: .defaultIntent))
+        let crop = try #require(paddedFrame.cropping(to: CGRect(x: 101, y: 77, width: 997, height: 701)))
+        #expect(ParallelPNG.isWorthIt(crop))
+        try expectMatchesImageIO(crop)
+        try expectMatchesImageIO(crop, bands: 7)
+    }
+
     @Test func colourSpacesAndScales() throws {
         var spaces: [(String, CGColorSpace)] = [
             ("sRGB", CGColorSpace(name: CGColorSpace.sRGB)!),
