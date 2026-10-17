@@ -265,6 +265,19 @@ Nothing of recording exists until ⇧⌘5: `RecordingController` is created at l
 
 **Finishing** (`RecordingController.place`, off the main thread). The temp file is renamed to `Screen Recording <start>.mp4` (` (2)`… on a clash, never replacing a file), bookmarked, and its first frame decoded at the card's 2× size with `AVAssetImageGenerator` (`ShelfThumbnails.poster`, which also makes recording cards' thumbnails at launch). The coordinator (`handleRecording`) adds the card and marks it saved at once (no pending state: the file exists), flies it in from the recorded rect, and with Copy each capture puts the file URL on the clipboard as the newest capture. Quitting while recording stops it and waits for the file (at most 15 s) through the same `savesInFlight` count as screenshots.
 
+**Measured** (MacBook Air, 2940 × 1912 at 60 Hz, macOS 27, bench builds; `scripts/bench.sh record` and `ab --animate --record-b`, 17 Oct 2026):
+
+| | |
+|---|---|
+| Margin's CPU, recording the whole display at 60 fps (everything moving) | 0.2% (0.0% idle); `top`'s energy impact about 7 (0 idle) |
+| Frames | 57 a second written of the display's 60 (as many as changed), none dropped |
+| File | 63 MB a minute for that content (8.5 Mbit/s against a 25.3 Mbit/s target); a mostly still screen far less |
+| Stop → file in place | about 150 ms for a few seconds of recording |
+| Screenshots during a recording (median, 30 each) | ⇧⌘4 freeze 48.0 vs 48.1 ms, thumbnail frame 20.1 vs 25.5 ms, file 81.6 vs 81.7 ms; ⇧⌘3 thumbnail frame 21.5 vs 23.7 ms, file 91.7 vs 89.9 ms (+2%). The freeze's p90 rose from 56 to 66 ms; memory 3 MB more |
+| Screenshots with this code, not recording, against 0.0.18 | no significant change (area-medium and ⇧⌘3, 30 each, every p > 0.05 but one ⇧⌘3 frame 11% sooner) |
+
+The encoder's and ScreenCaptureKit's own work happens in the media engine, `replayd` and the window server, outside Margin's CPU figure.
+
 **On the shelf.** A recording is a `ShelfItem` with `kind: .recording` and its `duration`. The card adds a ▶ length badge (bottom-left, swapped for the meta line on hover); a copy (click, ⌘C) writes its file URL alone (`ClipboardWriter.write(_ entries:)`, never reading the movie), and everything else (drag, open, Quick Look, rename, trash, undo) works on its file as for a PNG.
 
 ## Threading rules
