@@ -62,18 +62,26 @@ import Testing
         return url
     }
 
-    @Test func aMovieIsCompleteWithItsIndex() throws {
+    @Test func aMoviePlaysWithItsIndex() throws {
         let dir = try TempDir()
         defer { dir.remove() }
         // As AVAssetWriter finishes one with the index at the front, and at the end.
-        #expect(RecordingFiles.isCompleteMovie(at: try movie(dir, "a.mp4", [box("ftyp"), box("moov", payload: 40), box("mdat", payload: 500)])))
-        #expect(RecordingFiles.isCompleteMovie(at: try movie(dir, "b.mp4", [box("ftyp"), box("mdat", payload: 500, large: true), box("moov")])))
-        // Cut off while recording: the media runs to the end of the file (size 0), or the file ends before the index.
-        #expect(!RecordingFiles.isCompleteMovie(at: try movie(dir, "c.mp4", [box("ftyp"), box("mdat", payload: 500, size: 0)])))
-        #expect(!RecordingFiles.isCompleteMovie(at: try movie(dir, "d.mp4", [box("ftyp"), box("mdat", payload: 500)])))
-        #expect(!RecordingFiles.isCompleteMovie(at: try movie(dir, "e.mp4", [box("ftyp"), box("mdat", payload: 100, size: 9000)])))
-        #expect(!RecordingFiles.isCompleteMovie(at: try dir.file("f.mp4", contents: "")))
-        #expect(!RecordingFiles.isCompleteMovie(at: dir.url.appendingPathComponent("missing.mp4")))
+        #expect(RecordingFiles.isPlayableMovie(at: try movie(dir, "a.mp4", [box("ftyp"), box("moov", payload: 40), box("mdat", payload: 500)])))
+        #expect(RecordingFiles.isPlayableMovie(at: try movie(dir, "b.mp4", [box("ftyp"), box("mdat", payload: 500, large: true), box("moov")])))
+        // Written in fragments and cut off, or left by a writer that failed: the first fragment's media and the index,
+        // then each later fragment's media and its `moof`, the last one's media still being written.
+        #expect(RecordingFiles.isPlayableMovie(at: try movie(dir, "g.mp4", [
+            box("ftyp"), box("mdat", payload: 300), box("moov", payload: 60), box("mdat", payload: 300), box("moof"),
+            box("wide", payload: 0), box("mdat", payload: 100, size: 0),
+        ])))
+        // Cut off before the first fragment was out: the media runs to the end of the file (size 0), or the file ends
+        // before the index, or within it.
+        #expect(!RecordingFiles.isPlayableMovie(at: try movie(dir, "c.mp4", [box("ftyp"), box("mdat", payload: 500, size: 0)])))
+        #expect(!RecordingFiles.isPlayableMovie(at: try movie(dir, "d.mp4", [box("ftyp"), box("mdat", payload: 500)])))
+        #expect(!RecordingFiles.isPlayableMovie(at: try movie(dir, "e.mp4", [box("ftyp"), box("mdat", payload: 100, size: 9000)])))
+        #expect(!RecordingFiles.isPlayableMovie(at: try movie(dir, "h.mp4", [box("ftyp"), box("mdat", payload: 300), box("moov", payload: 10, size: 90)])))
+        #expect(!RecordingFiles.isPlayableMovie(at: try dir.file("f.mp4", contents: "")))
+        #expect(!RecordingFiles.isPlayableMovie(at: dir.url.appendingPathComponent("missing.mp4")))
     }
 
     @Test func leftoversFromBeforeThisLaunch() throws {

@@ -12,6 +12,7 @@
 #   scripts/debug.sh record-screen                  record the display under the pointer
 #   scripts/debug.sh record-window [<id>]           record a window (by window number; the frontmost without one)
 #   scripts/debug.sh stop-recording                 stop and save the recording, as ⇧⌘5 does
+#   scripts/debug.sh recording-fault fail           the recording's writer fails now, as on a full disk (debug builds)
 #
 # Commands are posted as the distributed notification io.github.jenish-shobhit.margin.debug with the
 # command string as its object. Release builds don't listen.

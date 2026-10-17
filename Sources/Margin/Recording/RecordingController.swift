@@ -392,17 +392,21 @@ final class RecordingController {
             CaptureTimings.shared.record("recordingStopToFile", clock.ms)
             // The card first, then idle: a quit waiting for this recording goes ahead when it's idle, with the card stored.
             defer { reset() }
+            lastOutcome = outcome
+            let toast = reason.toast(saved: placed.map { $0.item.duration ?? 0 }, complete: outcome.ending == .finished)
             guard let placed else {
                 RecordingLog.log.error("Recording not saved: \(outcome.error ?? "unknown", privacy: .public)")
                 // Stopped before its first frame (⇧⌘5 twice, quickly): nothing was lost, so no error.
                 if outcome.framesWritten == 0, reason == .user || reason == .quit { return }
-                onFailure?(reason == .user || reason == .quit ? "Couldn't save the recording" : (reason.note ?? "Couldn't save the recording"))
+                onFailure?(toast ?? "Couldn't save the recording")
                 return
             }
+            if outcome.ending != .finished {
+                RecordingLog.log.error("Recording not finished (\(outcome.error ?? "unknown", privacy: .public)): kept up to its last fragment, \(placed.item.duration ?? 0, format: .fixed(precision: 2)) s")
+            }
             RecordingLog.log.notice("Recording saved: \(placed.item.path, privacy: .public), \(outcome.duration, format: .fixed(precision: 2)) s, \(outcome.framesWritten) frames, \(outcome.framesDropped) dropped\(usedFallback ? " (Unsaved: \(saveError ?? ""))" : "", privacy: .public)")
-            lastOutcome = outcome
             onFinished?(FinishedRecording(item: placed.item, thumbnail: placed.thumbnail, sourceRect: target.frame,
-                                          displayID: displayID, usedFallback: usedFallback, note: reason.note))
+                                          displayID: displayID, usedFallback: usedFallback, note: toast))
         }
     }
 
@@ -411,10 +415,18 @@ final class RecordingController {
         let thumbnail: CGImage?
     }
 
-    /// The finished temp file under its name, its shelf item (bookmarked) and its poster frame. Off the main thread.
+    /// The temp file under its name, its shelf item (bookmarked) and its poster frame. One the writer didn't finish is
+    /// kept if it plays (up to its last fragment), with the length it has; one that doesn't is removed. Off the main
+    /// thread.
     @concurrent
     private nonisolated static func place(_ outcome: ScreenRecorder.Outcome, in folder: URL, date: Date) async -> Placed? {
         guard let temp = outcome.url else { return nil }
+        let finished = outcome.ending == .finished
+        if !finished, !RecordingFiles.isPlayableMovie(at: temp) {
+            RecordingLog.log.error("The unfinished recording has no fragment that plays: removed")
+            try? FileManager.default.removeItem(at: temp)
+            return nil
+        }
         let url: URL
         do {
             url = try RecordingFiles.moveIntoPlace(temp, in: folder, date: date)
@@ -425,7 +437,8 @@ final class RecordingController {
         let asset = AVURLAsset(url: url)
         let track = try? await asset.loadTracks(withMediaType: .video).first
         let size = (try? await track?.load(.naturalSize)) ?? .zero
-        let item = ShelfItem(url: url, createdAt: date, pixelSize: size, kind: .recording, duration: outcome.duration)
+        let duration = finished ? outcome.duration : (try? await asset.load(.duration))?.seconds ?? outcome.duration
+        let item = ShelfItem(url: url, createdAt: date, pixelSize: size, kind: .recording, duration: duration)
         let poster = await ShelfThumbnails.poster(url: url, pixelSize: size)
         return Placed(item: item, thumbnail: poster?.image)
     }

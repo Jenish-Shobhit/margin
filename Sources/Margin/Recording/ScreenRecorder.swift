@@ -25,13 +25,23 @@ struct RecordingSource: @unchecked Sendable {
 /// An `SCStream` straight into an `AVAssetWriter`: hardware H.264 in an MPEG-4 file, with AAC for the audio. Every
 /// sample is handled on one serial queue, appended as ScreenCaptureKit delivers it (420v, so the encoder takes the
 /// frame's own surface: no copy, no colour conversion), or dropped when the encoder isn't ready for it rather than
-/// queued. Nothing of this exists until a recording starts.
+/// queued. The movie is written in fragments, so what's on disk plays whatever happens to the writer or the app. Nothing
+/// of this exists until a recording starts.
 final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sendable {
     /// How a recording ended, from the recorder's side.
     struct Outcome: Sendable {
-        /// The finished file (still the temp file), or nil when nothing usable was written.
+        enum Ending: String, Sendable {
+            /// The movie was finished: it's whole.
+            case finished
+            /// The writer failed, or couldn't finish: the file is as it left it, which plays up to its last fragment
+            /// (or, cut off in its first second, not at all).
+            case failed
+        }
+
+        /// The temp file, or nil when nothing was written (it's removed).
         let url: URL?
-        /// From the first frame to the stop.
+        let ending: Ending
+        /// From the first frame to the stop (to the last frame written, for a writer that failed).
         let duration: TimeInterval
         let framesWritten: Int
         let framesDropped: Int
@@ -77,12 +87,21 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
     private var stats = Stats()
     private var finished = false
     private var interrupted = false
+    #if DEBUG
+    /// `scripts/debug.sh recording-fault fail`: the writer is taken to have failed (it carries on, unfinished, untouched).
+    private var simulatedFailure: (any Error)?
+    #endif
 
     /// ScreenCaptureKit sends a frame only when something changed, and holds each one (an IOSurface from its pool)
     /// until the encoder has it: enough for the encoder to be a frame or two behind, plus the one kept for the end.
     private static let queueDepth = 6
     /// AAC at 48 kHz.
     private static let audioRate = 48_000
+    /// The writer puts out what it has as a movie fragment this often: the index (`moov`) goes in with the first one,
+    /// and each later one adds its own (`moof`), so a file that's never finished (the writer failed, a full disk, a
+    /// crash) plays up to its last fragment. Finishing turns it into an ordinary MP4, its index at the end, as without
+    /// fragments: the same layout and brands, a few hundred bytes a second bigger, finished in a few ms.
+    static let fragmentInterval = CMTime(value: 1, timescale: 1)
 
     private init(url: URL, source: RecordingSource, writer: AVAssetWriter, video: AVAssetWriterInput,
                  audio: AVAssetWriterInput?, mic: AVAssetWriterInput?, configuration: SCStreamConfiguration,
@@ -117,6 +136,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         // when it's finished, which takes as much free space again and seconds for a long one, and a file played or
         // uploaded from disk doesn't need it first.
         writer.shouldOptimizeForNetworkUse = false
+        writer.movieFragmentInterval = fragmentInterval
         let video = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings(size: size, fps: source.fps))
         video.expectsMediaDataInRealTime = true
         guard writer.canAdd(video) else { throw RecorderError.failed("The video track couldn’t be set up") }
@@ -232,6 +252,9 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
         guard !finished, sampleBuffer.isValid else { return }
+        #if DEBUG
+        if simulatedFailure != nil { return }
+        #endif
         switch type {
         case .screen: appendFrame(sampleBuffer)
         case .audio: appendAudio(sampleBuffer, to: audio) { $0.audioSamples += 1 }
@@ -276,11 +299,32 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         if input.append(sample) { count(&stats) } else { writerFailed() }
     }
 
+    /// The writer gave up (the encoder, the disk): the recording stops, keeping what it wrote.
     private func writerFailed() {
         guard !interrupted else { return }
         interrupted = true
-        callbacks.interrupted(writer.error ?? RecorderError.failed("The encoder stopped"))
+        callbacks.interrupted(failure ?? RecorderError.failed("The encoder stopped"))
     }
+
+    /// Why the writer is done for, if it is. Confined to `queue`.
+    private var failure: (any Error)? {
+        #if DEBUG
+        if let simulatedFailure { return simulatedFailure }
+        #endif
+        return writer.status == .failed ? writer.error ?? RecorderError.failed("The encoder stopped") : nil
+    }
+
+    #if DEBUG
+    /// `scripts/debug.sh recording-fault fail`: from the next sample on, as if the writer had failed (a full disk). It's
+    /// left as it is, unfinished, like a failed one: what it has written plays up to its last fragment.
+    func simulateFailure() {
+        queue.async { [self] in
+            guard !finished else { return }
+            simulatedFailure = RecorderError.failed("The disk is full (simulated)")
+            writerFailed()
+        }
+    }
+    #endif
 
     fileprivate func streamStopped(_ error: any Error) {
         queue.async { [self] in
@@ -316,12 +360,21 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
 
     private func finish(at requested: CMTime, done: @escaping @Sendable (Outcome) -> Void) {
         finished = true
-        guard let first = firstTime, writer.status == .writing, stats.framesWritten > 0 else {
-            let error = writer.error?.localizedDescription ?? "Nothing was recorded"
-            writer.cancelWriting()
+        let failure = failure
+        guard let first = firstTime, stats.framesWritten > 0, writer.status == .writing || failure != nil else {
+            // Nothing recorded: no file to keep. (Cancelling a writer that's still writing deletes its file.)
+            let error = failure?.localizedDescription ?? writer.error?.localizedDescription ?? "Nothing was recorded"
+            if writer.status == .writing { writer.cancelWriting() }
             try? FileManager.default.removeItem(at: url)
-            done(Outcome(url: nil, duration: 0, framesWritten: stats.framesWritten, framesDropped: stats.framesDropped,
-                         error: error))
+            done(Outcome(url: nil, ending: .failed, duration: 0, framesWritten: stats.framesWritten,
+                         framesDropped: stats.framesDropped, error: error))
+            return
+        }
+        if let failure {
+            // A writer that failed can't finish, and is left as it is: what it wrote plays up to its last fragment.
+            done(Outcome(url: url, ending: .failed, duration: max(0, CMTimeSubtract(lastTime, first).seconds),
+                         framesWritten: stats.framesWritten, framesDropped: stats.framesDropped,
+                         error: failure.localizedDescription))
             return
         }
         // Not past the last frame by more than the stop's own delay when the stream stopped by itself earlier.
@@ -339,9 +392,9 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         let stats = stats
         let duration = max(0, CMTimeSubtract(end, first).seconds)
         writer.finishWriting { [self] in
+            // One that couldn't be finished is kept too, as it is (up to its last fragment).
             let ok = writer.status == .completed
-            if !ok { try? FileManager.default.removeItem(at: url) }
-            done(Outcome(url: ok ? url : nil, duration: duration, framesWritten: stats.framesWritten,
+            done(Outcome(url: url, ending: ok ? .finished : .failed, duration: duration, framesWritten: stats.framesWritten,
                          framesDropped: stats.framesDropped,
                          error: ok ? nil : writer.error?.localizedDescription ?? "The file couldn’t be finished"))
         }

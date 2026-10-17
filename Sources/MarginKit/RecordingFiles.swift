@@ -53,7 +53,7 @@ public enum RecordingFiles {
             let keys: Set<URLResourceKey> = [.isRegularFileKey, .contentModificationDateKey, .creationDateKey]
             guard let values = try? url.resourceValues(forKeys: keys), values.isRegularFile == true,
                   let modified = values.contentModificationDate, modified < before else { return nil }
-            if isCompleteMovie(at: url),
+            if isPlayableMovie(at: url),
                let placed = try? moveIntoPlace(url, in: folder, date: values.creationDate ?? modified, timeZone: timeZone) {
                 return .recovered(placed)
             }
@@ -61,9 +61,12 @@ public enum RecordingFiles {
         }
     }
 
-    /// Whether the MP4 at `url` has its index (`moov`) among its top-level boxes: a finished movie. A recording cut off
-    /// mid-write has its media (`mdat`, often sized to the end of the file) and no index. Reads box headers only.
-    public static func isCompleteMovie(at url: URL) -> Bool {
+    /// Whether the MP4 at `url` has its index (`moov`), whole, among its top-level boxes, without which nothing in it
+    /// plays. A finished movie has it at the end. One written in fragments (`ScreenRecorder`) has it from its first
+    /// fragment on, a `moof` for each later one: cut off, or left by a writer that failed, it plays up to its last
+    /// fragment; cut off in its first, it has its media (`mdat`, often sized to the end of the file) and no index.
+    /// Reads box headers only.
+    public static func isPlayableMovie(at url: URL) -> Bool {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
         defer { try? handle.close() }
         guard let length = try? handle.seekToEnd() else { return false }
@@ -74,13 +77,13 @@ public enum RecordingFiles {
             let bytes = [UInt8](header)
             var size = UInt64(bytes[0]) << 24 | UInt64(bytes[1]) << 16 | UInt64(bytes[2]) << 8 | UInt64(bytes[3])
             let type = String(decoding: bytes[4..<8], as: UTF8.self)
-            if type == "moov" { return true }
-            if size == 0 { return false }               // to the end of the file: nothing after it
+            if size == 0 { return type == "moov" }      // to the end of the file: nothing after it
             if size == 1 {                              // a 64-bit size follows the type
                 guard bytes.count >= 16 else { return false }
                 size = bytes[8..<16].reduce(0) { $0 << 8 | UInt64($1) }
             }
             guard size >= 8 else { return false }
+            if type == "moov" { return offset + size <= length } // an index cut off as it was written is none
             offset += size
         }
         return false
