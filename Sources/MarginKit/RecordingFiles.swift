@@ -33,6 +33,83 @@ public enum RecordingFiles {
         throw POSIXError(.EEXIST)
     }
 
+    /// Where a recording ended up (`place`).
+    public struct Placement: Equatable, Sendable {
+        public enum Folder: Equatable, Sendable {
+            /// The folder it was recorded into.
+            case same
+            /// That folder, renamed or moved while recording: the movie is in it, where it is now.
+            case moved
+            /// Unsaved: that folder went to the Trash or was deleted while recording, or it took no rename.
+            case unsaved(UnsavedShots.Reason)
+        }
+
+        public let url: URL
+        public let folder: Folder
+
+        public init(url: URL, folder: Folder) {
+            self.url = url
+            self.folder = folder
+        }
+
+        /// What the shelf says about where it went, if it isn't where it was recorded. `saveFolder` is the folder as
+        /// the settings name it.
+        public func toast(saveFolder: URL) -> String? {
+            switch folder {
+            case .same: nil
+            case .moved:
+                "Saved to “\(UnsavedShots.shortened(url.deletingLastPathComponent().lastPathComponent))”: the save folder was renamed or moved while recording"
+            case .unsaved(let reason): UnsavedShots.fallbackToast(saveFolder: saveFolder, reason: reason)
+            }
+        }
+    }
+
+    /// Puts a recording's temp `file` in place under `date`'s name (spec §14.4), wherever its folder went while it was
+    /// recorded (the writer writes on regardless). Renamed or moved, it's named in there, next to where it is now. Put
+    /// in the Trash, or deleted (it's copied out of the still open file), or not taking the rename, it goes to `fallback`
+    /// (Unsaved): moved if it's on the same volume, copied (and the temp file removed) if not. Never replaces a file,
+    /// and leaves the movie under its hidden name only if nothing works: then it throws. Blocking.
+    public static func place(_ file: RecordingFile, recordedIn folder: URL, fallback: URL, date: Date,
+                             timeZone: TimeZone = .current) throws -> Placement {
+        guard let current = file.currentURL else {
+            let url = try copyIntoPlace(file, in: fallback, date: date, timeZone: timeZone)
+            return Placement(url: url, folder: .unsaved(.deleted))
+        }
+        let here = current.deletingLastPathComponent()
+        let trashed = ShelfItem.isInTrash(current)
+        if !trashed {
+            do {
+                let url = try moveIntoPlace(current, in: here, date: date, timeZone: timeZone)
+                return Placement(url: url, folder: ShelfItem.samePath(here, folder) ? .same : .moved)
+            } catch where !ShelfItem.samePath(here, fallback) {
+                // It can't be named there (the folder became read-only, say): Unsaved, below.
+            }
+        }
+        let reason: UnsavedShots.Reason = trashed ? .trashed : .notWritable
+        try FileManager.default.createDirectory(at: fallback, withIntermediateDirectories: true)
+        do {
+            return Placement(url: try moveIntoPlace(current, in: fallback, date: date, timeZone: timeZone), folder: .unsaved(reason))
+        } catch {
+            // Another volume, or a folder it can't be moved out of: a copy. The temp file goes if it can.
+            let url = try copyIntoPlace(file, in: fallback, date: date, timeZone: timeZone)
+            unlink(current.path)
+            return Placement(url: url, folder: .unsaved(reason))
+        }
+    }
+
+    /// A copy of `file` in `folder` under `date`'s name, by way of a temp file there, so no app sees it half-written.
+    static func copyIntoPlace(_ file: RecordingFile, in folder: URL, date: Date, timeZone: TimeZone) throws -> URL {
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let temp = folder.appendingPathComponent(tempName())
+        try file.copy(to: temp)
+        do {
+            return try moveIntoPlace(temp, in: folder, date: date, timeZone: timeZone)
+        } catch {
+            unlink(temp.path)
+            throw error
+        }
+    }
+
     /// What became of a leftover temp file.
     public enum Leftover: Hashable, Sendable {
         /// A movie that plays: finished, its rename never done, or cut off (a crash, a forced quit, the quit's time

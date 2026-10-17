@@ -45,9 +45,10 @@ struct FinishedRecording {
     let thumbnail: CGImage?
     let sourceRect: CGRect
     let displayID: CGDirectDisplayID
-    /// The save folder couldn't be written: it went to the Unsaved folder.
+    /// It's in the Unsaved folder: the save folder couldn't be written, or went to the Trash meanwhile.
     let usedFallback: Bool
-    /// Why it stopped, when it wasn't asked to: shown as a toast.
+    /// The toast: where it went if that isn't the save folder, or else why it stopped when it wasn't asked to, or how
+    /// much of it was kept.
     let note: String?
 }
 
@@ -84,6 +85,9 @@ final class RecordingController {
     private let cache: ShareableContentCache
     /// When the recording was asked for: the file's name.
     private var startDate = Date()
+    /// Save to, as the settings had it at the start: the toasts name it.
+    private var saveFolder: URL?
+    /// Where the temp file was created: Save to, or Unsaved.
     private var folder: URL?
     private var usedFallback = false
     private var saveError: String?
@@ -111,6 +115,7 @@ final class RecordingController {
         onChange?()
         let prefs = Preferences.shared
         let saveFolder = prefs.saveFolder, fallbackFolder = Preferences.fallbackSaveFolder
+        self.saveFolder = saveFolder
         let recordsWindow = if case .window = target { true } else { false }
         let callbacks = ScreenRecorder.Callbacks(
             firstFrame: { [weak self] in Task { @MainActor in self?.firstFrame() } },
@@ -381,19 +386,19 @@ final class RecordingController {
             return
         case .recording: break
         }
-        guard let recorder, let folder, let target else { return }
+        guard let recorder, let file = recorder.file, let folder, let saveFolder, let target else { return }
         state = .stopping
         stopObserving()
         onChange?()
         let end = CMClockGetTime(CMClockGetHostTimeClock())
-        let date = startDate, usedFallback = usedFallback, saveError = saveError
+        let date = startDate, usedFallback = usedFallback, saveError = saveError, fallback = Preferences.fallbackSaveFolder
         let displayID = target.displayID ?? Displays.display(bestFor: target.frame)?.id ?? CGMainDisplayID()
         RecordingLog.log.notice("Recording stopping (\(String(describing: reason), privacy: .public))")
         Task {
             let clock = Stopwatch()
             let outcome = await recorder.stop(at: end)
             let finishMs = clock.ms
-            let placed = await Self.place(outcome, in: folder, date: date)
+            let placed = await Self.place(outcome, file: file, recordedIn: folder, fallback: fallback, date: date)
             CaptureTimings.shared.record("recordingFinish", finishMs)
             CaptureTimings.shared.record("recordingStopToFile", clock.ms)
             // The card first, then idle: a quit waiting for this recording goes ahead when it's idle, with the card stored.
@@ -410,34 +415,45 @@ final class RecordingController {
             if outcome.ending != .finished {
                 RecordingLog.log.error("Recording not finished (\(outcome.error ?? "unknown", privacy: .public)): kept up to its last fragment, \(placed.item.duration ?? 0, format: .fixed(precision: 2)) s")
             }
+            if placed.placement.folder != .same {
+                RecordingLog.log.notice("The recording's folder moved while recording (\(String(describing: placed.placement.folder), privacy: .public))")
+            }
             RecordingLog.log.notice("Recording saved: \(placed.item.path, privacy: .public), \(outcome.duration, format: .fixed(precision: 2)) s, \(outcome.framesWritten) frames, \(outcome.framesDropped) dropped\(usedFallback ? " (Unsaved: \(saveError ?? ""))" : "", privacy: .public)")
+            // Where it is matters most, if that isn't the save folder.
+            let inUnsaved = if case .unsaved = placed.placement.folder { true } else { usedFallback }
+            let fallbackToast = usedFallback ? UnsavedShots.fallbackToast(saveFolder: saveFolder) : nil
             onFinished?(FinishedRecording(item: placed.item, thumbnail: placed.thumbnail, sourceRect: target.frame,
-                                          displayID: displayID, usedFallback: usedFallback, note: toast))
+                                          displayID: displayID, usedFallback: inUnsaved,
+                                          note: placed.placement.toast(saveFolder: saveFolder) ?? fallbackToast ?? toast))
         }
     }
 
     private struct Placed: @unchecked Sendable {
         let item: ShelfItem
         let thumbnail: CGImage?
+        let placement: RecordingFiles.Placement
     }
 
-    /// The temp file under its name, its shelf item (bookmarked) and its poster frame. One the writer didn't finish is
-    /// kept if it plays (up to its last fragment), with the length it has; one that doesn't is removed. Off the main
-    /// thread.
+    /// The temp file under its name (`RecordingFiles.place`: next to where it is now, if its folder was renamed or moved
+    /// meanwhile, or in Unsaved, if it went to the Trash or was deleted), its shelf item (bookmarked) and its poster frame.
+    /// One the writer didn't finish is kept if it plays (up to its last fragment), with the length it has; one that
+    /// doesn't is removed. Off the main thread.
     @concurrent
-    private nonisolated static func place(_ outcome: ScreenRecorder.Outcome, in folder: URL, date: Date) async -> Placed? {
-        guard let temp = outcome.url else { return nil }
+    private nonisolated static func place(_ outcome: ScreenRecorder.Outcome, file: RecordingFile, recordedIn folder: URL,
+                                          fallback: URL, date: Date) async -> Placed? {
+        guard outcome.url != nil else { return nil }
         let finished = outcome.ending == .finished
-        if !finished, !RecordingFiles.isPlayableMovie(at: temp) {
-            RecordingLog.log.error("The unfinished recording has no fragment that plays: removed")
-            try? FileManager.default.removeItem(at: temp)
-            return nil
-        }
-        let url: URL
+        let placement: RecordingFiles.Placement
         do {
-            url = try RecordingFiles.moveIntoPlace(temp, in: folder, date: date)
+            placement = try RecordingFiles.place(file, recordedIn: folder, fallback: fallback, date: date)
         } catch {
             RecordingLog.log.error("Couldn't name the recording: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+        let url = placement.url
+        if !finished, !RecordingFiles.isPlayableMovie(at: url) {
+            RecordingLog.log.error("The unfinished recording has no fragment that plays: removed")
+            try? FileManager.default.removeItem(at: url)
             return nil
         }
         let asset = AVURLAsset(url: url)
@@ -446,7 +462,7 @@ final class RecordingController {
         let duration = finished ? outcome.duration : (try? await asset.load(.duration))?.seconds ?? outcome.duration
         let item = ShelfItem(url: url, createdAt: date, pixelSize: size, kind: .recording, duration: duration)
         let poster = await ShelfThumbnails.poster(url: url, pixelSize: size)
-        return Placed(item: item, thumbnail: poster?.image)
+        return Placed(item: item, thumbnail: poster?.image, placement: placement)
     }
 
     private func reset() {
@@ -456,6 +472,7 @@ final class RecordingController {
         source = nil
         target = nil
         folder = nil
+        saveFolder = nil
         startedAt = nil
         lastShownSecond = -1
         onChange?()

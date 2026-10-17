@@ -50,4 +50,11 @@ import Testing
         let fits = UnsavedShots.fallbackToast(saveFolder: URL(fileURLWithPath: "/Users/me/Bildschirmfotos", isDirectory: true))
         #expect(fits.hasPrefix("Can't write to “Bildschirmfotos”."))
     }
+
+    @Test func aRecordingsFolderThatWentSaysSo() {
+        let folder = URL(fileURLWithPath: "/Users/me/Desktop/Screenshots", isDirectory: true)
+        #expect(UnsavedShots.fallbackToast(saveFolder: folder, reason: .trashed)
+            == "“Screenshots” is in the Trash. Saved to Unsaved: menu bar › Show\u{00A0}Unsaved\u{00A0}Shots")
+        #expect(UnsavedShots.fallbackToast(saveFolder: folder, reason: .deleted).hasPrefix("“Screenshots” was deleted. Saved to Unsaved"))
+    }
 }

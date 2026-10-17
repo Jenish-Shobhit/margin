@@ -65,7 +65,10 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         var interrupted: @Sendable (any Error) -> Void = { _ in }
     }
 
+    /// Where the temp file was created; `file` follows it wherever its folder goes meanwhile.
     let url: URL
+    /// The temp file, held open from when the writer creates it (set before capture starts, then never changed).
+    private(set) var file: RecordingFile?
     let source: RecordingSource
     private let callbacks: Callbacks
 
@@ -155,6 +158,12 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
             try? FileManager.default.removeItem(at: url)
             throw RecorderError.file(writer.error?.localizedDescription ?? "The file couldn’t be created")
         }
+        guard let file = RecordingFile(url) else {
+            writer.cancelWriting()
+            try? FileManager.default.removeItem(at: url)
+            throw RecorderError.file("The file couldn’t be opened")
+        }
+        recorder.file = file
         do {
             try await recorder.stream.startCapture()
         } catch {
@@ -365,7 +374,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
             // Nothing recorded: no file to keep. (Cancelling a writer that's still writing deletes its file.)
             let error = failure?.localizedDescription ?? writer.error?.localizedDescription ?? "Nothing was recorded"
             if writer.status == .writing { writer.cancelWriting() }
-            try? FileManager.default.removeItem(at: url)
+            if let current = file?.currentURL { try? FileManager.default.removeItem(at: current) }
             done(Outcome(url: nil, ending: .failed, duration: 0, framesWritten: stats.framesWritten,
                          framesDropped: stats.framesDropped, error: error))
             return
