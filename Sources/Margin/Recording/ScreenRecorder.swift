@@ -252,7 +252,9 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
             callbacks.firstFrame()
         }
         guard video.isReadyForMoreMediaData else {
-            stats.framesDropped += 1
+            // A writer that failed (the encoder or the disk gave up) is never ready again: that stops the recording,
+            // rather than it going on, counting every frame as dropped, until the user stops it and nothing is saved.
+            if writer.status == .failed { writerFailed() } else { stats.framesDropped += 1 }
             return
         }
         guard video.append(sample) else {
@@ -266,8 +268,11 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
 
     private func appendAudio(_ sample: CMSampleBuffer, to input: AVAssetWriterInput?, count: (inout Stats) -> Void) {
         // Audio before the first frame has nothing to go with.
-        guard let input, let first = firstTime, sample.presentationTimeStamp >= first,
-              input.isReadyForMoreMediaData else { return }
+        guard let input, let first = firstTime, sample.presentationTimeStamp >= first else { return }
+        guard input.isReadyForMoreMediaData else {
+            if writer.status == .failed { writerFailed() }
+            return
+        }
         if input.append(sample) { count(&stats) } else { writerFailed() }
     }
 
