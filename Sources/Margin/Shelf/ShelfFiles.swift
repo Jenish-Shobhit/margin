@@ -72,9 +72,13 @@ enum ShelfFiles {
     }
 
     /// Deletes Pasteboard files whose time has come (`PasteboardShots.Retention`), off the main thread. Only files in
-    /// that folder, whatever is asked.
+    /// that folder, whatever is asked, and none while it's a link to another (`PasteboardShots.isRealFolder`).
     static func deletePasteboardFiles(_ paths: [String]) {
         Task.detached(priority: .utility) {
+            guard PasteboardShots.isRealFolder() else {
+                log.notice("Kept \(paths.count) shot(s): the Pasteboard folder is a link to another folder")
+                return
+            }
             for path in paths where PasteboardShots.isInFolder(path) {
                 let failed = unlink(path) == 0 ? 0 : errno
                 let name = URL(fileURLWithPath: path).lastPathComponent

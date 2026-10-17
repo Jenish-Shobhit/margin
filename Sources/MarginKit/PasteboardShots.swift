@@ -18,6 +18,14 @@ public enum PasteboardShots {
     public static func isInFolder(_ path: String, folder: URL = Preferences.pasteboardFolder) -> Bool {
         URL(fileURLWithPath: path).standardizedFileURL.deletingLastPathComponent().path == folder.standardizedFileURL.path
     }
+
+    /// Whether `folder` is a folder itself, not a symbolic link to one. Margin deletes files only while it is: a link
+    /// (made by hand, say to keep these shots in the save folder) would lead the deleting into another folder. Links
+    /// above it (a linked Application Support) are followed as usual. Blocking: it looks at the disk.
+    public static func isRealFolder(_ folder: URL = Preferences.pasteboardFolder) -> Bool {
+        var info = stat()
+        return lstat(folder.path, &info) == 0 && info.st_mode & S_IFMT == S_IFDIR
+    }
 }
 
 // MARK: - When a file may go
@@ -102,11 +110,12 @@ extension PasteboardShots {
     /// (`LeftoverSaves`), the ⌘Z steps of the last session are gone, so a file is kept only if a shelf item points at it
     /// (its path, or where its bookmark leads: a file renamed in Finder while Margin was quit), or it's in `keeping` (on
     /// the clipboard). Only visible files last written before `writtenBefore` are looked at: hidden ones are Finder's
-    /// or a save's, and a capture of this launch's can't be older. Blocking. Returns what was deleted.
+    /// or a save's, and a capture of this launch's can't be older. Nothing, while `folder` is a link (`isRealFolder`).
+    /// Blocking. Returns what was deleted.
     @discardableResult
     public static func cleanUp(folder: URL = Preferences.pasteboardFolder, items: [ShelfItem], keeping: Set<String> = [],
                                writtenBefore: Date) -> [URL] {
-        guard let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else { return [] }
+        guard isRealFolder(folder), let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else { return [] }
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .contentModificationDateKey]
         let candidates = names.filter { !$0.hasPrefix(".") }.map { folder.appendingPathComponent($0) }.filter { url in
             guard let values = try? url.resourceValues(forKeys: keys), values.isRegularFile == true,

@@ -162,6 +162,30 @@ import Testing
         #expect(PasteboardShots.cleanUp(folder: dir.url.appendingPathComponent("Pasteboard"), items: [], writtenBefore: launch).isEmpty)
     }
 
+    /// A Pasteboard folder that's a link (made by hand, to keep the shots somewhere) leads elsewhere: nothing there goes.
+    @Test func aLinkedFolderIsLeftAlone() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let elsewhere = dir.url.appendingPathComponent("Screenshots", isDirectory: true)
+        try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: false)
+        let kept = elsewhere.appendingPathComponent("Screenshot 2026-10-17 at 10.00.00.png")
+        try Data([1]).write(to: kept)
+        try FileManager.default.setAttributes([.modificationDate: launch.addingTimeInterval(-60)], ofItemAtPath: kept.path)
+        let link = dir.url.appendingPathComponent("Pasteboard", isDirectory: true)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: elsewhere)
+        #expect(!PasteboardShots.isRealFolder(link))
+        #expect(PasteboardShots.isRealFolder(elsewhere))
+        #expect(!PasteboardShots.isRealFolder(kept))
+        #expect(PasteboardShots.cleanUp(folder: link, items: [], writtenBefore: launch).isEmpty)
+        #expect(FileManager.default.fileExists(atPath: kept.path))
+        // A link above the folder (a linked Application Support) is followed as usual.
+        let linkedParent = dir.url.appendingPathComponent("Linked", isDirectory: true)
+        try FileManager.default.createSymbolicLink(at: linkedParent, withDestinationURL: dir.url)
+        let below = linkedParent.appendingPathComponent("Screenshots", isDirectory: true)
+        #expect(PasteboardShots.isRealFolder(below))
+        #expect(PasteboardShots.cleanUp(folder: below, items: [], writtenBefore: launch).count == 1)
+    }
+
     @Test func cardsElsewhereDontKeepAnything() throws {
         let dir = try TempDir(), other = try TempDir()
         defer { dir.remove(); other.remove() }
