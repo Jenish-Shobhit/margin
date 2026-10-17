@@ -94,6 +94,8 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
     private var stats = Stats()
     private var finished = false
     private var interrupted = false
+    /// When the stop was asked for: what's captured after it, while the stream takes its time to stop, isn't recorded.
+    private var stopTime: CMTime?
     #if DEBUG
     /// `scripts/debug.sh recording-fault fail`: the writer is taken to have failed (it carries on, unfinished, untouched).
     private var simulatedFailure: (any Error)?
@@ -276,6 +278,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
         guard !finished, sampleBuffer.isValid else { return }
+        if let stopTime, sampleBuffer.presentationTimeStamp > stopTime { return }
         #if DEBUG
         if simulatedFailure != nil { return }
         #endif
@@ -386,6 +389,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
     /// ScreenCaptureKit and the writer do.
     func stop(at end: CMTime = CMClockGetTime(CMClockGetHostTimeClock())) async -> Outcome {
         let deadline = Date().addingTimeInterval(Self.stopTimeout)
+        queue.async { [self] in stopTime = end }
         if await !stopStream(within: Self.streamStopTimeout) {
             RecordingLog.log.error("The stream didn't stop in \(Self.streamStopTimeout, format: .fixed(precision: 0)) s: finishing the file anyway")
         }
