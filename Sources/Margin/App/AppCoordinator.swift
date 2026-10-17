@@ -26,6 +26,11 @@ final class AppCoordinator {
 
     /// Which shelf item's image is on the clipboard.
     var mark = ClipboardMark()
+    // "Delete screenshots after pasting" (see AppCoordinator+Pasteboard.swift).
+    /// Pasteboard files whose cards can't come back, waiting for their time.
+    var retention = PasteboardShots.Retention()
+    /// The Pasteboard files on the clipboard as Margin last wrote it, while it may still hold them.
+    var clipboardFiles: PasteboardShots.ClipboardFiles?
     /// Last known Screen Recording state (`CGPreflightScreenCaptureAccess`). Never requests access.
     private(set) var permissionGranted = false
     /// The permission warning (dot, "Allow Screen Recording…") shows while preflight says no, and after a
@@ -90,7 +95,9 @@ final class AppCoordinator {
             CaptureTimings.shared.record("shelfWrite", ms)
             CaptureTimings.shared.recordSize("shelfJSON", bytes: bytes)
         }
+        wirePasteboardShots()
         shelf.restore()
+        retainClipboardFilesWithoutCards()
 
         capture.onCapture = { [weak self] result in self?.handleCapture(result) }
         capture.onPermissionMissing = { [weak self] in self?.captureLostPermission() }
@@ -394,9 +401,12 @@ final class AppCoordinator {
     // MARK: - ⌘V mark
 
     private func tick() {
-        if mark.observe(changeCount: NSPasteboard.general.changeCount) {
+        let changeCount = NSPasteboard.general.changeCount
+        if mark.observe(changeCount: changeCount) {
             shelf.setClipboardMark(nil)
         }
+        clipboardMoved(to: changeCount)
+        deletePasteboardFilesDue()
         if needsPermission { refreshPermission() }
     }
 

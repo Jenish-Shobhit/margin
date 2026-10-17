@@ -2,6 +2,7 @@ import Darwin
 import Foundation
 import ImageIO
 import MarginKit
+import os
 
 /// The shelf's disk access, which always runs off the main thread. The first access to ~/Desktop can block
 /// on the privacy prompt, and a folder Margin may not read must never empty the shelf: only a file that's
@@ -60,6 +61,31 @@ enum ShelfFiles {
             }
         }.value
     }
+
+    /// `PasteboardShots.cleanUp` of the Pasteboard folder, off the main thread, and what it deleted in the log.
+    static func cleanUpPasteboard(items: [ShelfItem], keeping: Set<String>, writtenBefore: Date) async {
+        await Task.detached(priority: .utility) {
+            for url in PasteboardShots.cleanUp(items: items, keeping: keeping, writtenBefore: writtenBefore) {
+                log.notice("Deleted a pasted or dismissed shot no card holds: \(url.lastPathComponent, privacy: .public)")
+            }
+        }.value
+    }
+
+    /// Deletes Pasteboard files whose time has come (`PasteboardShots.Retention`), off the main thread. Only files in
+    /// that folder, whatever is asked.
+    static func deletePasteboardFiles(_ paths: [String]) {
+        Task.detached(priority: .utility) {
+            for path in paths where PasteboardShots.isInFolder(path) {
+                if unlink(path) == 0 {
+                    log.notice("Deleted \(URL(fileURLWithPath: path).lastPathComponent, privacy: .public): pasted or dismissed, and ⌘Z can't bring it back")
+                } else if errno != ENOENT {
+                    log.error("Couldn't delete \(URL(fileURLWithPath: path).lastPathComponent, privacy: .public): \(String(cString: strerror(errno)), privacy: .public)")
+                }
+            }
+        }
+    }
+
+    private static let log = Logger(subsystem: "io.github.jenish-shobhit.margin", category: "pasteboard")
 
     /// Statuses only (prune, existence checks).
     static func statuses(_ items: [ShelfItem]) async -> [Result<Bool>] {

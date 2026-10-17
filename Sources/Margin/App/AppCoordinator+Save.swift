@@ -62,8 +62,8 @@ extension AppCoordinator {
         // screenshots after pasting" on, the shot goes to Margin's Pasteboard folder instead (spec §14.2).
         let nameClock = Stopwatch()
         let reserved = reservedPaths
-        let folder = PasteboardShots.folder(for: .screenshot, deletesAfterPasting: prefs.deletesAfterPasting,
-                                            saveFolder: prefs.saveFolder)
+        let toPasteboard = prefs.deletesAfterPasting
+        let folder = PasteboardShots.folder(for: .screenshot, deletesAfterPasting: toPasteboard, saveFolder: prefs.saveFolder)
         let url = FileNamer.uniqueURL(in: folder, for: result.date) { reserved.contains($0.path) }
         reservedPaths.insert(url.path)
         t.record("release.name", nameClock.ms)
@@ -136,21 +136,24 @@ extension AppCoordinator {
             }
             Self.signposter.endInterval("save", saveSignpost)
             await self?.finishSave(
-                itemID: item.id, sequence: sequence, releaseDate: result.date, folder: folder, timings: timings,
-                outcome: outcome)
+                itemID: item.id, sequence: sequence, releaseDate: result.date, folder: folder,
+                toPasteboard: toPasteboard, timings: timings, outcome: outcome)
         }
     }
 
     /// 5. Clipboard + ⌘V mark, once the PNG is renamed into place: the PNG plus the file at its *final* URL
     /// (it can differ from the predicted one: " (2)", the Unsaved folder), so ⌘V in a terminal pastes its
     /// path. If saving failed, the PNG alone. Only the newest capture may overwrite the clipboard, and a
-    /// shelf copy since this capture began wins (`shelfDidCopy`, `shelfDidCopyPaths`).
-    private func copyCapture(_ data: Data, fileURL: URL?, itemID: UUID, sequence: Int, releaseDate: Date) {
+    /// shelf copy since this capture began wins (`shelfDidCopy`, `shelfDidCopyPaths`). `toPasteboard`: the shot was
+    /// meant for the Pasteboard folder (spec §14.2); otherwise, and always with the option off, the write is as it was.
+    private func copyCapture(_ data: Data, fileURL: URL?, itemID: UUID, sequence: Int, releaseDate: Date,
+                             toPasteboard: Bool) {
         guard prefs.copyEachCapture, sequence > lastClipboardSequence else { return }
         lastClipboardSequence = sequence
         let clock = Stopwatch()
         let changeCount = ClipboardWriter.write(pngs: [data], fileURLs: [fileURL])
         CaptureTimings.shared.record("finishSave.clipboard", clock.ms)
+        if toPasteboard || clipboardFiles != nil { clipboardHolds(fileURL.map { [$0] } ?? [], changeCount: changeCount) }
         let releaseToClipboardMs = Date().timeIntervalSince(releaseDate) * 1000
         Self.timingLog.notice(
             "release→clipboard \(releaseToClipboardMs, format: .fixed(precision: 1)) ms (\(fileURL == nil ? "PNG only" : "PNG + file URL", privacy: .public))")
@@ -165,8 +168,8 @@ extension AppCoordinator {
         }
     }
 
-    private func finishSave(itemID: UUID, sequence: Int, releaseDate: Date, folder: URL, timings: Timings,
-                            outcome: SaveOutcome) {
+    private func finishSave(itemID: UUID, sequence: Int, releaseDate: Date, folder: URL, toPasteboard: Bool,
+                            timings: Timings, outcome: SaveOutcome) {
         let mainClock = Stopwatch()
         let t = CaptureTimings.shared
         // Last, so a quit waiting on this save goes ahead only after shelf.json has the final path.
@@ -179,7 +182,8 @@ extension AppCoordinator {
         if let data = outcome.data { t.recordSize("png", bytes: data.count) }
         // First, so the clipboard isn't kept waiting by the store and the shelf.
         if let data = outcome.data {
-            copyCapture(data, fileURL: outcome.saved?.url, itemID: itemID, sequence: sequence, releaseDate: releaseDate)
+            copyCapture(data, fileURL: outcome.saved?.url, itemID: itemID, sequence: sequence, releaseDate: releaseDate,
+                        toPasteboard: toPasteboard)
         }
         var timings = timings
         timings.encodeMs = outcome.encodeMs
@@ -220,6 +224,7 @@ extension AppCoordinator {
             shelf.itemDidSave(current)
         } else {
             shelf.itemDidSave(saved)
+            savedWithoutCard(saved)
         }
         if outcome.usedFallback {
             Self.log.error(

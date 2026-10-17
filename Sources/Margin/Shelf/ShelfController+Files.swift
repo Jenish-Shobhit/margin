@@ -36,17 +36,23 @@ extension ShelfController {
     /// the quit timeout) left its PNG hidden in the folder, and its card waiting for a file that never appeared.
     /// `LeftoverSaves` puts each back, under its card's name when one is waiting (so the card stays), in the Unsaved
     /// folder and any folder a waiting card points into. The check waits for it.
-    func recoverLeftoverSavesThenRefresh(quietWithin: TimeInterval) {
+    ///
+    /// Then the Pasteboard folder of "Delete screenshots after pasting" (spec §14.2) loses the files no card holds: last
+    /// session's ⌘Z steps are gone, so nothing can bring their cards back. Files still on the clipboard stay (`keeping`).
+    func recoverLeftoverSavesThenRefresh(quietWithin: TimeInterval, keeping: Set<String> = []) {
         let items = store.items
         // Not the save folder as such: on the Desktop, looking into it at launch raises the Desktop folder's privacy
         // prompt if it hasn't been answered yet. A cut-off save always leaves its card waiting (the card is stored before
-        // the PNG is written), and its folder is one Margin was writing to.
-        let folders = [Preferences.fallbackSaveFolder] + items.filter { $0.bookmark == nil }.map { $0.url.deletingLastPathComponent() }
+        // the PNG is written), and its folder is one Margin was writing to. The Unsaved and Pasteboard folders are
+        // Margin's own, and never prompt.
+        let folders = [Preferences.fallbackSaveFolder, Preferences.pasteboardFolder]
+            + items.filter { $0.bookmark == nil }.map { $0.url.deletingLastPathComponent() }
         // Nothing this copy writes can be older: saves start only once the shelf is restored.
         let launch = Date()
         fileRefreshRunning = true
         Task { [weak self] in
             let outcomes = await ShelfFiles.recoverLeftovers(in: folders, items: items, writtenBefore: launch)
+            await ShelfFiles.cleanUpPasteboard(items: items, keeping: keeping, writtenBefore: launch)
             guard let self else { return }
             self.fileRefreshRunning = false
             self.fileRefreshQueued = false

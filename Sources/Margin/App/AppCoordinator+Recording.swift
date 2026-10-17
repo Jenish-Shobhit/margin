@@ -59,6 +59,7 @@ extension AppCoordinator {
         if prefs.copyEachCapture, captureSequence > lastClipboardSequence {
             lastClipboardSequence = captureSequence
             let changeCount = ClipboardWriter.write([ClipboardWriter.Entry(fileURL: item.url)])
+            if clipboardFiles != nil { clipboardHolds([], changeCount: changeCount) }
             mark.didWrite(itemID: item.id, changeCount: changeCount)
             shelf.setClipboardMark(item.id)
         }
