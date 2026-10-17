@@ -7,14 +7,26 @@ import UniformTypeIdentifiers
 public enum PNGWriter {
     public enum Failure: Error { case encode }
 
-    /// PNG with the Up filter, the image's color profile, and DPI = 72 × scale (144 on Retina).
-    /// ImageIO turns the DPI into the PNG's `pHYs` chunk and embeds the color space as `iCCP`.
+    /// ImageIO's PNG with the Up filter, the image's color profile, and DPI = 72 × scale (144 on Retina).
+    /// ImageIO turns the DPI into the PNG's `pHYs` chunk (and an `eXIf`), and embeds the color space as `iCCP` (`sRGB`
+    /// for sRGB), with a `cICP` where the space has one.
     /// Up (each row minus the row above) is as fast as no filter on flat UI and leaves zlib far less to do on photos
     /// and gradients: a busy 2940×1912 shot encodes in 165 ms instead of 298 ms and is 31% smaller; UI shots are
     /// 5–13% smaller (`scripts/bench.sh encode`). ImageIO's adaptive default is slower on UI and no smaller.
+    ///
+    /// From about 360 × 360 pixels up, `ParallelPNG` writes that same file with the deflate spread over every core
+    /// (the busy shot in 29 ms instead of 157, a flat UI one in 7 instead of 35); ImageIO writes the smaller ones, and
+    /// any image `ParallelPNG` leaves to it (16-bit, float, opaque or straight-alpha layouts).
     public static func encode(_ image: CGImage, scale: CGFloat) throws -> Data {
+        if ParallelPNG.isWorthIt(image), let data = ParallelPNG.encode(image, scale: scale) { return data }
+        guard let data = encodeWithImageIO(image, scale: scale) else { throw Failure.encode }
+        return data
+    }
+
+    /// ImageIO's PNG of `image`, with the options above. nil if ImageIO can't write it.
+    static func encodeWithImageIO(_ image: CGImage, scale: CGFloat) -> Data? {
         let data = NSMutableData()
-        guard let dest = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil) else { throw Failure.encode }
+        guard let dest = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil) else { return nil }
         let dpi = 72 * (scale > 0 ? scale : 1)
         let props: [CFString: Any] = [
             kCGImagePropertyDPIWidth: dpi,
@@ -22,7 +34,7 @@ public enum PNGWriter {
             kCGImagePropertyPNGDictionary: [kCGImagePropertyPNGCompressionFilter: IMAGEIO_PNG_FILTER_UP],
         ]
         CGImageDestinationAddImage(dest, image, props as CFDictionary)
-        guard CGImageDestinationFinalize(dest) else { throw Failure.encode }
+        guard CGImageDestinationFinalize(dest) else { return nil }
         return data as Data
     }
 

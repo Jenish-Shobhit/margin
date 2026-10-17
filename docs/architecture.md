@@ -49,7 +49,8 @@ flowchart LR
 | `ShelfCardPlan.swift` | Which cards are live, with a view and a decoded thumbnail (the visible ones, the pile's fan and the next few in the pile), and `ThumbnailLoads`: a few decodes at a time, in that order, without retrying a file that couldn't be read |
 | `ShelfStore.swift` | `ShelfItem` (path, bookmark, date, pixel size; whether its volume is mounted) and the ordered, JSON-persisted list |
 | `ShelfFileWriter.swift` | `shelf.json`'s writes on a serial background queue: always the newest list, a burst of changes in a write or two |
-| `PNGWriter.swift` | One ImageIO encode (Up filter, colour profile, DPI) and the atomic write: temp file, then an exclusive rename |
+| `PNGWriter.swift` | The one PNG encode (ImageIO's file: Up filter, colour profile, DPI) and the atomic write: temp file, then an exclusive rename |
+| `ParallelPNG.swift` | That same file with the deflate spread over every core: bands of rows deflated pigz-style and joined into one zlib stream, around ImageIO's own chunks for the image. `PNGWriter` uses it from two bands of rows (about 360 × 360 pixels) up |
 | `LeftoverSaves.swift` | At launch, the temp files of saves cut off before their rename: a complete PNG back under its card's name, or a new one; the rest deleted |
 | `ClipboardMark.swift` | The ⌘V mark's change-count bookkeeping, and `ClipboardWriter` (PNG + file URL per item; Copy Path's plain text) |
 | `Preferences.swift` | `KeyCombo`, `ShortcutAction` (defaults, ⌃ twins, conflicts), `LastArea` and the `Preferences` store |
@@ -191,7 +192,7 @@ On the main actor, in this order:
 
 Then, in a detached task:
 
-1. It waits for the result's PNG: one `PNGWriter.encode`, for both the file and the clipboard, which `CaptureController` started alongside the thumbnail, as soon as the image was ready.
+1. It waits for the result's PNG: one `PNGWriter.encode`, for both the file and the clipboard, which `CaptureController` started alongside the thumbnail, as soon as the image was ready. It runs on every core ([The PNG encode](#the-png-encode)).
 2. Once `shelf.json` has the card (`ShelfStore.waitForWrites`: written in the background, usually well before the encode is done), `writeAtomically` writes a hidden temp file (`.margin-<uuid>.tmp`) in the save folder, then `renamex_np(RENAME_EXCL)` moves it into place.
    - If the name is taken on disk, it moves on to the next free one.
    - If the folder can't be written, it falls back to `~/Library/Application Support/Margin/Unsaved/`.
@@ -208,6 +209,28 @@ If saving fails completely, the card goes with "Couldn't save the screenshot" ("
 Quitting while saves are in flight answers `.terminateLater`. Margin waits for them, at most 3 s, on a run-loop timer that also fires during the termination modal loop. Then, as the app terminates (`AppCoordinator.stop`), it waits for the `shelf.json` writes still on their way (`ShelfStore.flush`).
 
 A save cut off between the temp file and the rename (a crash, a forced quit, that timeout) leaves its PNG hidden in the folder and its card in `shelf.json` without a bookmark. At the next launch, before the shelf's first file check and off the main thread, `LeftoverSaves` goes through the `.margin-<uuid>.tmp` files last written before the launch (only one copy of Margin runs, so nothing else is writing them) in the Unsaved folder and the folder of any card still waiting for its file. Not the save folder as such: on the Desktop, looking into it at launch would raise the Desktop folder's privacy prompt if it hasn't been answered; a cut-off save always leaves its card waiting, since the card is stored before the PNG is written. A complete PNG (it ends with its `IEND` chunk and ImageIO reads it whole) goes back under its card's name when a waiting card has its pixel size and was captured up to 2 minutes before it was written, so the card stays; otherwise it gets a `FileNamer` name from its own date. Anything else is deleted.
+
+### The PNG encode
+
+`PNGWriter.encode` writes ImageIO's PNG (Up filter, the image's colour profile, DPI). ImageIO's encoder is libpng with zlib at level 1 on one thread, and deflate is nearly all of its time: its image data is byte for byte `deflate` level 1 of the Up-filtered rows. So from two bands' worth of rows up (512 KB, about 360 × 360 pixels), `ParallelPNG` writes that same file with the deflate spread over every core, the way pigz does:
+
+1. **ImageIO's chunks.** ImageIO encodes a 1 × 1 crop of the image with the same options. Its IHDR must say 8-bit RGBA, and its chunks before the image data are copied (`iCCP`, or `sRGB` for sRGB, `cICP` where the space has one, `eXIf`, `pHYs`), with the `eXIf`'s PixelXDimension and PixelYDimension set to the image's. Any other chunk, or any other `eXIf` layout, leaves the image to ImageIO.
+2. **Bands.** The rows are cut into bands of about 256 KB of filtered bytes (87 for a 2940 × 1912 display, at most 128). `DispatchQueue.concurrentPerform` runs one worker per core, at the encode task's QoS (user-initiated), and each takes the next band as it's free, so the efficiency cores end up with fewer.
+3. **A band.** The worker draws its rows (and the row above, and the rows it primes deflate with) into its own buffer: BGRA in the image's own colour space with the copy blend mode, so there's no colour matching. That works for crops and for ScreenCaptureKit's images alike. vImage unpremultiplies (rounding as ImageIO does, for all 65,536 colour and alpha pairs) and reorders to RGBA, and the worker Up-filters the rows. It then deflates them as a raw stream at level 1, primed with the 32 KB before the band (`deflateSetDictionary`) and ended with a sync flush (the last band with a final block). Each worker reuses its buffers and its `z_stream` (`deflateReset`) from band to band.
+4. **The file.** The bands join behind ImageIO's zlib header (`78 01`) into one stream, whose Adler-32 is combined from theirs (`adler32_combine`), cut into 16 KB IDAT chunks as ImageIO cuts it.
+
+A decoder sees ImageIO's pixels and metadata. Each band boundary costs a few bytes and moves deflate's block boundaries, so a busy shot's file is within 0.01% of ImageIO's size and a flat one's within a few KB (as it's small, that can be 4% larger or 8% smaller). With one band the file is ImageIO's byte for byte, down to the window libpng shrinks for images of 16 KB of rows or less, and the tests check that. Smaller shots, and any image but 8-bit premultiplied RGB with alpha (16-bit, float, opaque or straight-alpha layouts, other colour models), or with a decode array (drawn, it rounds differently from ImageIO), go to ImageIO.
+
+In the app (`scripts/bench.sh ab`, MacBook Air M2, 4 performance and 4 efficiency cores; median, p90 in brackets):
+
+| Shot | ImageIO encode | `ParallelPNG` | Release → file before | after |
+|---|---|---|---|---|
+| Full display (2940 × 1912), flat UI | 98 ms | 24 ms | 100 ms | 27 ms |
+| Full display, busy photo-like | 201 ms | 54 ms | 207 ms (215) | 61 ms (82) |
+| Medium area (2400 × 1600), UI / photo | 81 / 154 ms | 20 / 42 ms | 83 / 158 ms | 22 / 48 ms |
+| Small area (800 × 600), UI / photo | 21 / 38 ms | 7 / 11 ms | 24 / 40 ms | 11 / 13 ms |
+
+The thumbnail is made while the encode runs, on another thread of the same QoS. With every core deflating, a medium photo-like area's thumbnail takes 16 ms instead of 14 (23.9 instead of 16.3 at p90), and is on screen about 1 ms later. Elsewhere the difference is within the noise. The main thread's share of a capture went down, not up. Offline, a 6016 × 3384 photo-like shot encodes in 105 ms instead of 566, and a 7680 × 4320 one in 174 ms instead of 925. Files decode as fast as ImageIO's.
 
 ### On the shelf
 
@@ -228,7 +251,7 @@ A save cut off between the temp file and the rename (a crash, a forced quit, tha
   - Settings' folder icon.
 
   Even the predicted file name is checked against memory, not the disk. Results come back to the main actor, and a background check is applied only to items that haven't changed since it started.
-- **ScreenCaptureKit and pixel work run off the main thread:** captures, crops, encodes, a new shot's thumbnail and downsampling files. `SCShareableContent` is never fetched on the hotkey path.
+- **ScreenCaptureKit and pixel work run off the main thread:** captures, crops, encodes, a new shot's thumbnail and downsampling files. `SCShareableContent` is never fetched on the hotkey path. A shot's PNG encode is spread over every core at user-initiated QoS ([The PNG encode](#the-png-encode)), below the main thread's user-interactive.
 - **Nothing touches ScreenCaptureKit before permission is confirmed.** An early call can raise the system prompt at a random moment, long before the user reaches **Allow…**. `CGPreflightScreenCaptureAccess` (6–10 ms) runs on the hotkey path only until access is confirmed.
 - **Blocking system work stays off the main thread.** `SystemShortcuts.setEnabled` waits on `activateSettings` and asserts it isn't on the main thread; the UI calls `setEnabledInBackground`.
 - **The one exception is `shelf.json`.** It lives in Application Support, which never prompts, and it's read on the main actor at launch. The list itself lives on the main actor; each change hands a copy of it to `ShelfFileWriter`, which encodes and writes it on a serial queue (1–2 ms for 200 cards that the main actor used to wait for, twice per capture, and once 441 ms). A change made while a write waits to start replaces what that write will write, so the file always ends with the newest list and a burst of changes is a write or two. Two waits keep the order that matters: the save pipeline writes a capture's PNG only once the file has its card (`waitForWrites`), and quitting flushes the queue.

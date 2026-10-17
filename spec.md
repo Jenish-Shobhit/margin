@@ -116,7 +116,12 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - Use the `en_US_POSIX` locale and the local time zone, 24-hour time and plain ASCII spaces.
   - On a collision, add ` (2)`, ` (3)` and so on before `.png`.
 - **PNG.**
-  - Use ImageIO with `kCGImagePropertyPNGDictionary: [kCGImagePropertyPNGCompressionFilter: IMAGEIO_PNG_FILTER_UP]` (since 0.0.16; 0.0.15 and earlier used `IMAGEIO_PNG_FILTER_NONE`). Up is as fast as no filter on UI and about 45% faster on photo-like content, with smaller files.
+  - The file is ImageIO's PNG with `kCGImagePropertyPNGDictionary: [kCGImagePropertyPNGCompressionFilter: IMAGEIO_PNG_FILTER_UP]` (since 0.0.16; 0.0.15 and earlier used `IMAGEIO_PNG_FILTER_NONE`). Up is as fast as no filter on UI and about 45% faster on photo-like content, with smaller files.
+  - ImageIO deflates on one core (zlib level 1), and that's nearly all of its time. So from two 256 KB bands of rows up (about 360 × 360 pixels), Margin writes that file itself (`ParallelPNG`), with the deflate spread over every core. A busy full-display shot (2940 × 1912) is in its file 61 ms after release instead of 207, and a flat UI one in 27 ms instead of 100:
+    - The Up-filtered rows are cut into bands. Each band is deflated on a core of its own at level 1, as a raw stream primed with the previous band's last 32 KB and ended with a sync flush. The bands join into one zlib stream, whose Adler-32 is combined from theirs.
+    - The chunks around the image data are the ones ImageIO writes for that image (from its PNG of a 1 × 1 crop, with the `eXIf`'s pixel size set): `iCCP` (or `sRGB` for sRGB), `cICP` where the space has one, `eXIf`, `pHYs`. The samples are ImageIO's too: vImage unpremultiplies with ImageIO's rounding.
+    - So the file decodes to the same pixels with the same metadata, within a few KB of ImageIO's size (0.01% on a busy shot; a small flat one can be 4% larger or 8% smaller). With one band it would be ImageIO's file byte for byte, and the tests check that.
+    - Smaller shots, and any format but 8-bit premultiplied RGB with alpha (16-bit, float, opaque or straight alpha), go to ImageIO, as does an image with a decode array (drawing it rounds differently) and any image whose ImageIO chunks it doesn't know.
   - Keep the display's color profile.
   - Set DPI to 72 × scale (144 on Retina), as macOS does.
   - Tag the file the way `screencapture` does: the `kMDItemIsScreenCapture`, `kMDItemScreenCaptureType` (selection, window, display) and `kMDItemScreenCaptureGlobalRect` extended attributes, set on the temp file before it's renamed into place.
