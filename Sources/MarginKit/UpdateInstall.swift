@@ -32,6 +32,12 @@ public enum UpdateInstall {
         return "Margin " + String(safe)
     }
 
+    /// The most a download may be, in bytes: the size GitHub lists for the asset (it's exact), or, without one, far more
+    /// than Margin will ever be. A download that goes past it stops at once instead of filling the disk.
+    public static func downloadLimit(listedSize: Int) -> Int64 {
+        listedSize > 0 ? Int64(listedSize) : 512 << 20
+    }
+
     /// How long the helper waits for Margin to quit before it gives up and changes nothing, in tenths of a second.
     /// Quitting waits for saves at most `AppCoordinator.terminationTimeout` (3 s), and for a recording to be saved at most
     /// `recordingTerminationTimeout` (15 s); this leaves room for more.

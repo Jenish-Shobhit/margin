@@ -52,6 +52,12 @@ import Testing
         }
     }
 
+    @Test func downloadLimits() {
+        #expect(UpdateInstall.downloadLimit(listedSize: 1_945_999) == 1_945_999)   // GitHub's size is exact
+        #expect(UpdateInstall.downloadLimit(listedSize: 0) == 512 * 1024 * 1024)   // none listed: still bounded
+        #expect(UpdateInstall.downloadLimit(listedSize: -1) == 512 * 1024 * 1024)
+    }
+
     @Test func trashNames() {
         #expect(UpdateInstall.trashName(oldVersion: "0.0.19") == "Margin 0.0.19")
         #expect(UpdateInstall.trashName(oldVersion: "1/2:3") == "Margin 1-2-3")

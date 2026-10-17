@@ -58,14 +58,15 @@ enum UpdateNetwork {
     }
 
     /// Downloads `url` to `destination`, reporting progress (bytes so far, bytes expected or -1) on a background queue.
-    /// Throws `UpdateError.download` (or `CancellationError` when the task is cancelled).
-    nonisolated static func download(_ url: URL, to destination: URL,
+    /// Stops as soon as it is, or says it will be, more than `limit` bytes. Throws `UpdateError.download` (or
+    /// `CancellationError` when the task is cancelled).
+    nonisolated static func download(_ url: URL, to destination: URL, limit: Int64,
                                      progress: @escaping @Sendable (Int64, Int64) -> Void) async throws {
         guard isAllowed(url) else { throw UpdateError.download("not an https address") }
         var request = URLRequest(url: url)
         request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        let download = Download(destination: destination, progress: progress)
+        let download = Download(destination: destination, limit: limit, progress: progress)
         let session = URLSession(configuration: configuration(requestTimeout: 60, resourceTimeout: 15 * 60),
                                  delegate: download, delegateQueue: nil)
         try await withTaskCancellationHandler {
@@ -78,9 +79,11 @@ enum UpdateNetwork {
     }
 
     /// The delegate behind `download`: it moves the file into place before URLSession deletes it, follows only https
-    /// redirects (GitHub sends the zip from another host), and finishes the continuation once.
+    /// redirects (GitHub sends the zip from another host), stops a download that's bigger than its limit, and finishes
+    /// the continuation once.
     private final class Download: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
         private let destination: URL
+        private let limit: Int64
         private let progress: @Sendable (Int64, Int64) -> Void
         private let lock = NSLock()
         private var continuation: CheckedContinuation<Void, any Error>?
@@ -88,8 +91,9 @@ enum UpdateNetwork {
         private var cancelled = false
         private var failure: (any Error)?
 
-        init(destination: URL, progress: @escaping @Sendable (Int64, Int64) -> Void) {
+        init(destination: URL, limit: Int64, progress: @escaping @Sendable (Int64, Int64) -> Void) {
             self.destination = destination
+            self.limit = limit
             self.progress = progress
         }
 
@@ -112,6 +116,16 @@ enum UpdateNetwork {
 
         func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64,
                         totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+            if totalBytesWritten > limit || totalBytesExpectedToWrite > limit {
+                let first = lock.withLock {
+                    guard failure == nil else { return false }
+                    let size = ByteCountFormatter.string(fromByteCount: limit, countStyle: .file)
+                    failure = UpdateError.download("it’s bigger than the \(size) GitHub lists")
+                    return true
+                }
+                if first { downloadTask.cancel() }
+                return
+            }
             progress(totalBytesWritten, totalBytesExpectedToWrite)
         }
 
@@ -140,12 +154,15 @@ enum UpdateNetwork {
                 self.continuation = nil
                 return (c, self.failure, self.cancelled)
             }
-            if cancelled || (error as? URLError)?.code == .cancelled {
+            if cancelled {
+                continuation?.resume(throwing: CancellationError())
+            } else if let failure {
+                // Before the error: a download stopped for being too big ends as cancelled.
+                continuation?.resume(throwing: failure)
+            } else if (error as? URLError)?.code == .cancelled {
                 continuation?.resume(throwing: CancellationError())
             } else if let error {
                 continuation?.resume(throwing: UpdateError.download(error.localizedDescription))
-            } else if let failure {
-                continuation?.resume(throwing: failure)
             } else {
                 continuation?.resume()
             }

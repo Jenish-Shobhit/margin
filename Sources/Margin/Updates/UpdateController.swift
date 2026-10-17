@@ -267,7 +267,8 @@ final class UpdateController {
             #endif
             let zip = staging.appendingPathComponent(update.asset.name)
             let expected = Int64(update.asset.size)
-            try await UpdateNetwork.download(update.asset.downloadURL, to: zip) { [weak self] received, total in
+            let limit = UpdateInstall.downloadLimit(listedSize: update.asset.size)
+            try await UpdateNetwork.download(update.asset.downloadURL, to: zip, limit: limit) { [weak self] received, total in
                 Task { @MainActor in self?.downloaded(received, of: total > 0 ? total : expected) }
             }
             try Task.checkCancellation()
