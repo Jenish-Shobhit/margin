@@ -79,7 +79,7 @@ public struct LastArea: Codable, Equatable, Sendable {
     }
 }
 
-/// The five user settings plus a little internal state. Posts `Preferences.didChange` on every write.
+/// The user settings plus a little internal state. Posts `Preferences.didChange` on every write.
 @MainActor
 public final class Preferences {
     public static let shared = Preferences()
@@ -135,6 +135,18 @@ public final class Preferences {
     public var showsCaptureHints: Bool {
         get { defaults.object(forKey: "showsCaptureHints") as? Bool ?? true }
         set { set(newValue, "showsCaptureHints") }
+    }
+
+    /// Screen recordings include what the Mac plays (Margin's own sounds aside). Off unless turned on in Settings.
+    public var recordsSystemAudio: Bool {
+        get { defaults.object(forKey: "recordsSystemAudio") as? Bool ?? false }
+        set { set(newValue, "recordsSystemAudio") }
+    }
+
+    /// Screen recordings include the microphone. Off unless turned on in Settings, which asks for microphone permission.
+    public var recordsMicrophone: Bool {
+        get { defaults.object(forKey: "recordsMicrophone") as? Bool ?? false }
+        set { set(newValue, "recordsMicrophone") }
     }
 
     public var firstRunDone: Bool {

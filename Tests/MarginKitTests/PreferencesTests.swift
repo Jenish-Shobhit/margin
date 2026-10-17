@@ -46,6 +46,8 @@ final class NotificationCounter: @unchecked Sendable {
         #expect(prefs.firstRunDone == false)
         #expect(prefs.lastArea == nil)
         #expect(prefs.isRecordingShortcut == false)
+        #expect(prefs.recordsSystemAudio == false)
+        #expect(prefs.recordsMicrophone == false)
         for action in ShortcutAction.allCases {
             #expect(prefs.shortcut(for: action) == action.defaultCombo)
         }
@@ -60,6 +62,8 @@ final class NotificationCounter: @unchecked Sendable {
         prefs.launchAtLogin = false
         prefs.completedCaptures = 7
         prefs.firstRunDone = true
+        prefs.recordsSystemAudio = true
+        prefs.recordsMicrophone = true
         let area = LastArea(rect: CGRect(x: -400.5, y: 20, width: 300, height: 200.25), displayID: 42,
                             displayFrame: CGRect(x: -1920, y: 0, width: 1920, height: 1080))
         prefs.lastArea = area
@@ -74,6 +78,8 @@ final class NotificationCounter: @unchecked Sendable {
         #expect(again.launchAtLogin == false)
         #expect(again.completedCaptures == 7)
         #expect(again.firstRunDone == true)
+        #expect(again.recordsSystemAudio == true)
+        #expect(again.recordsMicrophone == true)
         #expect(again.lastArea == area)
         #expect(again.shortcut(for: .toggleShelf) == combo)
         #expect(again.shortcut(for: .captureArea) == ShortcutAction.captureArea.defaultCombo)
@@ -99,7 +105,9 @@ final class NotificationCounter: @unchecked Sendable {
         prefs.lastArea = LastArea(rect: .zero, displayID: 1, displayFrame: .zero)
         prefs.setShortcut(ShortcutAction.toggleShelf.defaultCombo, for: .toggleShelf)
         prefs.resetShortcut(for: .toggleShelf)
-        #expect(counter.count == 9)
+        prefs.recordsSystemAudio = true
+        prefs.recordsMicrophone = true
+        #expect(counter.count == 11)
     }
 
     @Test func didChangeIsScopedToTheInstance() {

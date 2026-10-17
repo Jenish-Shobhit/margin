@@ -88,4 +88,32 @@ import Testing
         let date = Date(timeIntervalSince1970: 1_792_008_000)
         #expect(FileNamer.fileName(for: date) == FileNamer.fileName(for: date, timeZone: .current))
     }
+
+    // MARK: Screen recordings
+
+    @Test func recordingsAreNamedLikeMacOSScreenRecordings() {
+        let date = Date(timeIntervalSince1970: 1_791_999_737) // 2026-10-14 17:42:17 UTC
+        let name = FileNamer.fileName(for: date, kind: .recording, timeZone: utc)
+        #expect(name == "Screen Recording 2026-10-14 at 17.42.17.mp4")
+        #expect(name.unicodeScalars.allSatisfy { $0.isASCII })
+        #expect(FileNamer.fileName(for: date, kind: .recording, timeZone: utc, suffix: 2)
+            == "Screen Recording 2026-10-14 at 17.42.17 (2).mp4")
+        // The default is a screenshot, as before.
+        #expect(FileNamer.fileName(for: date, kind: .screenshot, timeZone: utc) == FileNamer.fileName(for: date, timeZone: utc))
+        #expect(ShelfItem.Kind.recording.pathExtension == "mp4")
+        #expect(ShelfItem.Kind.screenshot.pathExtension == "png")
+    }
+
+    @Test func recordingCollisionsCountUpOnTheirOwnNames() throws {
+        let folder = try TempDir()
+        defer { folder.remove() }
+        let date = Date(timeIntervalSince1970: midnightUTC)
+        // A screenshot taken the same second doesn't take the recording's name.
+        try Data("png".utf8).write(to: FileNamer.uniqueURL(in: folder.url, for: date, timeZone: utc))
+        let first = FileNamer.uniqueURL(in: folder.url, for: date, kind: .recording, timeZone: utc)
+        #expect(first.lastPathComponent == "Screen Recording 2026-10-14 at 00.00.00.mp4")
+        try Data("mp4".utf8).write(to: first)
+        let second = FileNamer.uniqueURL(in: folder.url, for: date, kind: .recording, timeZone: utc)
+        #expect(second.lastPathComponent == "Screen Recording 2026-10-14 at 00.00.00 (2).mp4")
+    }
 }
