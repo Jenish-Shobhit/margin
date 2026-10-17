@@ -6,14 +6,16 @@ import MarginKit
 /// again does (Settings, or First run without permission), and quits.
 ///
 /// An older copy may only be quitting: a relaunch quits one copy and opens the next, and a quit can wait for saves
-/// (`AppCoordinator.terminationTimeout`). So this one waits for it to go before giving up, and starts if it does.
+/// (`AppCoordinator.terminationTimeout`) or for a recording to be saved (`recordingTerminationTimeout`). So this one
+/// waits for it to go before giving up, and starts if it does.
 @MainActor
 final class LaunchGuard {
     /// Handing over waits this long: a copy that's quitting has usually gone by then, and isn't asked to show itself on
     /// its way out.
     static let grace: TimeInterval = 0.5
     /// How long an older copy has to quit before this one decides it's staying.
-    static let patience: TimeInterval = AppCoordinator.terminationTimeout + 2
+    static let patience: TimeInterval =
+        max(AppCoordinator.terminationTimeout, AppCoordinator.recordingTerminationTimeout) + 2
 
     private var timer: Timer?
     private var start: (@MainActor () -> Void)?
