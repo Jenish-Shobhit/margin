@@ -2,6 +2,13 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.0.19 — 2026-10-17
+
+### Changed
+
+- Screenshots are saved and copied 3–4× sooner. The PNG is now compressed on every core instead of one: a busy full-screen shot is in its file about 60 ms after you let go instead of about 205 ms, and an ordinary one in about 27 ms instead of about 100. The files are the same PNGs as before, with the same pixels, colour profile and metadata, and the same size to within a few KB.
+- The shelf shows up to six cards instead of four (fewer when they don't fit the display).
+
 ## 0.0.18 — 2026-10-15
 
 ### Changed
