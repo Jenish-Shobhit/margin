@@ -260,6 +260,7 @@ final class DebugCommandListener: NSObject {
                 "current": w.changeCount == NSPasteboard.general.changeCount,
                 "finished": w.isFinished,
                 "pasted": w.pasted.map(\.uuidString).sorted(),
+                "switchedApps": w.switchedApps,
                 "reads": w.reads.map { r -> [String: Any] in
                     ["type": r.type, "id": r.id.uuidString, "afterMs": (r.after * 1000).rounded(),
                      "command": r.keys.command, "control": r.keys.control,

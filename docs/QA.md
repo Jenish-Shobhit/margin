@@ -188,7 +188,7 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] A capture lands in `~/Library/Application Support/Margin/Pasteboard/`, named as usual, with the screenshot tags (`mdls -name kMDItemIsScreenCapture`) and no `.margin-*.tmp` left; no privacy prompt
 - [ ] ⇧⌘5's recordings still land in Save to
 - [ ] Seconds after a capture `pasteboard.watch.reads` is still empty: nothing reads it before a paste (Spotlight's clipboard history on or off)
-- [ ] ⌘V into an app that takes images (Notes, Slack, Chrome, WhatsApp, Claude): the shot pastes, and its card leaves the shelf within half a second, as after a drop
+- [ ] ⌘V into an app that takes images (Notes, Slack, Chrome, WhatsApp, Claude): the shot pastes, and its card leaves the shelf within half a second of letting go of ⌘, as after a drop
 - [ ] ⌘V in Ghostty pastes the path and the card leaves; Claude Code attaches the shot
 - [ ] Edit › Paste (or a right-click Paste) pastes, and the card stays
 - [ ] A click on a card (or ⌘C) copies it again, and the next ⌘V takes it away again
@@ -200,7 +200,7 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] ⌘V of a copied shot into Rename… pastes its name text (or nothing) and the card stays
 - [ ] Choosing `~/Library/Application Support/Margin/Pasteboard` as Save to leaves Save to on the default folder
 - [ ] A shelf.json set aside as `shelf.json.bad` (corrupt it while Margin is quit): the Pasteboard files its cards named are still there after the relaunch's 30 s
-- [ ] With a clipboard manager that saves images (Maccy, Raycast): a ⌘V paste leaves the card on the shelf (the documented caveat), and dismissing it works as usual
+- [ ] With a clipboard manager that saves images (Maccy, Raycast): a ⌘V paste leaves the card on the shelf (the documented caveat), and dismissing it works as usual; ⌘Tab straight after a capture leaves it too (`pasteboard.watch.switchedApps` counts it if the manager read just then)
 - [ ] Turning the option off moves and deletes nothing: new shots go to Save to, a paste no longer takes a card away, and cards from before keep their files until they're dismissed and their ⌘Z step is gone
 - [ ] With the Pasteboard folder unwritable (`chmod 500` it, then back), a capture goes to Unsaved with a toast naming “Pasteboard”, and that shot behaves as a normal file
 

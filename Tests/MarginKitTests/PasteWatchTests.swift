@@ -47,7 +47,7 @@ import Testing
     let a = UUID(), b = UUID()
 
     func watch(_ keys: Keys, pasted: @escaping ([UUID]) -> Void = { _ in }) -> PasteWatch {
-        let watch = PasteWatch(keys: { keys.held }, reportDelay: 0.01, quiet: 0)
+        let watch = PasteWatch(keys: { keys.held }, reportDelay: 0.01, longestHold: 0, activationLag: 0, quiet: 0)
         watch.onPaste = pasted
         return watch
     }
@@ -55,6 +55,11 @@ import Testing
     /// Lets the watch's delayed report run.
     func settle() async {
         try? await Task.sleep(for: .milliseconds(80))
+    }
+
+    /// Waits, up to 3 s, for `done` (a report that waits on the keys takes a few rounds of the main queue).
+    func settle(until done: () -> Bool) async {
+        for _ in 0..<100 where !done() { try? await Task.sleep(for: .milliseconds(30)) }
     }
 
     @Test func promisesTheSameItemsACaptureWrites() throws {
@@ -102,6 +107,47 @@ import Testing
         await settle()
         #expect(pasted.isEmpty && w.pasted.isEmpty)
         #expect(w.reads.count == 2)
+    }
+
+    /// The report waits for ⌘ to come up: ⌘Tab's app comes to the front only then.
+    @Test func aPasteIsReportedOnceTheKeysAreUp() async {
+        let pb = NSPasteboard.withUniqueName()
+        defer { pb.releaseGlobally() }
+        let keys = Keys()
+        var pasted: [[UUID]] = []
+        let w = PasteWatch(keys: { keys.held }, reportDelay: 0.01, longestHold: 5, activationLag: 0.01, quiet: 0)
+        w.onPaste = { pasted.append($0) }
+        w.write([.init(id: a, png: shot, fileURL: url)], to: pb)
+        keys.held = PasteKeys(command: true, sinceKeyDown: 0)
+        _ = pb.data(forType: .png)
+        await settle()
+        #expect(pasted.isEmpty)   // ⌘ still down
+        keys.held = PasteKeys()
+        await settle { !pasted.isEmpty }
+        #expect(pasted == [[a]])
+        #expect(w.switchedApps == 0)
+    }
+
+    /// A clipboard manager polling as ⌘Tab's Tab goes down reads with ⌘ held and a key just pressed; the app that comes
+    /// to the front as ⌘ is let go says it was a switch, and the card stays.
+    @Test func aReadFollowedByAnAppSwitchIsntAPaste() async {
+        let pb = NSPasteboard.withUniqueName()
+        defer { pb.releaseGlobally() }
+        let keys = Keys()
+        var activated = Date.distantPast
+        var pasted: [[UUID]] = []
+        let w = PasteWatch(keys: { keys.held }, lastActivation: { activated }, reportDelay: 0.01, longestHold: 5,
+                           activationLag: 0.02, quiet: 0)
+        w.onPaste = { pasted.append($0) }
+        w.write([.init(id: a, png: shot, fileURL: url)], to: pb)
+        keys.held = PasteKeys(command: true, sinceKeyDown: 0)
+        _ = pb.data(forType: .png)
+        try? await Task.sleep(for: .milliseconds(30))
+        keys.held = PasteKeys()
+        activated = Date()
+        await settle { w.switchedApps > 0 || !pasted.isEmpty }
+        #expect(pasted.isEmpty && w.pasted.isEmpty)
+        #expect(w.switchedApps == 1)
     }
 
     /// ⌘V in one of Margin's own fields (Rename…) reads Margin's clipboard with the paste keys held: the keys went to

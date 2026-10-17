@@ -25,12 +25,27 @@ extension AppCoordinator {
     /// Writes `entries` to the clipboard watched for a paste (`PasteWatch`: promised, kept on this Mac) and returns the
     /// change count. A paste takes the pasted cards off the shelf.
     func writeWatched(_ entries: [PasteWatch.Entry]) -> Int {
+        watchAppActivations()
         // Margin in front reads its own clipboard (⌘V in Rename…): keys go to the app in front, so no other app pasted.
-        let watch = PasteWatch(readerIsSelf: { NSApp.isActive || NSApp.keyWindow != nil })
+        let watch = PasteWatch(readerIsSelf: { NSApp.isActive || NSApp.keyWindow != nil },
+                               lastActivation: { [weak self] in self?.lastAppActivation ?? .distantPast })
         watch.onPaste = { [weak self] ids in self?.pasted(ids) }
         let changeCount = watch.write(entries)
         pasteWatch = watch
         return changeCount
+    }
+
+    /// Other apps coming to the front, from the first watched write on (never while the option has been off all along).
+    private func watchAppActivations() {
+        guard appActivationObserver == nil else { return }
+        let me = ProcessInfo.processInfo.processIdentifier
+        appActivationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            guard app?.processIdentifier != me else { return }
+            MainActor.assumeIsolated { self?.lastAppActivation = Date() }
+        }
     }
 
     /// A shelf copy (click, ⌘C) with a Pasteboard screenshot in it, while the option is on, is watched again; any other

@@ -86,19 +86,31 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
     private var entries: [ObjectIdentifier: Entry] = [:]
     private var items: [NSPasteboardItem] = []
     private var reporting: Set<UUID> = []
+    /// When the key of the reads being gathered went down (the earliest, if they disagree).
+    private var reportingKeyDown = Date.distantFuture
     private let keys: () -> PasteKeys
     private let readerIsSelf: () -> Bool
+    private let lastActivation: () -> Date
     private let reportDelay: TimeInterval
+    private let longestHold: TimeInterval
+    private let activationLag: TimeInterval
     private let quiet: TimeInterval
 
     /// `keys` reads the keyboard at a read, and `quiet` is `PasteKeys.isPaste`'s (both injectable for tests).
     /// `readerIsSelf` says the keys went to Margin itself (in front, or with a key window): a read then is never another
-    /// app's paste.
+    /// app's paste. `lastActivation` is when another app last came to the front: one that came after the key was
+    /// ⌘Tab, not ⌘V (`report`). The report waits for ⌘ and ⌃ to be let go, up to `longestHold`, and `activationLag`
+    /// after, for the activation to be heard of.
     public init(keys: @escaping () -> PasteKeys = { PasteKeys.current }, readerIsSelf: @escaping () -> Bool = { false },
-                reportDelay: TimeInterval = 0.15, quiet: TimeInterval = PasteKeys.quietAfterWrite) {
+                lastActivation: @escaping () -> Date = { .distantPast }, reportDelay: TimeInterval = 0.15,
+                longestHold: TimeInterval = 2, activationLag: TimeInterval = 0.1,
+                quiet: TimeInterval = PasteKeys.quietAfterWrite) {
         self.keys = keys
         self.readerIsSelf = readerIsSelf
+        self.lastActivation = lastActivation
         self.reportDelay = reportDelay
+        self.longestHold = longestHold
+        self.activationLag = activationLag
         self.quiet = quiet
     }
 
@@ -152,17 +164,46 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
               pasted.insert(entry.id).inserted else { return }
         if reporting.isEmpty {
             // Held until then: the pasteboard may be done with the watch before the report is.
-            DispatchQueue.main.asyncAfter(deadline: .now() + reportDelay) {
-                MainActor.assumeIsolated { self.report() }
-            }
+            let started = Date()
+            later(reportDelay) { self.report(started: started, releasedAt: nil) }
         }
         reporting.insert(entry.id)
+        reportingKeyDown = min(reportingKeyDown, Date().addingTimeInterval(-held.sinceKeyDown))
     }
 
-    private func report() {
+    /// Once ⌘ and ⌃ are up (or after `longestHold`), and `activationLag` later: the app switcher brings its app to the
+    /// front only as ⌘ is let go, so a read that ⌘Tab's own Tab let through (a clipboard manager polling just then) is
+    /// followed by an activation after the key, and a paste isn't. Then the cards are the app's to report, or kept.
+    private func report(started: Date, releasedAt: Date?) {
+        let now = Date()
+        if releasedAt == nil {
+            let held = keys()
+            if (held.command || held.control) && now.timeIntervalSince(started) < longestHold {
+                later(0.03) { self.report(started: started, releasedAt: nil) }
+                return
+            }
+            if activationLag > 0 {
+                later(activationLag) { self.report(started: started, releasedAt: now) }
+                return
+            }
+        }
         let ids = items.compactMap { entries[ObjectIdentifier($0)]?.id }.filter(reporting.contains)
+        let switched = lastActivation() > reportingKeyDown
         reporting = []
-        if !ids.isEmpty { onPaste?(ids) }
+        reportingKeyDown = .distantFuture
+        if switched {
+            switchedApps += ids.count
+            pasted.subtract(ids)
+        } else if !ids.isEmpty {
+            onPaste?(ids)
+        }
+    }
+
+    /// Reads that looked like a paste but came with ⌘Tab (`report`), for the DEBUG state dump.
+    public private(set) var switchedApps = 0
+
+    private func later(_ delay: TimeInterval, _ work: @escaping @MainActor () -> Void) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { MainActor.assumeIsolated { work() } }
     }
 
     /// Gives the pasteboard everything still promised, so the clipboard keeps the shot once Margin has quit. Call

@@ -33,6 +33,9 @@ final class AppCoordinator {
     var clipboardFiles: PasteboardShots.ClipboardFiles?
     /// Margin's clipboard write that's watched for a paste, while the pasteboard may still ask it for data.
     var pasteWatch: PasteWatch?
+    /// When another app last came to the front, for `PasteWatch` (⌘Tab isn't ⌘V). Watched from the first watched write.
+    var lastAppActivation = Date.distantPast
+    var appActivationObserver: NSObjectProtocol?
     /// Last known Screen Recording state (`CGPreflightScreenCaptureAccess`). Never requests access.
     private(set) var permissionGranted = false
     /// The permission warning (dot, "Allow Screen Recording…") shows while preflight says no, and after a
