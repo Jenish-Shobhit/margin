@@ -14,6 +14,8 @@
 #   scripts/debug.sh stop-recording                 stop and save the recording, as ⇧⌘5 does
 #   scripts/debug.sh recording-fault fail           the recording's writer fails now, as on a full disk (debug builds)
 #   scripts/debug.sh recording-fault crash          Margin exits at once mid-recording, as in a crash (debug builds)
+#   scripts/debug.sh recording-fault hang-stream    the next stop's stopCapture never answers (debug builds)
+#   scripts/debug.sh recording-fault hang-finish    the next stop's finishWriting never answers (debug builds)
 #
 # Commands are posted as the distributed notification io.github.jenish-shobhit.margin.debug with the
 # command string as its object. Release builds don't listen.

@@ -2,6 +2,7 @@ import AVFoundation
 import CoreMedia
 import MarginKit
 import ScreenCaptureKit
+import Synchronization
 import VideoToolbox
 
 /// What one recording captures and how (spec §14.4), worked out on the main actor (`RecordingController.source`).
@@ -36,6 +37,9 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
             /// The writer failed, or couldn't finish: the file is as it left it, which plays up to its last fragment
             /// (or, cut off in its first second, not at all).
             case failed
+            /// The stop gave up waiting for the writer (`stopTimeout`): the file is as it is now, up to its last
+            /// fragment, and the writer may still finish it.
+            case timedOut
         }
 
         /// The temp file, or nil when nothing was written (it's removed).
@@ -93,6 +97,17 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
     #if DEBUG
     /// `scripts/debug.sh recording-fault fail`: the writer is taken to have failed (it carries on, unfinished, untouched).
     private var simulatedFailure: (any Error)?
+    #endif
+
+    /// What `finish` had when it asked the writer to finish, for a stop that gives up waiting (`gaveUp`): set on `queue`,
+    /// read from the time limit's.
+    private let finishing = Mutex<Outcome?>(nil)
+
+    #if DEBUG
+    /// `scripts/debug.sh recording-fault hang-stream|hang-finish`: the next stop's `stopCapture`, or `finishWriting`,
+    /// never answers.
+    enum Fault: Sendable { case hangStream, hangFinish }
+    let faults = Mutex<Set<Fault>>([])
     #endif
 
     /// ScreenCaptureKit sends a frame only when something changed, and holds each one (an IOSurface from its pool)
@@ -358,13 +373,48 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         await withCheckedContinuation { c in queue.async { [self] in c.resume(returning: stats) } }
     }
 
+    /// How long a stop waits for ScreenCaptureKit to stop the stream; then it finishes the file anyway (a sample that
+    /// still comes is ignored).
+    static let streamStopTimeout: TimeInterval = 3
+    /// The longest a stop takes, the stream's stop included: then it stops waiting for the writer, and the file is taken
+    /// as it is (up to its last fragment; a writer that's merely slow still finishes it). Well inside the quit's 15 s
+    /// (`AppCoordinator.recordingTerminationTimeout`), leaving time to name the file. A stop takes 0.1–0.3 s.
+    static let stopTimeout: TimeInterval = 10
+
     /// Stops capturing and finishes the file: the last frame is held until the stop, and the index is written. `at` is when
-    /// the stop was asked for, on the host clock the frames are stamped with.
+    /// the stop was asked for, on the host clock the frames are stamped with. Returns within `stopTimeout`, whatever
+    /// ScreenCaptureKit and the writer do.
     func stop(at end: CMTime = CMClockGetTime(CMClockGetHostTimeClock())) async -> Outcome {
-        try? await stream.stopCapture()
-        return await withCheckedContinuation { (c: CheckedContinuation<Outcome, Never>) in
-            queue.async { [self] in finish(at: end) { c.resume(returning: $0) } }
+        let deadline = Date().addingTimeInterval(Self.stopTimeout)
+        if await !stopStream(within: Self.streamStopTimeout) {
+            RecordingLog.log.error("The stream didn't stop in \(Self.streamStopTimeout, format: .fixed(precision: 0)) s: finishing the file anyway")
         }
+        return await TimeLimit.answer(within: deadline.timeIntervalSinceNow, { done in
+            queue.async { [self] in finish(at: end, done: done) }
+        }, timedOut: { [self] in gaveUp() })
+    }
+
+    /// `stopCapture`, waiting at most `seconds` for its answer. False if it didn't come in time.
+    private func stopStream(within seconds: TimeInterval) async -> Bool {
+        await TimeLimit.answer(within: seconds, { done in
+            #if DEBUG
+            if faults.withLock({ $0.contains(.hangStream) }) {
+                // No answer in time: the stream is stopped once the stop has gone on without it.
+                DispatchQueue.global().asyncAfter(deadline: .now() + seconds + 1) { [self] in stream.stopCapture { _ in } }
+                return
+            }
+            #endif
+            stream.stopCapture { _ in done(true) }
+        }, timedOut: { false })
+    }
+
+    /// The outcome of a stop that stopped waiting for the writer: the file as it is, and the numbers `finish` had, if it
+    /// got that far.
+    private func gaveUp() -> Outcome {
+        let had = finishing.withLock { $0 }
+        RecordingLog.log.error("The recording didn't finish in \(Self.stopTimeout, format: .fixed(precision: 0)) s: keeping the file as it is")
+        return Outcome(url: url, ending: .timedOut, duration: had?.duration ?? 0, framesWritten: had?.framesWritten ?? 0,
+                       framesDropped: had?.framesDropped ?? 0, error: "The file didn't finish in time")
     }
 
     private func finish(at requested: CMTime, done: @escaping @Sendable (Outcome) -> Void) {
@@ -400,6 +450,13 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         writer.endSession(atSourceTime: end)
         let stats = stats
         let duration = max(0, CMTimeSubtract(end, first).seconds)
+        finishing.withLock {
+            $0 = Outcome(url: url, ending: .timedOut, duration: duration, framesWritten: stats.framesWritten,
+                         framesDropped: stats.framesDropped, error: nil)
+        }
+        #if DEBUG
+        if faults.withLock({ $0.contains(.hangFinish) }) { return } // the writer never answers
+        #endif
         writer.finishWriting { [self] in
             // One that couldn't be finished is kept too, as it is (up to its last fragment).
             let ok = writer.status == .completed
