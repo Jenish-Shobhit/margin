@@ -265,7 +265,7 @@ Nothing of recording exists until ⇧⌘5: `RecordingController` is created at l
 
 **Finishing** (`RecordingController.place`, off the main thread). The temp file is renamed to `Screen Recording <start>.mp4` (` (2)`… on a clash, never replacing a file), bookmarked, and its first frame decoded at the card's 2× size with `AVAssetImageGenerator` (`ShelfThumbnails.poster`, which also makes recording cards' thumbnails at launch). The coordinator (`handleRecording`) adds the card and marks it saved at once (no pending state: the file exists), flies it in from the recorded rect, and with Copy each capture puts the file URL on the clipboard as the newest capture. Quitting while recording stops it and waits for the file (at most 15 s) through the same `savesInFlight` count as screenshots.
 
-**Measured** (MacBook Air, 2940 × 1912 at 60 Hz, macOS 27, bench builds; `scripts/bench.sh record` and `ab --animate --record-b`, 17 Oct 2026):
+**Measured** (MacBook Air M2, 1470 × 956 pt at 2×: 2940 × 1912 pixels, 60 Hz, macOS 27, bench builds; `scripts/bench.sh record` and `ab --animate --record-b`, 17 Oct 2026):
 
 | | |
 |---|---|
