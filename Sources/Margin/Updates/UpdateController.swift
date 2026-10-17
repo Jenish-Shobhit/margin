@@ -84,6 +84,8 @@ final class UpdateController {
     @ObservationIgnored var debugReadOnly = false
     /// What Open Releases Page would have opened, with a local feed (which never opens the browser).
     @ObservationIgnored private(set) var debugOpenedURL: URL?
+    /// The last install's staging folder, to check it's gone afterwards (`update-state`).
+    @ObservationIgnored private(set) var debugLastStaging: URL?
     /// With a local feed, a test is running on a Mac someone may be using: the window never takes the keyboard (Return
     /// would press its default button) and Open Releases Page opens nothing.
     private var isTesting: Bool { feedURL != UpdateCheck.latestReleaseURL }
@@ -260,6 +262,9 @@ final class UpdateController {
             let staging = try FileManager.default.url(for: .itemReplacementDirectory, in: .userDomainMask,
                                                       appropriateFor: app, create: true)
             self.staging = staging
+            #if DEBUG || MARGIN_BENCH
+            debugLastStaging = staging
+            #endif
             let zip = staging.appendingPathComponent(update.asset.name)
             let expected = Int64(update.asset.size)
             try await UpdateNetwork.download(update.asset.downloadURL, to: zip) { [weak self] received, total in
@@ -481,6 +486,8 @@ final class UpdateController {
             "windowIsKey": UpdateWindowController.shared.isKey,
             "windowNumber": UpdateWindowController.shared.windowNumber ?? NSNull(),
             "openedURL": debugOpenedURL?.absoluteString ?? NSNull(),
+            "lastStaging": debugLastStaging?.path ?? NSNull(),
+            "lastStagingExists": debugLastStaging.map { FileManager.default.fileExists(atPath: $0.path) } ?? NSNull(),
             "trash": debugTrash?.path ?? NSNull(),
             "readOnly": debugReadOnly,
             "bundlePath": Bundle.main.bundlePath,
