@@ -57,8 +57,8 @@ enum Offline {
     static func encode(_ paths: [String]) {
         guard !paths.isEmpty else { fail("encode <png>…") }
         let filters: [(String, Int32?)] = [
-            ("none (Margin today)", IMAGEIO_PNG_FILTER_NONE), ("ImageIO default", nil), ("sub", IMAGEIO_PNG_FILTER_SUB),
-            ("up", IMAGEIO_PNG_FILTER_UP), ("paeth", IMAGEIO_PNG_FILTER_PAETH), ("sub+up (fast adaptive)", IMAGEIO_PNG_FILTER_SUB | IMAGEIO_PNG_FILTER_UP),
+            ("none (to 0.0.15)", IMAGEIO_PNG_FILTER_NONE), ("ImageIO default", nil), ("sub", IMAGEIO_PNG_FILTER_SUB),
+            ("up (ImageIO alone)", IMAGEIO_PNG_FILTER_UP), ("paeth", IMAGEIO_PNG_FILTER_PAETH), ("sub+up (fast adaptive)", IMAGEIO_PNG_FILTER_SUB | IMAGEIO_PNG_FILTER_UP),
             ("all five (adaptive)", 0xF8), ("no filters key 0", IMAGEIO_PNG_NO_FILTERS),
         ]
         print("image                          filter               encode med   p90     size KB   thumb decode med")
@@ -72,14 +72,14 @@ enum Offline {
                 print(String(format: "%-30@ %-20@ %8.1f %8.1f %9.0f %12.1f", name as NSString, label as NSString,
                              t.median, t.p90, Double(data.count) / 1024, d.median))
             }
-            // PNGWriter itself (what the app runs), and the clipboard write of its bytes on a private pasteboard.
+            // PNGWriter itself (what the app runs: ParallelPNG from two bands of rows up), and the clipboard write of its bytes on a private pasteboard.
             var png = Data()
             let w = timed(5) { png = (try? PNGWriter.encode(image, scale: 2)) ?? Data() }
             let pb = NSPasteboard(name: NSPasteboard.Name("margin-bench-\(UUID().uuidString)"))
             let c = MainActor.assumeIsolated { timed(5) { ClipboardWriter.write(pngs: [png], fileURLs: [URL(fileURLWithPath: "/tmp/x.png")], to: pb) } }
             pb.releaseGlobally()
             print(String(format: "%-30@ %-20@ %8.1f %8.1f %9.0f   clipboard write %.1f ms (p90 %.1f)", name as NSString,
-                         "PNGWriter.encode" as NSString, w.median, w.p90, Double(png.count) / 1024, c.median, c.p90))
+                         "PNGWriter (parallel)" as NSString, w.median, w.p90, Double(png.count) / 1024, c.median, c.p90))
         }
     }
 
