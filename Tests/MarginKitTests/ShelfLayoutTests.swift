@@ -6,7 +6,7 @@ import Testing
     typealias L = ShelfLayout
 
     @Test func constants() {
-        #expect(L.cardWidth == 176 && L.gap == 10 && L.edgeInset == 14 && L.maxVisible == 4)
+        #expect(L.cardWidth == 176 && L.gap == 10 && L.edgeInset == 14 && L.maxVisible == 6)
         #expect(L.panelWidth == CGFloat(176 + 28))
     }
 
@@ -56,19 +56,19 @@ import Testing
         #expect(r.contentHeight == CGFloat(308 + 100 + 14))
     }
 
-    @Test func fiveItemsMakeAPileOfOne() {
-        let r = L.layout(heights: Array(repeating: 100, count: 5), availableHeight: 1000)
-        #expect(Set(r.cardFrames.keys) == [1, 2, 3, 4])
+    @Test func sevenItemsMakeAPileOfOne() {
+        let r = L.layout(heights: Array(repeating: 100, count: 7), availableHeight: 1000)
+        #expect(Set(r.cardFrames.keys) == [1, 2, 3, 4, 5, 6])
         #expect(r.pileCount == 1)
-        #expect(r.pileFrame == CGRect(x: 14, y: 14 + 4 * 110, width: 176, height: L.pileHeight))
-        #expect(r.contentHeight == CGFloat(14 + 4 * 110) + L.pileHeight + 14)
+        #expect(r.pileFrame == CGRect(x: 14, y: 14 + 6 * 110, width: 176, height: L.pileHeight))
+        #expect(r.contentHeight == CGFloat(14 + 6 * 110) + L.pileHeight + 14)
     }
 
     @Test func fiftyItems() {
         let r = L.layout(heights: Array(repeating: 99, count: 50), availableHeight: 1200)
-        #expect(Set(r.cardFrames.keys) == [46, 47, 48, 49])
-        #expect(r.pileCount == 46)
-        #expect(r.pileFrame?.minY == CGFloat(14 + 4 * (99 + 10)))
+        #expect(Set(r.cardFrames.keys) == [44, 45, 46, 47, 48, 49])
+        #expect(r.pileCount == 44)
+        #expect(r.pileFrame?.minY == CGFloat(14 + 6 * (99 + 10)))
         #expect(r.contentHeight <= 1200)
     }
 
@@ -100,8 +100,8 @@ import Testing
     @Test func visibleCountNeverExceedsMax() {
         for n in 0...12 {
             let r = L.layout(heights: Array(repeating: 64, count: n), availableHeight: 10_000)
-            #expect(r.cardFrames.count == min(n, 4))
-            #expect(r.pileCount == max(n - 4, 0))
+            #expect(r.cardFrames.count == min(n, L.maxVisible))
+            #expect(r.pileCount == max(n - L.maxVisible, 0))
             #expect(r.cardFrames.count + r.pileCount == n)
         }
     }

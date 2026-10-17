@@ -7,7 +7,7 @@ public enum ShelfLayout {
     public static let maxCardHeight: CGFloat = 176
     public static let gap: CGFloat = 10
     public static let edgeInset: CGFloat = 14
-    public static let maxVisible = 4
+    public static let maxVisible = 6
     public static let pileHeight: CGFloat = 30
     public static let panelWidth: CGFloat = cardWidth + edgeInset * 2
 

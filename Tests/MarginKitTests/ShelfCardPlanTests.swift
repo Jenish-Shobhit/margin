@@ -11,17 +11,17 @@ import Testing
     }
 
     @Test func aBigShelfKeepsTheVisibleCardsTheFanAndTheNextFew() {
-        // 200 cards, 4 visible: those, the fan's 3 and 4 more, whatever the shelf's size.
-        let kept = ShelfCardPlan.keptIndices(count: 200, pileCount: 196)
-        #expect(kept == Array((189...199).reversed()))
-        #expect(kept.count == 4 + ShelfCardPlan.fanCount + ShelfCardPlan.aheadCount)
+        // 200 cards, 6 visible: those, the fan's 3 and 6 more, whatever the shelf's size.
+        let kept = ShelfCardPlan.keptIndices(count: 200, pileCount: 194)
+        #expect(kept == Array((185...199).reversed()))
+        #expect(kept.count == 6 + ShelfCardPlan.fanCount + ShelfCardPlan.aheadCount)
         #expect(kept.first == 199)
-        #expect(ShelfCardPlan.keptIndices(count: 2000, pileCount: 1996).count == kept.count)
+        #expect(ShelfCardPlan.keptIndices(count: 2000, pileCount: 1994).count == kept.count)
     }
 
     @Test func aShortScreenShowsFewerCardsAndKeepsAsManyBeyondThem() {
-        // One visible card (a short display): it, then the pile's newest 7.
-        #expect(ShelfCardPlan.keptIndices(count: 50, pileCount: 49) == Array((42...49).reversed()))
+        // One visible card (a short display): it, then the pile's newest 9.
+        #expect(ShelfCardPlan.keptIndices(count: 50, pileCount: 49) == Array((40...49).reversed()))
     }
 
     @Test func aSmallPileIsKeptWhole() {

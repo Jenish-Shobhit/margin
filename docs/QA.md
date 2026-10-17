@@ -153,7 +153,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **Cards and the pile**
 
 - [ ] Cards are 176 pt wide, height follows the shot (64–176 pt), aspect-fill, newest at the bottom; older cards slide up
-- [ ] At most 4 cards (fewer if they don't fit); older ones fold into `+N older`
+- [ ] At most 6 cards (fewer if they don't fit); older ones fold into `+N older`
 - [ ] Hovering the pile fans it out; dragging the pile sends all its items; right-click › Clear shelf (undoable)
 
 **Fly-in and hover**
@@ -169,7 +169,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] Tucked: the shot flies into the tab, the count goes up, the shelf stays tucked
 - [ ] The tuck tab peeks on hover and shows the shelf on click
 - [ ] Toasts appear above the top card for 1.2 s, never as notifications
-- [ ] Five captures give 4 cards plus `+1 older`, and survive quit and relaunch
+- [ ] Seven captures give 6 cards plus `+1 older`, and survive quit and relaunch
 
 ## Shelf interactions (§5)
 

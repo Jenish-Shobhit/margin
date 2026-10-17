@@ -50,7 +50,7 @@ Every capture is saved to disk, copied to the clipboard and put on a shelf of th
 
 **The shelf**
 
-- Up to four cards on the right edge of the display you last captured on, newest at the bottom. Older shots fold into a `+N older` pile.
+- Up to six cards on the right edge of the display you last captured on, newest at the bottom. Older shots fold into a `+N older` pile.
 - Drag a card into Finder, Slack, Chrome, WhatsApp, Terminal or any other app. It leaves the shelf when the drop lands; the file is never moved or deleted.
 - Click to copy again, Space for Quick Look, double-click to open. Rename, Reveal in Finder, Copy Path and Move to Trash are in each card's menu.
 - ⌘Z (or **Restore Last Removed** in the menu bar) brings back the last 20 removals, including files you moved to the Trash.

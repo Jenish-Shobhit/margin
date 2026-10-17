@@ -144,11 +144,12 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - Rebuild the panel position on every display change.
 - **Never in a shot.** Every capture uses the exclusion filter. The overlay level is above the shelf.
 - **Cards.**
+  - Up to 6 show (since 0.0.19; 4 before), newest at the bottom, fewer when they don't fit the display; older ones fold into the pile.
   - 176 pt wide. Height follows the shot's aspect ratio, clamped to 64–176 pt, with aspect-fill.
   - 10 pt gap, 14 pt from the screen edge and the bottom of the visible frame.
   - Corner radius 10, a subtle 1 px border and a soft shadow.
   - Thumbnails are downsampled to 2× the card size (`CGImageSourceCreateThumbnailAtIndex` for persisted items; the in-memory image for new ones, off the main thread right after the capture).
-  - Since 0.0.16, only the cards that can be seen or soon could be are live (a view and a decoded thumbnail): the visible cards, the pile's fan (3) and the next 4 in the pile, plus any selected or last-clicked card. The rest of the pile becomes a card when it comes forward (a removal, ⌘Z), decoding at most 2 thumbnails at a time, newest first, and stops being one when it folds deeper again. Launch and memory then stay about the same however big the shelf is.
+  - Since 0.0.16, only the cards that can be seen or soon could be are live (a view and a decoded thumbnail): the visible cards, the pile's fan (3) and as many again as there are visible cards (6) in the pile, plus any selected or last-clicked card. The rest of the pile becomes a card when it comes forward (a removal, ⌘Z), decoding at most 2 thumbnails at a time, newest first, and stops being one when it folds deeper again. Launch and memory then stay about the same however big the shelf is.
 - **Order.** The newest is at the bottom, and older cards slide up with a spring.
 - **Pile.** Show at most **4** cards, or fewer if they don't fit vertically. Older items fold into a pile above them labelled `+N older`.
   - Hovering the pile fans it out.
