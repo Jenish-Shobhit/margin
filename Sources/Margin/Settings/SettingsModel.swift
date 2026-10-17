@@ -15,6 +15,7 @@ final class SettingsModel {
     /// Whether the save folder exists; nil until the first check finishes (`refreshFolderInfo`).
     private(set) var saveFolderExists: Bool?
     private(set) var copyEachCapture: Bool
+    private(set) var deletesAfterPasting: Bool
     private(set) var shutterSound: Bool
     private(set) var showsCaptureHints: Bool
     private(set) var recordsSystemAudio: Bool
@@ -72,6 +73,7 @@ final class SettingsModel {
         self.status = status
         saveFolder = prefs.saveFolder
         copyEachCapture = prefs.copyEachCapture
+        deletesAfterPasting = prefs.deletesAfterPasting
         shutterSound = prefs.shutterSound
         showsCaptureHints = prefs.showsCaptureHints
         recordsSystemAudio = prefs.recordsSystemAudio
@@ -109,6 +111,7 @@ final class SettingsModel {
     func reload() {
         saveFolder = prefs.saveFolder
         copyEachCapture = prefs.copyEachCapture
+        deletesAfterPasting = prefs.deletesAfterPasting
         shutterSound = prefs.shutterSound
         showsCaptureHints = prefs.showsCaptureHints
         recordsSystemAudio = prefs.recordsSystemAudio
@@ -150,6 +153,8 @@ final class SettingsModel {
 
     func setSaveFolder(_ url: URL) { prefs.saveFolder = url }
     func setCopyEachCapture(_ on: Bool) { prefs.copyEachCapture = on }
+    /// Spec §14.2. Turning it either way moves and deletes nothing: it decides where the next screenshots go.
+    func setDeletesAfterPasting(_ on: Bool) { prefs.deletesAfterPasting = on }
     func setShutterSound(_ on: Bool) { prefs.shutterSound = on }
     func setShowsCaptureHints(_ on: Bool) { prefs.showsCaptureHints = on }
 

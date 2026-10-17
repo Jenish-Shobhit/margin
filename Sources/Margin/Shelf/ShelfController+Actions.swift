@@ -3,7 +3,8 @@ import MarginKit
 
 /// One ⌘Z step: what left the shelf, and how to bring it back.
 struct ShelfUndoStep {
-    enum Kind { case dragOut, dismiss, clear, trash }
+    /// `paste`: pasted into another app while "Delete screenshots after pasting" is on (spec §14.2).
+    enum Kind { case dragOut, dismiss, clear, trash, paste }
     struct Trashed {
         let original: URL
         let trashed: URL
@@ -13,6 +14,8 @@ struct ShelfUndoStep {
     var removals: [ShelfStore.Removal]
     var trashed: [UUID: Trashed] = [:]
     var thumbnails: [UUID: CGImage] = [:]
+    /// When the cards left: a pasted or dropped shot's file stays a little while after (`PasteboardShots.Departure`).
+    var removedAt = Date()
 
     static let limit = 20
     /// Only the newest few steps keep their thumbnails in memory; older ones reload from disk.
@@ -196,14 +199,16 @@ extension ShelfController {
                 }
                 return
             }
-            // Screenshots alone, as a capture writes them; with a recording, its file has no PNG.
+            // Screenshots alone, as a capture writes them; with a recording, its file has no PNG. A Pasteboard shot's
+            // copy is watched for a paste while "Delete screenshots after pasting" is on (spec §14.2).
             let pngs = copied.compactMap(\.entry.png)
-            let changeCount = pngs.count == copied.count
+            let changeCount = self.writeWatchedCopy?(copied) ?? (pngs.count == copied.count
                 ? ClipboardWriter.write(pngs: pngs, fileURLs: copied.map(\.entry.fileURL), to: self.pasteboard)
-                : ClipboardWriter.write(copied.map(\.entry), to: self.pasteboard)
+                : ClipboardWriter.write(copied.map(\.entry), to: self.pasteboard))
             self.setClipboardMark(markID)
             self.showToast("Copied")
             self.onCopied?(markID, changeCount)
+            self.onClipboardFiles?(copied.compactMap(\.entry.fileURL), changeCount)
         }
     }
 
@@ -334,10 +339,12 @@ extension ShelfController {
                 self.showToast("File not found", isError: true)
                 return
             }
-            ClipboardWriter.write(paths: paths, to: self.pasteboard)
+            let changeCount = ClipboardWriter.write(paths: paths, to: self.pasteboard)
             self.setClipboardMark(nil)
             self.showToast(paths.count > 1 ? "Paths copied" : "Path copied")
             self.onCopiedPaths?()
+            // A path pasted into a terminal reaches the file as surely as the file does.
+            self.onClipboardFiles?(paths.map { URL(fileURLWithPath: $0) }, changeCount)
         }
     }
 
@@ -437,7 +444,11 @@ extension ShelfController {
         undoStack.append(ShelfUndoStep(kind: kind, removals: removals, trashed: trashed, thumbnails: thumbs))
         // The shelf just emptied: keep the (now invisible) panel 3 s, so ⌘Z can still reach it.
         if store.items.isEmpty { lingerUntil = Date().addingTimeInterval(3) }
-        if undoStack.count > ShelfUndoStep.limit { undoStack.removeFirst(undoStack.count - ShelfUndoStep.limit) }
+        if undoStack.count > ShelfUndoStep.limit {
+            let expired = undoStack.prefix(undoStack.count - ShelfUndoStep.limit)
+            undoStack.removeFirst(expired.count)
+            onUndoExpired?(Array(expired))
+        }
         if undoStack.count > ShelfUndoStep.thumbnailSteps {
             undoStack[undoStack.count - ShelfUndoStep.thumbnailSteps - 1].thumbnails = [:]
         }
@@ -487,6 +498,23 @@ extension ShelfController {
 
     /// Whether ⌘Z / "Restore Last Removed" has anything to bring back (for menu validation).
     var canUndo: Bool { !undoStack.isEmpty }
+
+    /// The files of every card ⌘Z could still bring back (spec §14.2: a Pasteboard file stays while one can).
+    var undoPaths: [String] { undoStack.flatMap { $0.removals.map(\.item.path) } }
+
+    /// Whether ⌘Z could still bring this card back.
+    func canBringBack(_ id: UUID) -> Bool {
+        undoStack.contains { $0.removals.contains { $0.item.id == id } }
+    }
+
+    /// Pasted while "Delete screenshots after pasting" is on (spec §14.2): the cards leave as after a drop, one ⌘Z step
+    /// (Restore Last Removed brings them back). A card being dragged, or already gone, stays as it is.
+    func pasted(_ ids: [UUID]) {
+        let dragging = Set(dragSource?.ids ?? [])
+        let leaving = ids.filter { item(for: $0) != nil && !pending.contains($0) && !dragging.contains($0) }
+        guard !leaving.isEmpty else { return }
+        removeItems(leaving, kind: .paste, exit: .collapse)
+    }
 
     /// ⌘Z on the shelf: bring back the last removed card(s); beeps when there's nothing to restore.
     func undo() { undo(fromMenu: false) }

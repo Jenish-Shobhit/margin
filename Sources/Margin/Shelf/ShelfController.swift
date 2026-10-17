@@ -18,6 +18,17 @@ final class ShelfController: ShelfControlling {
     /// Not in the ShelfControlling contract: the launch put leftover saves back (`recoverLeftoverSavesThenRefresh`),
     /// perhaps in the Unsaved folder.
     var onLeftoversRecovered: (() -> Void)?
+    /// Not in the ShelfControlling contract: ⌘Z steps pushed out by newer ones (`ShelfUndoStep.limit`). Their cards can't
+    /// come back, so a Pasteboard file of theirs may go (spec §14.2).
+    var onUndoExpired: (([ShelfUndoStep]) -> Void)?
+    /// Not in the ShelfControlling contract: a copy or Copy Path put these files (or their paths) on the clipboard.
+    var onClipboardFiles: ((_ files: [URL], _ changeCount: Int) -> Void)?
+    /// Not in the ShelfControlling contract: writes a copy to the clipboard watched for a paste (spec §14.2), returning
+    /// the change count, or nil to leave the write to the shelf as always.
+    var writeWatchedCopy: ((_ copied: [(id: UUID, entry: ClipboardWriter.Entry)]) -> Int?)?
+    /// Not in the ShelfControlling contract: Pasteboard files the clipboard still offers, which the launch's cleanup keeps
+    /// although no card holds them (spec §14.2). Set before `restore()`.
+    var pasteboardFilesOnClipboard: Set<String> = []
     private(set) var isTucked = false
     var markedItemID: UUID?
     var itemIDs: [UUID] { store.items.map(\.id) }
@@ -156,7 +167,7 @@ final class ShelfController: ShelfControlling {
         // The layout makes the cards in view (or nearly), and starts decoding their thumbnails.
         relayout(animated: false)
         updateVisibility()
-        recoverLeftoverSavesThenRefresh(quietWithin: 0.5)
+        recoverLeftoverSavesThenRefresh(quietWithin: 0.5, keeping: pasteboardFilesOnClipboard)
         CaptureTimings.shared.record("shelfRestore", clock.ms)
     }
 

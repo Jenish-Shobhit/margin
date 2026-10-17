@@ -104,18 +104,39 @@ public final class Preferences {
             .appendingPathComponent("Margin/Unsaved", isDirectory: true)
     }
 
+    /// Where screenshots go while "Delete screenshots after pasting" is on (spec §14.2):
+    /// `~/Library/Application Support/Margin/Pasteboard`. Margin's own, so it never raises a privacy prompt, and every
+    /// file in it lives only as long as its card can come back (`PasteboardShots`). Looked up once: every capture asks.
+    public nonisolated static let pasteboardFolder: URL =
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Margin/Pasteboard", isDirectory: true)
+
     /// Posted (object: the `Preferences`) when `isRecordingShortcut` changes. It isn't a settings change,
     /// so `didChange` isn't posted for it.
     public static let recordingShortcutDidChange = Notification.Name("MarginPreferencesRecordingShortcutDidChange")
 
+    /// Never the Pasteboard folder, where every file goes once its card can't come back (spec §14.2): chosen as Save to,
+    /// it's the default instead.
     public var saveFolder: URL {
-        get { defaults.string(forKey: "saveFolder").map { URL(fileURLWithPath: $0, isDirectory: true) } ?? Self.defaultSaveFolder }
+        get {
+            guard let path = defaults.string(forKey: "saveFolder") else { return Self.defaultSaveFolder }
+            let folder = URL(fileURLWithPath: path, isDirectory: true)
+            return folder.standardizedFileURL.path == Self.pasteboardFolder.standardizedFileURL.path ? Self.defaultSaveFolder : folder
+        }
         set { set(newValue.path, "saveFolder") }
     }
 
     public var copyEachCapture: Bool {
         get { defaults.object(forKey: "copyEachCapture") as? Bool ?? true }
         set { set(newValue, "copyEachCapture") }
+    }
+
+    /// "Delete screenshots after pasting" (spec §14.2): new screenshots go to `pasteboardFolder` instead of `saveFolder`,
+    /// and one pasted into another app leaves the shelf, its file deleted once ⌘Z can't bring it back. Off unless turned
+    /// on in Settings.
+    public var deletesAfterPasting: Bool {
+        get { defaults.object(forKey: "deletesAfterPasting") as? Bool ?? false }
+        set { set(newValue, "deletesAfterPasting") }
     }
 
     public var shutterSound: Bool {
@@ -155,6 +176,13 @@ public final class Preferences {
     public var firstRunDone: Bool {
         get { defaults.bool(forKey: "firstRunDone") }
         set { set(newValue, "firstRunDone") }
+    }
+
+    /// The Pasteboard folder's files on the clipboard as Margin last wrote it, while it holds any (spec §14.2). Kept so
+    /// that a relaunch doesn't delete a file the clipboard still offers. Internal state: setting it posts no `didChange`.
+    public var pasteboardClipboard: PasteboardShots.ClipboardFiles? {
+        get { defaults.data(forKey: "pasteboardClipboard").flatMap { try? JSONDecoder().decode(PasteboardShots.ClipboardFiles.self, from: $0) } }
+        set { defaults.set(newValue.flatMap { try? JSONEncoder().encode($0) }, forKey: "pasteboardClipboard") }
     }
 
     // MARK: Updates (spec §14.3)

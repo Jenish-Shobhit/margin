@@ -36,12 +36,18 @@ extension ShelfController {
     /// the quit timeout) left its PNG hidden in the folder, and its card waiting for a file that never appeared.
     /// `LeftoverSaves` puts each back, under its card's name when one is waiting (so the card stays), in the Unsaved
     /// folder and any folder a waiting card points into. The check waits for it.
-    func recoverLeftoverSavesThenRefresh(quietWithin: TimeInterval) {
+    ///
+    /// Then, once the longest grace is over (`PasteboardShots.launchCleanupDelay`), the Pasteboard folder of "Delete
+    /// screenshots after pasting" (spec §14.2) loses the files no card holds: last session's ⌘Z steps are gone, so
+    /// nothing can bring their cards back. Files still on the clipboard stay (`keeping`).
+    func recoverLeftoverSavesThenRefresh(quietWithin: TimeInterval, keeping: Set<String> = []) {
         let items = store.items
         // Not the save folder as such: on the Desktop, looking into it at launch raises the Desktop folder's privacy
         // prompt if it hasn't been answered yet. A cut-off save always leaves its card waiting (the card is stored before
-        // the PNG is written), and its folder is one Margin was writing to.
-        let folders = [Preferences.fallbackSaveFolder] + items.filter { $0.bookmark == nil }.map { $0.url.deletingLastPathComponent() }
+        // the PNG is written), and its folder is one Margin was writing to. The Unsaved and Pasteboard folders are
+        // Margin's own, and never prompt.
+        let folders = [Preferences.fallbackSaveFolder, Preferences.pasteboardFolder]
+            + items.filter { $0.bookmark == nil }.map { $0.url.deletingLastPathComponent() }
         // Nothing this copy writes can be older: saves start only once the shelf is restored.
         let launch = Date()
         fileRefreshRunning = true
@@ -52,6 +58,19 @@ extension ShelfController {
             self.fileRefreshQueued = false
             if !outcomes.isEmpty { self.onLeftoversRecovered?() }
             self.refreshFiles(quietWithin: quietWithin)
+            self.cleanUpPasteboardLater(launchItems: items, keeping: keeping, launch: launch)
+        }
+    }
+
+    /// The launch's cleanup of the Pasteboard folder waits out the longest grace: a shot pasted or dropped just before a
+    /// quit (Install and Relaunch, say) may still be read by the app that took it. Whatever a card or a ⌘Z step holds
+    /// by then stays too, as do the files named in a set-aside shelf list (`ShelfStore.setAsideFiles`).
+    private func cleanUpPasteboardLater(launchItems: [ShelfItem], keeping: Set<String>, launch: Date) {
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(PasteboardShots.launchCleanupDelay))
+            guard let self else { return }
+            await ShelfFiles.cleanUpPasteboard(items: launchItems + self.store.items, keeping: keeping.union(self.undoPaths),
+                                               shelfFile: self.store.fileURL, writtenBefore: launch)
         }
     }
 

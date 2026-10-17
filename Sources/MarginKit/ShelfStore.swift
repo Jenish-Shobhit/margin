@@ -218,6 +218,14 @@ public final class ShelfStore {
         if skipped > 0, setAside(), !items.isEmpty { save() }
     }
 
+    /// The lists `load` has set aside next to `fileURL` (`shelf.json.bad`, `shelf.json.bad 2`…). Blocking: it looks at
+    /// the disk.
+    public nonisolated static func setAsideFiles(of fileURL: URL) -> [URL] {
+        let folder = fileURL.deletingLastPathComponent(), prefix = fileURL.lastPathComponent + ".bad"
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+        return names.filter { $0.hasPrefix(prefix) }.sorted().map { folder.appendingPathComponent($0) }
+    }
+
     /// Moves shelf.json out of the way, to `shelf.json.bad`, or `shelf.json.bad 2`, `3`… if an earlier one is
     /// still there (never replacing it). Returns false if it couldn't be moved.
     @discardableResult

@@ -174,6 +174,36 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] After a relaunch the card is back with its poster frame; a `shelf.json` from 0.0.x loads with every card a screenshot
 - [ ] VoiceOver reads "Screen recording, HH:mm, 0:12, W × H"
 
+## Delete screenshots after pasting (§14.2)
+
+`scripts/debug.sh dump-state`'s `pasteboard` shows the option, the watched clipboard write with every read of it (type, ms after the write, keys held), the files waiting to be deleted, the clipboard record and the undo steps. Paste only into apps whose content you can spare (a scratch note), and put back anything you copied.
+
+**The setting**
+
+- [ ] Settings › Delete screenshots after pasting sits under Copy each capture, off by default, with a tooltip saying what it does
+- [ ] Off: captures land in Save to as before; `pasteboard.watch` stays `null`; the clipboard item has `public.png` and `public.file-url` with their data (not promised)
+
+**While on**
+
+- [ ] A capture lands in `~/Library/Application Support/Margin/Pasteboard/`, named as usual, with the screenshot tags (`mdls -name kMDItemIsScreenCapture`) and no `.margin-*.tmp` left; no privacy prompt
+- [ ] ⇧⌘5's recordings still land in Save to
+- [ ] Seconds after a capture `pasteboard.watch.reads` is still empty: nothing reads it before a paste (Spotlight's clipboard history on or off)
+- [ ] ⌘V into an app that takes images (Notes, Slack, Chrome, WhatsApp, Claude): the shot pastes, and its card leaves the shelf within half a second, as after a drop
+- [ ] ⌘V in Ghostty pastes the path and the card leaves; Claude Code attaches the shot
+- [ ] Edit › Paste (or a right-click Paste) pastes, and the card stays
+- [ ] A click on a card (or ⌘C) copies it again, and the next ⌘V takes it away again
+- [ ] Restore Last Removed after a paste brings the card back with its file (Quick Look shows it, a drag works); ⌘V straight after the card left still pastes the shot
+- [ ] Dragging a card into Finder: the card leaves, Finder's copy stays, and the Pasteboard file is still there for at least 30 s
+- [ ] Twenty other removals later (`scripts/debug.sh dismiss` one card at a time; the 20th pushes the paste's ⌘Z step out), with something else copied, a pasted shot's file is gone from the Pasteboard folder (the log says "Deleted …"); while nothing else has been copied, it stays
+- [ ] A dismissed card's file stays until its ⌘Z step is pushed out; a card moved to the Trash leaves its file in the Trash
+- [ ] Quit and relaunch: the files of cards on the shelf are there, those of removed cards are gone 30 s into the launch (not before); a shot still on the clipboard stays, and still pastes after Margin has quit
+- [ ] ⌘V of a copied shot into Rename… pastes its name text (or nothing) and the card stays
+- [ ] Choosing `~/Library/Application Support/Margin/Pasteboard` as Save to leaves Save to on the default folder
+- [ ] A shelf.json set aside as `shelf.json.bad` (corrupt it while Margin is quit): the Pasteboard files its cards named are still there after the relaunch's 30 s
+- [ ] With a clipboard manager that saves images (Maccy, Raycast): a ⌘V paste leaves the card on the shelf (the documented caveat), and dismissing it works as usual
+- [ ] Turning the option off moves and deletes nothing: new shots go to Save to, a paste no longer takes a card away, and cards from before keep their files until they're dismissed and their ⌘Z step is gone
+- [ ] With the Pasteboard folder unwritable (`chmod 500` it, then back), a capture goes to Unsaved with a toast naming “Pasteboard”, and that shot behaves as a normal file
+
 ## Timing targets (§3)
 
 Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobhit.margin" && category == "timing"'` or `scripts/debug.sh dump-state`. Without `--level info` the per-step lines such as `hotkeyToFirstFrozen` don't show.
@@ -411,7 +441,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 
 **The settings**
 
-- [ ] The settings (Save to, Copy each capture, Shutter sound, Show key hints while capturing, Launch at login, Record system audio, Record microphone, Shortcuts), plus the macOS screenshot shortcuts row
+- [ ] The settings (Save to, Copy each capture, Delete screenshots after pasting, Shutter sound, Show key hints while capturing, Launch at login, Record system audio, Record microphone, Shortcuts), plus the macOS screenshot shortcuts row
 - [ ] Record system audio and Record microphone are off by default; turning the microphone on asks for permission once
 - [ ] Save to: the folder picker changes where the next capture lands
 

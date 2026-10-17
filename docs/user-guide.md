@@ -16,6 +16,7 @@ This guide covers Margin 0.1.1. Shortcuts are shown with their defaults; you can
 - [The shelf](#the-shelf)
 - [Working with cards](#working-with-cards)
 - [Undo](#undo)
+- [Delete screenshots after pasting](#delete-screenshots-after-pasting)
 - [Settings](#settings)
 - [Updates](#updates)
 - [Displays, Spaces and accessibility](#displays-spaces-and-accessibility)
@@ -160,7 +161,7 @@ The moment you let go:
 
 1. The shutter sound plays: the system's own Screen Capture sound, at your alert volume. It's silent when Settings › Shutter sound is off, or when "Play user interface sound effects" is off in System Settings › Sound.
 2. The shot **flies** from where it was on screen to its slot on the shelf (about half a second), and the new card gets a violet ring for 1.5 s.
-3. It's saved as a PNG in your save folder, `~/Desktop/Screenshots` by default:
+3. It's saved as a PNG in your save folder, `~/Desktop/Screenshots` by default (with [Delete screenshots after pasting](#delete-screenshots-after-pasting) on, in Margin's own folder instead):
    - names look like `Screenshot 2026-10-14 at 17.42.17.png`, in 24-hour time;
    - two shots in the same second get ` (2)`, ` (3)` and so on;
    - the file appears in one piece, never half-written;
@@ -233,7 +234,26 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 
 **⌘Z** on the shelf brings back the card(s) that last left it. Right after ✕, Move to Trash or Clear shelf the shelf already has the keys; otherwise (after a drag-out, say) ⌘-click a card or click the pile first. It remembers up to 20 removals: drag-outs, dismissals, Clear shelf and Move to Trash (the file comes back from the Trash too). A card whose file you've deleted since can't come back: ⌘Z says "File not found", and the next ⌘Z goes on to the removal before.
 
-**Restore Last Removed** in the menu bar does the same, without clicking the shelf first. It's the quickest way back after a drag-out.
+**Restore Last Removed** in the menu bar does the same, without clicking the shelf first. It's the quickest way back after a drag-out, or after a paste took a card away ([below](#delete-screenshots-after-pasting)).
+
+## Delete screenshots after pasting
+
+For shots you only need long enough to paste somewhere (since 0.1.2; off by default). Turn it on in [Settings](#settings) and:
+
+- **Screenshots aren't saved to your folder.** Each one is written to Margin's own folder, `~/Library/Application Support/Margin/Pasteboard/`, and still flies onto the shelf and onto the clipboard (with Copy each capture on) as usual.
+- **Paste it and it's done.** When you press **⌘V** (or **⌃V**) in another app and that app takes the shot, its card leaves the shelf, as after a drag. Dragging a card into an app does the same. Clicking a card (or ⌘C) copies it again, ready to paste once more.
+- **Changed your mind?** **Restore Last Removed** in the menu bar (or ⌘Z on the shelf) brings the card back, with its file. The file is deleted only once that's no longer possible: after 20 newer removals push it out of [undo](#undo), or once Margin has quit (half a minute into its next launch). It also stays as long as the clipboard still holds it, and at least 10 seconds after a paste (30 after a drag), so an app that reads the file a little later still gets it.
+- **Not pasted?** The card stays on the shelf like any other, its file with it, through quitting and restarting. Dismissing it (✕, ⌫) lets the file go once undo can't bring it back.
+- **To keep one**, drag its card into Finder, or choose **Reveal in Finder** from its menu and copy it from there before it goes.
+- **Screen recordings are always saved**, to your save folder.
+- **Turning the option off** moves and deletes nothing. New shots go to your save folder again, and pasting no longer takes cards off the shelf. Cards from while it was on keep their files until you dismiss them and undo can't bring them back.
+
+What counts as a paste: an app reading the shot just as you press **⌘V** or **⌃V**. Margin doesn't watch your keyboard: when an app reads the shot, it checks that ⌘ or ⌃ is down and that a key was pressed a moment before (macOS doesn't tell it which key), so:
+
+- **Edit › Paste** from a menu doesn't count, and neither does a paste the app reads only after you've let go of the keys (Claude Code's ⌃V in a terminal can be that slow), or one in the first moment after the copy. The card stays; dismiss it when you're done.
+- **Another ⌘ or ⌃ shortcut** pressed just as something reads the clipboard (only a clipboard manager does, and only right after a copy) could take the card away instead. Restore Last Removed brings it back.
+- **A clipboard manager** that saves every copy, images included, reads the shot first. After that a paste can't be told apart, so cards stay until you dismiss them. (Spotlight's own clipboard history doesn't get in the way.)
+- These shots stay on this Mac's clipboard: they aren't offered to your iPhone or iPad through Universal Clipboard. Spotlight's clipboard history lists a shot once it's been pasted, and keeps the entry after the file has gone.
 
 ## Settings
 
@@ -243,6 +263,7 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 |---|---|
 | Save to | Where screenshots go. **Choose…** picks a folder; it's created if missing |
 | Copy each capture | Put every capture on the clipboard (on by default) |
+| Delete screenshots after pasting | Keep screenshots only until you paste them: they go to Margin's own folder, and one you paste or drag into an app leaves the shelf and is deleted once undo can't bring it back (off by default; see [above](#delete-screenshots-after-pasting)). Screen recordings are always saved |
 | Shutter sound | Play the capture sound (on by default) |
 | Show key hints while capturing | Show the bar of keys at the top of the screen while you capture (on by default) |
 | Check for updates automatically | Look for a newer Margin at launch and once a day (on by default; see [Updates](#updates)) |

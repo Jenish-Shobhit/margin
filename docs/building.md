@@ -68,7 +68,7 @@ The tests cover `MarginKit`, the app's pure logic:
 - the order ⌘Z restores steps in;
 - `shelf.json` round trips, bookmarks, pruning and unmounted volumes, and damaged or newer files;
 - PNG encoding, DPI and atomic writes, and putting back the temp files of saves cut off;
-- the clipboard items, including emulated Ghostty pastes;
+- the clipboard items, including emulated Ghostty pastes, and Delete screenshots after pasting's watched items (what counts as a paste, on a private pasteboard), where its shots go, when their files may go, and the launch's cleanup;
 - updates: version order, GitHub's release JSON (a fixture of a real answer), choosing the zip, what a check offers and Skip This Version, when checks are due, `margin://update`, the downloaded bundle's checks, and the swap helper run against fake bundles in a temporary folder;
 - key-combo display and conflicts;
 - preferences and the hint counter;
@@ -206,7 +206,8 @@ scripts/debug.sh dump-state                     # print the state as JSON
   - each hotkey registration and its `OSStatus`;
   - the overlay's mode and purpose while a capture is up (`overlay.mode`, `overlay.purpose`: `capture` or `record`), and who has focus (`focus`: Margin's key window, whether it's active, the frontmost app);
   - the last capture's timings;
-  - the recording (`recording`: its state, target, encoded size, fps, bit rate, temp file, frames written and dropped, and the last one's duration), each item's kind (`itemKinds`) and the status item (`statusItem`: its title, whether it shows the recording glyph, the menu's items).
+  - the recording (`recording`: its state, target, encoded size, fps, bit rate, temp file, frames written and dropped, and the last one's duration), each item's kind (`itemKinds`) and the status item (`statusItem`: its title, whether it shows the recording glyph, the menu's items);
+  - Delete screenshots after pasting (`pasteboard`: the setting, the watched clipboard write and each read of it, with how long after the write, whether ⌘ and ⌃ were held and how long before it a key went down, the files waiting to be deleted, the clipboard's Pasteboard files and the undo steps).
 - To check visuals, take a `screencapture -x`: it sees the shelf, while Margin's own captures never do.
 - `scripts/bench.sh` also uses `hotkey <action>`, `capture-window`, `select x y w h`, `click x y [window=<id>]`, `key space|return|escape`, `cancel` and `mark <text>`, which drive a live overlay in-process (see `DebugCommandListener.swift`); `click … window=<id>` clicks only if that window is the one window mode would pick there, so a test never captures or records another app's window. `copy [n]` copies the n-th newest card as a click does, and `show settings|first-run|shortcuts|none` opens or closes Margin's windows.
 
@@ -275,7 +276,7 @@ scripts/bench.sh help                     # every option
 - It prints median, p90, min and max per metric and suite, against the [targets](#timings-and-logs), and keeps every value in a results file (`.build/bench-scratch/`).
 - It drives the same calls a shortcut and a drag make (`hotkey captureArea`, then `select`), so everything but the window server's hand-over of the key is measured; `--real-hotkey` posts a real ⇧⌘4 instead (it needs Accessibility, and macOS's own ⇧⌘4 off).
 - Captures see the bench's own window, a flat app UI or, with `--content photo`, a busy photo-like image, so PNG times don't depend on what's on screen.
-- It backs up the installed app, Margin's preferences, `shelf.json` and the clipboard, and restores them at the end (or on Ctrl-C). Meanwhile shots go to its scratch folder, with **Copy each capture** and the sound off (`--sound` keeps it).
+- It backs up the installed app, Margin's preferences, `shelf.json` with the Pasteboard folder of Delete screenshots after pasting (a launch of a build with that option deletes the shots there that the bench's own shelf doesn't hold), and the clipboard, and restores them at the end (or on Ctrl-C). Meanwhile shots go to its scratch folder, with **Copy each capture** and the sound off (`--sound` keeps it).
 - It acts only while its window or Margin is in front and nobody is using the keyboard or mouse: it takes the screen after 20 s without input (`--idle`) and pauses on any input or when another app comes forward. With `--retake`, an app left in front by someone who has since been away for `--idle` seconds goes behind the bench window again, as at the start, instead of waiting for a click on it.
 - It launches Margin at most every 30 s (`--relaunch-gap`), counting from the launch of the copy it quits: relaunched more often, Margin makes macOS ask the user whether it may bypass the system's private window picker. An `ab` of a single suite waits between blocks for that.
 - Profile the same runs with `sample Margin 10 -file out.txt` while it captures.

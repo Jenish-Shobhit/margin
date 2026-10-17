@@ -54,6 +54,14 @@ final class NotificationCounter: @unchecked Sendable {
         #expect(Preferences.fallbackSaveFolder.path.hasSuffix("/Library/Application Support/Margin/Unsaved"))
     }
 
+    /// Everything in the Pasteboard folder goes once its card can't come back: it's never where normal shots are saved.
+    @Test func thePasteboardFolderIsNeverTheSaveFolder() {
+        prefs.saveFolder = Preferences.pasteboardFolder
+        #expect(prefs.saveFolder == Preferences.defaultSaveFolder)
+        prefs.saveFolder = Preferences.pasteboardFolder.appendingPathComponent("Shots", isDirectory: true)
+        #expect(prefs.saveFolder.lastPathComponent == "Shots")
+    }
+
     @Test func roundTrips() {
         let folder = URL(fileURLWithPath: "/tmp/My Shots", isDirectory: true)
         prefs.saveFolder = folder
