@@ -32,7 +32,8 @@ final class ShareableContentCache {
     private(set) var snapFrames: [CGRect] = []
     private(set) var hasMarginApp = false
     private(set) var isLoaded = false
-    /// After every rebuild of the targets: a display recording under way takes the new filter (`RecordingController`).
+    /// After a rebuild of the targets that changed which of Margin's ordinary windows they keep: a display recording under
+    /// way takes the new filter (`RecordingController`). Not after every rebuild (each ⇧⌘4's window list makes one).
     var onTargetsRebuilt: (() -> Void)?
     /// Margin's ordinary windows the targets keep in shots (see `apply`).
     private var keptWindowIDs: Set<CGWindowID> = []
@@ -234,13 +235,14 @@ final class ShareableContentCache {
         // (.screenSaver), the overlay and outline (.screenSaver + 1). One opened since this fetch is excluded
         // until the refresh it schedules (`marginWindowChanged`).
         let kept = content.windows.filter { $0.owningApplication?.processID == pid && Self.isOrdinary(level: $0.windowLayer) }
+        let keptChanged = Set(kept.map(\.windowID)) != keptWindowIDs
         keptWindowIDs = Set(kept.map(\.windowID))
         var t: [CGDirectDisplayID: DisplayTarget] = [:]
         for display in content.displays {
             t[display.displayID] = ScreenGrabber.makeDisplayTarget(display: display, excluding: margin, keeping: kept)
         }
         targets = t
-        onTargetsRebuilt?()
+        if keptChanged { onTargetsRebuilt?() }
     }
 
     private func applyWindows(_ content: SCShareableContent) {

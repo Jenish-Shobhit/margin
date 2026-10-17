@@ -373,10 +373,11 @@ final class RecordingController {
         stop(.displayGone)
     }
 
-    /// The cache rebuilt its display targets (Margin opened or closed one of its ordinary windows, another app came or
-    /// went): a display or area recording takes the new filter, so Settings opened meanwhile is in it, as in a screenshot.
+    /// The cache rebuilt its display targets with other ordinary windows of Margin's in them (Settings opened or closed):
+    /// a display or area recording takes the new filter, so Settings opened meanwhile is in it, as in a screenshot.
     func targetsChanged() {
         guard state == .recording, let id = target?.displayID, let filter = cache.targets[id]?.filter else { return }
+        RecordingLog.log.info("Margin's ordinary windows changed: the recording takes the new filter")
         recorder?.update(filter)
     }
 

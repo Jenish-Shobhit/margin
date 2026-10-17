@@ -430,10 +430,12 @@ final class AppCoordinator {
             NSApp.terminate(nil)
             return
         }
-        // Wait for this process to exit (quitting can wait up to `terminationTimeout` for saves), at most
-        // 10 s, then open the app. Not `open -n`: that would start a second copy if this one were stuck.
+        // Wait for this process to exit (quitting can wait up to `terminationTimeout` for saves, or
+        // `recordingTerminationTimeout` for a recording), at most 5 s more than that, then open the app. Not `open -n`:
+        // that would start a second copy if this one were stuck.
+        let tenths = Int((Self.recordingTerminationTimeout + 5) * 10)
         let script = """
-            i=0; while /bin/kill -0 "$2" 2>/dev/null && [ "$i" -lt 100 ]; do /bin/sleep 0.1; i=$((i+1)); done
+            i=0; while /bin/kill -0 "$2" 2>/dev/null && [ "$i" -lt \(tenths) ]; do /bin/sleep 0.1; i=$((i+1)); done
             /usr/bin/open "$1"
             """
         let shell = Process()
