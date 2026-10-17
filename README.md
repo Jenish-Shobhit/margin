@@ -142,7 +142,7 @@ All five global shortcuts can be changed in Settings. The full list is in [docs/
 | ⌘-click · ⌘A | Select several · select all |
 | ⌘C | Copy the selected shots |
 | Space | Quick Look |
-| ⌫ | Dismiss (the file stays on disk) |
+| ⌫ | Dismiss (the file stays on disk, unless Delete screenshots after pasting is on) |
 | Double-click | Open in the default app |
 | ⌘Z | Bring back what was last removed |
 

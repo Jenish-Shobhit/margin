@@ -309,7 +309,8 @@
         if (!/^\d+(\.\d+){0,2}$/.test(version)) return;
         var name = "Margin-" + version + ".zip";
         var zip = (release.assets || []).filter(function (a) { return a.name === name; })[0];
-        if (!zip || !/^https:\/\/github\.com\//.test(zip.browser_download_url)) return;
+        // Only a finished upload: while one is on its way, its link isn't the whole zip yet.
+        if (!zip || zip.state !== "uploaded" || !/^https:\/\/github\.com\//.test(zip.browser_download_url)) return;
         document.getElementById("download").href = zip.browser_download_url;
         document.getElementById("download-label").textContent = "Download Margin " + version;
         document.getElementById("zip-name").textContent = name;
@@ -319,8 +320,9 @@
           var date = new Date(release.published_at);
           if (!isNaN(date)) meta += ", released " + date.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
         }
-        var mb = zip.size / 1048576;
-        meta += ". A " + (mb >= 10 ? Math.round(mb) : mb.toFixed(1)) + " MB zip for macOS 26 or later on Apple silicon.";
+        var mb = Number(zip.size) / 1048576;
+        meta += mb > 0 ? ". A " + (mb >= 10 ? Math.round(mb) : mb.toFixed(1)) + " MB zip" : ". A zip";
+        meta += " for macOS 26 or later on Apple silicon.";
         document.getElementById("download-meta").textContent = meta;
       })
       .catch(function () {});
