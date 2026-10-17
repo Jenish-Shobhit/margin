@@ -312,7 +312,7 @@ Then it does the release:
 4. Commits `chore(release): <version>`, tags `v<version>` and pushes `main` and the tag.
 5. Creates the GitHub release with `gh`, attaching the zip. The notes are the changelog section plus install instructions.
 
-You need `gh` signed in with push access, and the Margin Dev certificate, so release builds keep a stable signature. Releases aren't notarized; users open them with Open Anyway, as the README explains.
+You need `gh` signed in with push access, and the Margin Dev certificate, so release builds keep a stable signature (the script stops before changing anything without it). Releases aren't notarized; users open them with Open Anyway, as the README explains.
 
 **Keep the zip's name and the certificate.** The updater (spec §14.3) installs only the asset named exactly `Margin-<version>.zip` from the latest release, containing a `Margin.app` whose version is that release's and whose signature satisfies the running copy's designated requirement. So a release signed with another certificate (or ad hoc) is refused by every installed copy, and they'd all have to be reinstalled by hand. Publish it as a full release, not a draft or pre-release: GitHub's `releases/latest` skips those, and so does the updater.
 
