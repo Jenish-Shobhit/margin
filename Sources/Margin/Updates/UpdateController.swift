@@ -78,6 +78,17 @@ final class UpdateController {
     #if DEBUG || MARGIN_BENCH
     /// `scripts/debug.sh update-check <feed>`: a local release instead of GitHub's.
     @ObservationIgnored var debugFeed: URL?
+    /// `update-trash <folder>`: where the helper puts the old copy (a folder it can't write tests its failure path).
+    @ObservationIgnored var debugTrash: URL?
+    /// `update-readonly on`: Install and Relaunch acts as if the app's folder couldn't be written.
+    @ObservationIgnored var debugReadOnly = false
+    /// What Open Releases Page would have opened, with a local feed (which never opens the browser).
+    @ObservationIgnored private(set) var debugOpenedURL: URL?
+    /// With a local feed, a test is running on a Mac someone may be using: the window never takes the keyboard (Return
+    /// would press its default button) and Open Releases Page opens nothing.
+    private var isTesting: Bool { feedURL != UpdateCheck.latestReleaseURL }
+    #else
+    private var isTesting: Bool { false }
     #endif
 
     /// GitHub's API; in DEBUG and bench builds a local feed when one is set (the `update-check` debug command, or the
@@ -230,9 +241,11 @@ final class UpdateController {
             try UpdateInstall.checkLocation(bundlePath: app.path)
             let folder = app.deletingLastPathComponent()
             let fm = FileManager.default
-            guard fm.isWritableFile(atPath: folder.path), fm.isWritableFile(atPath: app.path) else {
-                throw UpdateError.folderNotWritable(folder.path)
-            }
+            var writable = fm.isWritableFile(atPath: folder.path) && fm.isWritableFile(atPath: app.path)
+            #if DEBUG || MARGIN_BENCH
+            if debugReadOnly { writable = false }
+            #endif
+            guard writable else { throw UpdateError.folderNotWritable(folder.path) }
             guard UpdateVerifier.runningCopyIsSigned else { throw UpdateError.runningCopyUnsigned }
         } catch {
             fail(error, update)
@@ -301,12 +314,15 @@ final class UpdateController {
     /// in place of `app` (the old one goes to the Trash), and opens it.
     private func launchHelper(app: URL, newApp: URL, staging: URL) throws {
         let fm = FileManager.default
-        let trash: URL
+        var trash: URL
         do {
             trash = try fm.url(for: .trashDirectory, in: .userDomainMask, appropriateFor: app, create: true)
         } catch {
             trash = fm.homeDirectoryForCurrentUser.appendingPathComponent(".Trash", isDirectory: true)
         }
+        #if DEBUG || MARGIN_BENCH
+        if let debugTrash { trash = debugTrash }
+        #endif
         let log = UpdateInstall.logFile
         try? fm.createDirectory(at: log.deletingLastPathComponent(), withIntermediateDirectories: true)
         let helper = Process()
@@ -381,7 +397,15 @@ final class UpdateController {
     }
 
     func openReleasesPage() {
-        NSWorkspace.shared.open(phase.update?.releasePage ?? UpdateCheck.releasesPage)
+        let page = phase.update?.releasePage ?? UpdateCheck.releasesPage
+        #if DEBUG || MARGIN_BENCH
+        if isTesting {
+            Self.log.notice("Open Releases Page (testing, not opened): \(page.absoluteString, privacy: .public)")
+            debugOpenedURL = page
+            return
+        }
+        #endif
+        NSWorkspace.shared.open(page)
     }
 
     private func fail(_ error: any Error, _ update: AvailableUpdate?) {
@@ -400,7 +424,7 @@ final class UpdateController {
     }
 
     private func showWindow(activate: Bool) {
-        UpdateWindowController.shared.show(activate: activate)
+        UpdateWindowController.shared.show(activate: activate && !isTesting)
     }
 
     // MARK: - After the relaunch
@@ -444,6 +468,12 @@ final class UpdateController {
             "currentVersion": Self.currentVersionString,
             "windowVisible": UpdateWindowController.shared.isVisible,
             "windowIsKey": UpdateWindowController.shared.isKey,
+            "windowNumber": UpdateWindowController.shared.windowNumber ?? NSNull(),
+            "openedURL": debugOpenedURL?.absoluteString ?? NSNull(),
+            "trash": debugTrash?.path ?? NSNull(),
+            "readOnly": debugReadOnly,
+            "bundlePath": Bundle.main.bundlePath,
+            "pid": Int(ProcessInfo.processInfo.processIdentifier),
         ]
     }
     #endif

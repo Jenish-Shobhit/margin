@@ -11,6 +11,8 @@ final class UpdateWindowController: NSObject, NSWindowDelegate {
 
     var isVisible: Bool { window?.isVisible ?? false }
     var isKey: Bool { window?.isKeyWindow ?? false }
+    /// For `screencapture -l` in tests.
+    var windowNumber: Int? { window?.isVisible == true ? window?.windowNumber : nil }
 
     /// `activate` false (an automatic check) puts the window in front without taking the keyboard from the app in use.
     func show(activate: Bool) {
