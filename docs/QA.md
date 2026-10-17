@@ -194,7 +194,7 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] A click on a card (or ⌘C) copies it again, and the next ⌘V takes it away again
 - [ ] Restore Last Removed after a paste brings the card back with its file (Quick Look shows it, a drag works); ⌘V straight after the card left still pastes the shot
 - [ ] Dragging a card into Finder: the card leaves, Finder's copy stays, and the Pasteboard file is still there for at least 30 s
-- [ ] Twenty-one other removals later (`scripts/debug.sh dismiss` one card at a time), with something else copied, a pasted shot's file is gone from the Pasteboard folder (the log says "Deleted …"); while nothing else has been copied, it stays
+- [ ] Twenty other removals later (`scripts/debug.sh dismiss` one card at a time; the 20th pushes the paste's ⌘Z step out), with something else copied, a pasted shot's file is gone from the Pasteboard folder (the log says "Deleted …"); while nothing else has been copied, it stays
 - [ ] A dismissed card's file stays until its ⌘Z step is pushed out; a card moved to the Trash leaves its file in the Trash
 - [ ] Quit and relaunch: the files of cards on the shelf are there, those of removed cards are gone; a shot still on the clipboard stays, and still pastes after Margin has quit
 - [ ] With a clipboard manager that saves images (Maccy, Raycast): a ⌘V paste leaves the card on the shelf (the documented caveat), and dismissing it works as usual
