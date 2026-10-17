@@ -13,8 +13,14 @@ public enum PNGWriter {
     /// and gradients: a busy 2940×1912 shot encodes in 165 ms instead of 298 ms and is 31% smaller; UI shots are
     /// 5–13% smaller (`scripts/bench.sh encode`). ImageIO's adaptive default is slower on UI and no smaller.
     public static func encode(_ image: CGImage, scale: CGFloat) throws -> Data {
+        guard let data = encodeWithImageIO(image, scale: scale) else { throw Failure.encode }
+        return data
+    }
+
+    /// ImageIO's PNG of `image`, with the options above. nil if ImageIO can't write it.
+    static func encodeWithImageIO(_ image: CGImage, scale: CGFloat) -> Data? {
         let data = NSMutableData()
-        guard let dest = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil) else { throw Failure.encode }
+        guard let dest = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil) else { return nil }
         let dpi = 72 * (scale > 0 ? scale : 1)
         let props: [CFString: Any] = [
             kCGImagePropertyDPIWidth: dpi,
@@ -22,7 +28,7 @@ public enum PNGWriter {
             kCGImagePropertyPNGDictionary: [kCGImagePropertyPNGCompressionFilter: IMAGEIO_PNG_FILTER_UP],
         ]
         CGImageDestinationAddImage(dest, image, props as CFDictionary)
-        guard CGImageDestinationFinalize(dest) else { throw Failure.encode }
+        guard CGImageDestinationFinalize(dest) else { return nil }
         return data as Data
     }
 
