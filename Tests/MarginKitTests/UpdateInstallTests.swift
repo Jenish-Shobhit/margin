@@ -82,7 +82,7 @@ import Testing
             try Data("old".utf8).write(to: app.appendingPathComponent("version"))
             try Data("new".utf8).write(to: newApp.appendingPathComponent("version"))
             try Data("zip".utf8).write(to: staging.appendingPathComponent("Margin-0.0.20.zip"))
-            try Data("#!/bin/sh\nprintf '%s\\n' \"$1\" >> \"\(opened.path)\"\n".utf8).write(to: open)
+            try Data("#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"\(opened.path)\"\n".utf8).write(to: open)
             try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: open.path)
         }
 
@@ -130,7 +130,7 @@ import Testing
         #expect(stage.version(at: stage.app) == "new")
         #expect(stage.trashed == ["Margin 0.0.19.app"])
         #expect(stage.version(at: stage.trash.appendingPathComponent("Margin 0.0.19.app")) == "old")
-        #expect(stage.openedPaths == [stage.app.path])
+        #expect(stage.openedPaths == ["-g " + stage.app.path])
         #expect(!FileManager.default.fileExists(atPath: stage.staging.path))   // the zip and what's left go
         #expect(stage.logText.contains("Installed \(stage.app.path)"))
         #expect(stage.logText.contains("as Margin 0.0.19.app"))
@@ -184,7 +184,7 @@ import Testing
         #expect(try stage.run(newApp: stage.staging.appendingPathComponent("nothing/Margin.app")) == 1)
         #expect(stage.version(at: stage.app) == "old")
         #expect(stage.trashed.isEmpty)
-        #expect(stage.openedPaths == [stage.app.path])
+        #expect(stage.openedPaths == ["-g " + stage.app.path])
         #expect(stage.logText.contains("FAILED: the new app is missing"))
     }
 
@@ -199,7 +199,7 @@ import Testing
         #expect(try stage.run() == 1)
         #expect(stage.version(at: stage.app) == "old")
         #expect(stage.trashed.isEmpty)
-        #expect(stage.openedPaths == [stage.app.path])
+        #expect(stage.openedPaths == ["-g " + stage.app.path])
         #expect(stage.logText.contains("FAILED: couldn't move"))
     }
 
@@ -218,7 +218,7 @@ import Testing
         process.waitUntilExit()
         #expect(process.terminationStatus == 0)
         #expect(stage.version(at: odd) == "new")
-        #expect(stage.openedPaths == [odd.path])
+        #expect(stage.openedPaths == ["-g " + odd.path])
     }
 
     // MARK: The log, after a relaunch

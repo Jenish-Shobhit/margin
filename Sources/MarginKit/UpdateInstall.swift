@@ -43,7 +43,8 @@ public enum UpdateInstall {
     ///    `mv`, since `NSWorkspace.recycle` can't run once Margin has quit, so Finder's Put Back doesn't know it;
     /// 3. moves the new app into the old one's place (a rename: the new app waits on the same volume), putting the old
     ///    one back if that fails;
-    /// 4. removes any quarantine attribute and opens the app at that path, the new one or, after a failure, the old one;
+    /// 4. removes any quarantine attribute and opens the app at that path, the new one or, after a failure, the old one,
+    ///    in the background (`open -g`): the app the user is in keeps the keyboard, as it did when Margin quit;
     /// 5. deletes the staging folder (the zip and what's left of it).
     /// Each step is appended to the log file, and a failure starts with `FAILED:`.
     public static let helperScript = #"""
@@ -57,23 +58,23 @@ public enum UpdateInstall {
           /bin/sleep 0.1; i=$((i + 1))
         done
         if [ ! -d "$new" ]; then
-          note "FAILED: the new app is missing ($new), so nothing was changed"; cleanup; "$open" "$app"; exit 1
+          note "FAILED: the new app is missing ($new), so nothing was changed"; cleanup; "$open" -g "$app"; exit 1
         fi
         /bin/mkdir -p "$trash"
         dest="$trash/$name.app"; n=2
         while [ -e "$dest" ]; do dest="$trash/$name $n.app"; n=$((n + 1)); done
         if ! /bin/mv "$app" "$dest"; then
-          note "FAILED: couldn't move $app to the Trash, so nothing was changed"; cleanup; "$open" "$app"; exit 1
+          note "FAILED: couldn't move $app to the Trash, so nothing was changed"; cleanup; "$open" -g "$app"; exit 1
         fi
         if [ -e "$app" ] || ! /bin/mv "$new" "$app"; then
           note "FAILED: couldn't put the new app at $app; the old one is back"
           [ -e "$app" ] || /bin/mv "$dest" "$app"
-          cleanup; "$open" "$app"; exit 1
+          cleanup; "$open" -g "$app"; exit 1
         fi
         /usr/bin/xattr -r -d com.apple.quarantine "$app" 2>/dev/null
         note "Installed $app; the previous copy is in the Trash as ${dest##*/}"
         cleanup
-        "$open" "$app"
+        "$open" -g "$app"
         exit 0
         """#
 
