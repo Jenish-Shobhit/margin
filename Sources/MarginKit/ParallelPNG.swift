@@ -20,7 +20,7 @@ import zlib
 /// Each band boundary costs a few bytes, so files are within a fraction of a percent of ImageIO's; with one band the
 /// file is ImageIO's, byte for byte.
 enum ParallelPNG {
-    /// Filtered bytes per band (a full 2940 × 1912 display makes 86): enough bands that the slower efficiency cores
+    /// Filtered bytes per band (a full 2940 × 1912 display makes 87): enough bands that the slower efficiency cores
     /// take fewer of them (bands go to whichever core is free), few enough that their fixed costs don't show.
     static let bandBytes = 256 * 1024
     static let maxBands = 128
@@ -212,11 +212,12 @@ enum ParallelPNG {
         }
 
         /// Row `row` with the Up filter: a filter byte of 2, then each byte minus the one above it (zeros above row 0).
+        /// An image one row high says filter 0 (none) instead, as libpng does: the same bytes, since nothing is above.
         private func filter(_ row: Int, firstFilled: Int, into out: UnsafeMutablePointer<UInt8>) {
             let base = pixels.assumingMemoryBound(to: UInt8.self)
             let current = base + (row - firstFilled) * bytesPerRow
             let above = row == 0 ? UnsafePointer(zeroRow) : UnsafePointer(base + (row - 1 - firstFilled) * bytesPerRow)
-            out[0] = 2
+            out[0] = layout.height == 1 ? 0 : 2
             let dst = UnsafeMutableRawPointer(out + 1)
             var i = 0
             while i + 16 <= bytesPerRow {
