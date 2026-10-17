@@ -262,10 +262,10 @@ There are six settings, in one small SwiftUI window:
 ## 9. Not in 0.0.1
 
 - Pin to screen, OCR/QR, timer, history.
-- Annotate, blur, scrolling capture, recording/GIF, file-name tokens.
+- Annotate, blur, scrolling capture, GIF, file-name tokens. (Screen recording is in since 0.1.0, §14.)
 - A general file shelf (dropping other files onto the shelf).
 - Cloud/uploads, accounts, AI.
-- Intel builds, auto-update, notarization.
+- Intel builds, notarization. (Updates from GitHub are in since 0.0.20, §14.)
 
 ## 10. Build, sign, debug
 
@@ -359,3 +359,37 @@ Each item ships as its own patch release (version bump, CHANGELOG entry, tag, Gi
 | 0.0.5 | **⌥ is unclear.** When a modifier is held during selection, its HUD item highlights and a small pill next to the selection names the active mode ("From center", "Square"). Window mode: holding ⌥ shows "Keep shadow". Shelf: an ⌥-drag shows "Keep on shelf" on the drag image. HUD labels use words, not just symbols. |
 | 0.0.6 | **Turn off macOS shortcuts automatically.** Supersedes "never write system settings": First run step 2 gets a primary button **Turn off for me**. It sets `enabled = 0` for `AppleSymbolicHotKeys` 28–31 in `com.apple.symbolichotkeys` (keeping each entry's `value`) and runs `/System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u` so it applies at once. Settings gets **Restore macOS screenshot shortcuts** (re-enables 28–31 the same way). Only ever on an explicit click. |
 | 0.0.7 | **Magnifier on demand.** The loupe is off by default; press **Z** during a capture to show or hide it (remembered for the rest of that capture only). The HUD lists "Z Magnifier". |
+
+## 14. Features after the passes (user request, 17 Oct 2026)
+
+Shipped in this order: six cards (0.0.19), delete after pasting (0.0.19 or later), updates and the website (0.0.20 or later), screen recording (**0.1.0**). None of them may slow a screenshot: nothing new runs on the capture path, and recording code runs only while recording.
+
+### 14.1 Six cards
+The shelf shows up to 6 cards (was 4), fewer when they don't fit; see §4.
+
+### 14.2 Delete screenshots after pasting
+- **Setting:** "Delete screenshots after pasting" (off by default), under Copy each capture.
+- **While on**, a screenshot isn't saved to the Save to folder. Its PNG goes to `~/Library/Application Support/Margin/Pasteboard/` (same name, temp + rename, xattrs), and it still goes on the shelf and, with Copy each capture, the clipboard.
+- **Pasted = read by another app.** The clipboard item is written with a data provider (`NSPasteboardItem.setDataProvider`) for `public.png` and `public.file-url`, so Margin learns when another app reads it. The first read by another process counts as a paste: the card leaves the shelf (as after a drag-out, with Restore Last Removed) and the file is deleted 10 s later, so apps that read the file lazily still get it. A shelf copy (click, ⌘C) re-arms it. A drag out of the shelf also counts, with 30 s before the file goes.
+- **Not pasted:** the card stays until dismissed, like any other. A dismissed card's file is deleted once Restore Last Removed can no longer bring it back (the undo step expires or is replaced). Files of cards still on the shelf survive a relaunch; at launch, files in that folder with no card are deleted.
+- **Turning it off** doesn't move existing files; new shots go to Save to again. Screen recordings are always saved.
+- **Caveat (docs):** a clipboard manager that reads every copy counts as a paste.
+
+### 14.3 Updates and the website
+- **Menu:** "Check for Updates…" below About Margin. **Settings:** "Check for updates automatically" (on): at launch (after prewarm, never on the capture path) and every 24 h. It only calls GitHub's public API; nothing about the user is sent.
+- **Check:** `GET https://api.github.com/repos/Jenish-Shobhit/margin/releases/latest`. The tag `vX.Y.Z` is compared with `CFBundleShortVersionString` as a semantic version. Newer: a small window "Margin X is available — you have Y", with the release notes, and **Install and Relaunch** / **Later** / **Skip This Version**. A manual check with nothing newer says "Margin Y is up to date." Errors say what failed and offer the releases page.
+- **Install:** download the release asset `Margin-X.zip` (progress in the window) to a temp folder; unzip with `/usr/bin/ditto -x -k`; refuse unless the new bundle's ID is ours, its version is X, `codesign --verify --deep --strict` passes, and it satisfies the running app's designated requirement (same signing certificate, so Screen Recording permission carries over). Then a detached helper waits for Margin to quit (after the usual wait for saves), replaces the app where it is (the old one goes to the Trash), clears any quarantine attribute, and opens the new one. If the app's folder isn't writable, say so and open the release page instead.
+- **URL scheme:** `margin://update` (`CFBundleURLTypes`) runs a check and shows its result. It never installs without a click in Margin's window.
+- **Website:** `docs/index.html`, one self-contained page for GitHub Pages (served from `main` › `/docs`): icon, what Margin does, **Download Margin X** (resolved from the GitHub API on load, falling back to the releases page), install steps (Open Anyway), and **Update Margin** (a `margin://update` link, with "or choose Check for Updates… in Margin's menu"). It follows `prefers-color-scheme` and works at phone width.
+- `scripts/release.sh` keeps naming the asset `Margin-<version>.zip`; the updater depends on that name.
+
+### 14.4 Screen recording (0.1.0)
+- **Shortcut:** ⇧⌘5 **Record Screen** (new `ShortcutAction`, rebindable; its ⌃ twin like the others). macOS's own ⇧⌘5 (symbolic hotkey **184**, "Screenshot and recording options") must be off for Margin to get it. "Turn off for me" (First run) and "Turn off macOS screenshot shortcuts" (Settings) now cover 184 with 28–31, still only on the user's click; "Restore" re-enables all five. Until then the Record row shows the usual "macOS uses ⇧⌘5" warning. ⇧⌘5 leaves `ReservedShortcuts.common` (an enabled 184 is still caught as a system combo). First run's note about ⇧⌘5 now says Margin records with it.
+- **Start:** ⇧⌘5 opens the capture overlay in record mode (the same frozen overlay and keys): drag an area, Space for a window, or click without dragging (or ↩ with no selection) for the whole display under the pointer. The hint bar says "Drag Area · Space Window · Click Screen · Esc". Recording starts as soon as the overlay closes; the shutter sound doesn't play (a short start tick if Shutter sound is on).
+- **While recording:** the status item shows a red stop glyph and the elapsed time (m:ss); its menu's first item is **Stop Recording ⇧⌘5**. ⇧⌘5 again also stops. Margin's own windows (shelf, fly-ins, toasts, overlay) are excluded from the recording; screenshots still work during a recording. A display that disappears, a recorded window that closes, sleep, a full disk or a ScreenCaptureKit error stop the recording and keep what was recorded (with a toast saying why).
+- **Capture:** `SCStream` at the display's native pixel size (Retina), the display's refresh rate up to 60 fps, cursor shown, pixel format 420v (no colour conversion before the encoder), area via `sourceRect` and window via a desktop-independent window filter. **Audio:** Settings "Record system audio" (off) and "Record microphone" (off; the first use asks for microphone permission, `NSMicrophoneUsageDescription`).
+- **Encode:** `AVAssetWriter`, hardware H.264, MPEG-4 (`.mp4`, plays everywhere a pasted video is accepted), AAC audio. Real-time input, no frame copies, frames dropped rather than queued when the encoder falls behind. Bit rate scaled to pixels × fps so UI text stays sharp.
+- **File:** `Screen Recording yyyy-MM-dd 'at' HH.mm.ss.mp4` (start time) in the Save to folder, same rules as screenshots (Unsaved fallback, temp + rename); the temp file is finalised on stop.
+- **Shelf:** a card like a screenshot's, with the poster frame, a play glyph and the duration ("0:12"). Drag, click to copy (`public.file-url`), double-click to open, Quick Look plays it, ✕, ⌘Z, the pile: all as for screenshots. `ShelfItem` gains a kind (screenshot or recording; missing means screenshot, so old shelf.json files load). Copy each capture puts the recording's file URL on the clipboard when it's saved.
+- **Performance:** nothing of recording runs until ⇧⌘5. While recording, screenshot latency stays within 10% of not recording, and CPU stays low (hardware encoder; measure and document %CPU for a full-display 60 fps recording).
+
