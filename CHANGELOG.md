@@ -2,6 +2,13 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.1.2 — 2026-10-18
+
+### Added
+
+- Settings › Delete screenshots after pasting (off). While it's on, screenshots go to Margin's own folder instead of your save folder, and one you paste with ⌘V or ⌃V, or drag into an app, leaves the shelf. Restore Last Removed (or ⌘Z on the shelf) brings it back with its file. The file is deleted only once undo can't bring it back and the clipboard no longer holds it, and never sooner than 10 seconds after a paste (30 after a drag). Screen recordings are always saved.
+- A paste is recognised from the keys you press. Edit › Paste from a menu, or an app that reads the clipboard only after you've let go of ⌘, doesn't count, and the card stays. With a clipboard manager that saves images, pastes may go unnoticed the same way. While the option is on, shots aren't offered to your other devices through Universal Clipboard.
+
 ## 0.1.1 — 2026-10-18
 
 ### Added
