@@ -33,4 +33,19 @@ public enum ShutterSound {
         guard uiSoundsEnabled, let soundID else { return }
         AudioServicesPlaySystemSound(soundID)
     }
+
+    /// The short tick a screen recording starts with (macOS's own "begin_record"), instead of the shutter. Silent when UI
+    /// sound effects are off, like the shutter.
+    @MainActor public static func playRecordingStart() {
+        guard uiSoundsEnabled, let recordingStartID else { return }
+        AudioServicesPlaySystemSound(recordingStartID)
+    }
+
+    @MainActor private static let recordingStartID: SystemSoundID? = {
+        let url = URL(fileURLWithPath: soundsFolder + "begin_record.caf")
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        var id: SystemSoundID = 0
+        guard AudioServicesCreateSystemSoundID(url as CFURL, &id) == noErr else { return nil }
+        return id
+    }()
 }

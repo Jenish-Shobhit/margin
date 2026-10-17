@@ -13,6 +13,29 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private let badgedGlyph: NSImage
     private var observers: [NSObjectProtocol] = []
     private(set) var showsWarning = false
+    /// How long the recording under way has run; nil when there's none (spec §14.4).
+    private(set) var recordingElapsed: TimeInterval?
+    #if DEBUG || MARGIN_BENCH
+    /// What the button shows, for the DEBUG state dump.
+    var debugState: [String: Any] {
+        [
+            "title": statusItem.button?.title ?? "",
+            "recordingGlyph": statusItem.button?.image === recordingGlyph,
+            "variableLength": statusItem.length == NSStatusItem.variableLength,
+            "menu": menu.items.map { $0.isSeparatorItem ? "—" : $0.title + ($0.keyEquivalent.isEmpty ? "" : " [\($0.keyEquivalent)]") },
+        ]
+    }
+    #endif
+
+    /// The red stop glyph that stands in for the icon while recording: not a template, so it stays red.
+    private lazy var recordingGlyph: NSImage = {
+        let config = NSImage.SymbolConfiguration(paletteColors: [.white, .systemRed])
+            .applying(NSImage.SymbolConfiguration(pointSize: 13, weight: .regular))
+        let image = NSImage(systemSymbolName: "stop.circle.fill", accessibilityDescription: "Recording")?
+            .withSymbolConfiguration(config) ?? glyph
+        image.isTemplate = false
+        return image
+    }()
 
     private static let dotDiameter: CGFloat = 6
     /// The dot's centre, inset from the glyph's top-right corner (glyph coordinates, y up).
@@ -61,8 +84,40 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         refresh()
     }
 
+    /// While recording: the red stop glyph and the elapsed time (m:ss) instead of the icon, and Stop Recording first in
+    /// the menu. Called every second meanwhile, which only redraws the button: the menu is rebuilt (an open one would
+    /// reset) only when a recording starts or ends.
+    func setRecording(_ elapsed: TimeInterval?) {
+        let changed = (elapsed == nil) != (recordingElapsed == nil)
+        recordingElapsed = elapsed
+        if changed { refresh() } else { updateRecordingButton() }
+    }
+
+    /// The button while recording; false (and nothing done) when there's no recording.
+    @discardableResult
+    private func updateRecordingButton() -> Bool {
+        guard let elapsed = recordingElapsed, let button = statusItem.button else { return false }
+        let time = RecordingFormat.durationText(elapsed)
+        statusItem.length = NSStatusItem.variableLength
+        button.image = recordingGlyph
+        button.imagePosition = .imageLeading
+        button.attributedTitle = NSAttributedString(string: " " + time, attributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular),
+        ])
+        warningDot.isHidden = true
+        let tip = "Margin — recording, \(time). Stop with \(Preferences.shared.shortcut(for: .recordScreen).displayString)"
+        button.toolTip = tip
+        button.setAccessibilityLabel("Margin — recording, \(time)")
+        return true
+    }
+
     /// Redraws the icon (a dot when something needs attention) and rebuilds the menu.
     private func refresh() {
+        defer { rebuild() }
+        if updateRecordingButton() { return }
+        statusItem.length = NSStatusItem.squareLength
+        statusItem.button?.title = ""
+        statusItem.button?.imagePosition = .imageOnly
         let hotkeyWarning = Self.hotkeyWarning(coordinator?.hotkeyFailures ?? [])
         let attention = showsWarning || hotkeyWarning != nil
         statusItem.button?.image = attention ? badgedGlyph : glyph
@@ -78,7 +133,6 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         }
         statusItem.button?.toolTip = tip
         statusItem.button?.setAccessibilityLabel(tip)
-        rebuild()
     }
 
     /// "⇧⌘4 is used by another app", or nil when every shortcut registered.
@@ -172,6 +226,13 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
         let prefs = Preferences.shared
 
+        // From the overlay closing until the recording is being saved.
+        let recording = recordingElapsed != nil
+        if recording {
+            menu.addItem(item("Stop Recording", symbol: "stop.circle", action: #selector(stopRecording),
+                              combo: prefs.shortcut(for: .recordScreen)))
+            menu.addItem(.separator())
+        }
         if let warning = Self.hotkeyWarning(coordinator?.hotkeyFailures ?? []) {
             menu.addItem(item("\(warning) — Change in Settings…", symbol: "exclamationmark.triangle",
                               action: #selector(openSettings)))
@@ -192,6 +253,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
                           combo: prefs.shortcut(for: .captureScreen)))
         menu.addItem(item("Repeat Last Area", symbol: "arrow.clockwise", action: #selector(repeatArea),
                           combo: prefs.shortcut(for: .repeatArea)))
+        if !recording {
+            menu.addItem(item("Record Screen", symbol: "record.circle", action: #selector(recordScreen),
+                              combo: prefs.shortcut(for: .recordScreen)))
+        }
         menu.addItem(.separator())
         let tucked = coordinator?.isShelfTucked ?? false
         let toggle = item(tucked ? "Show Shelf" : "Tuck Shelf", symbol: "sidebar.right", action: #selector(toggleShelf),
@@ -255,6 +320,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func captureWindow() { afterMenuCloses { [weak self] in self?.coordinator?.captureWindow() } }
     @objc private func captureScreen() { afterMenuCloses { [weak self] in self?.coordinator?.captureScreen() } }
     @objc private func repeatArea() { afterMenuCloses { [weak self] in self?.coordinator?.repeatArea() } }
+    @objc private func recordScreen() { afterMenuCloses { [weak self] in self?.coordinator?.toggleRecording() } }
+    @objc private func stopRecording() { coordinator?.stopRecording() }
     @objc private func toggleShelf() { coordinator?.toggleShelf() }
     @objc private func restoreLastRemoved() { coordinator?.restoreLastRemoved() }
     @objc private func openFolder() { coordinator?.openScreenshotsFolder() }

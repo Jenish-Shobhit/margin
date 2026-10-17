@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import Carbon.HIToolbox
 import MarginKit
 import Observation
@@ -16,6 +17,10 @@ final class SettingsModel {
     private(set) var copyEachCapture: Bool
     private(set) var shutterSound: Bool
     private(set) var showsCaptureHints: Bool
+    private(set) var recordsSystemAudio: Bool
+    private(set) var recordsMicrophone: Bool
+    /// Microphone permission, as last read (`refreshMicrophoneAccess`): reading it never asks.
+    private(set) var microphoneAccess: AVAuthorizationStatus = .notDetermined
     /// The login item's real state (`LoginItem.state`), not the preference: on once registered.
     private(set) var launchAtLogin = false
     /// Registered, but the user still has to allow it in System Settings › General › Login Items.
@@ -33,7 +38,7 @@ final class SettingsModel {
     /// Shortcuts the hotkey center couldn't register, with the Carbon status (`RuntimeStatus.hotkeyFailures`).
     private(set) var hotkeyFailures: [ShortcutAction: Int32] = [:]
 
-    /// The four macOS screenshot shortcuts (IDs 28–31), as last read (`refreshSystemShortcuts`).
+    /// The macOS screenshot shortcuts (IDs 28–31 and 184), as last read (`refreshSystemShortcuts`).
     private(set) var systemShortcuts: [SystemScreenshotShortcut] = []
     /// Turning them off or restoring them is running (about half a second).
     private(set) var systemShortcutsBusy = false
@@ -54,6 +59,9 @@ final class SettingsModel {
     /// The other system shortcuts' bindings, checked when recording (read once per recording).
     @ObservationIgnored var readSystemCombos: () -> Set<KeyCombo> = { SystemShortcuts.currentOtherEnabledCombos() }
     @ObservationIgnored private var systemCombos: Set<KeyCombo>?
+    // Microphone permission sources, swappable for visual checks.
+    @ObservationIgnored var readMicrophoneAccess: () -> AVAuthorizationStatus = { AVCaptureDevice.authorizationStatus(for: .audio) }
+    @ObservationIgnored var requestMicrophoneAccess: () async -> Bool = { await AVCaptureDevice.requestAccess(for: .audio) }
 
     static let genericFolderIcon = NSWorkspace.shared.icon(for: .folder)
 
@@ -64,6 +72,8 @@ final class SettingsModel {
         copyEachCapture = prefs.copyEachCapture
         shutterSound = prefs.shutterSound
         showsCaptureHints = prefs.showsCaptureHints
+        recordsSystemAudio = prefs.recordsSystemAudio
+        recordsMicrophone = prefs.recordsMicrophone
         reload()
         refreshLoginItem()
         refreshSystemShortcuts()
@@ -99,6 +109,8 @@ final class SettingsModel {
         copyEachCapture = prefs.copyEachCapture
         shutterSound = prefs.shutterSound
         showsCaptureHints = prefs.showsCaptureHints
+        recordsSystemAudio = prefs.recordsSystemAudio
+        recordsMicrophone = prefs.recordsMicrophone
         shortcuts = Dictionary(uniqueKeysWithValues: ShortcutAction.allCases.map { ($0, prefs.shortcut(for: $0)) })
         refreshFolderInfo()
     }
@@ -138,6 +150,36 @@ final class SettingsModel {
     func setShutterSound(_ on: Bool) { prefs.shutterSound = on }
     func setShowsCaptureHints(_ on: Bool) { prefs.showsCaptureHints = on }
 
+    // MARK: Screen recording
+
+    func setRecordsSystemAudio(_ on: Bool) { prefs.recordsSystemAudio = on }
+
+    /// Turning the microphone on asks for permission now, if macOS hasn't asked yet, rather than at the next recording.
+    func setRecordsMicrophone(_ on: Bool) {
+        prefs.recordsMicrophone = on
+        refreshMicrophoneAccess()
+        guard on, microphoneAccess == .notDetermined else { return }
+        Task {
+            _ = await requestMicrophoneAccess()
+            refreshMicrophoneAccess()
+        }
+    }
+
+    /// When the window opens or becomes key again (back from Privacy & Security), and after asking.
+    func refreshMicrophoneAccess() {
+        microphoneAccess = readMicrophoneAccess()
+    }
+
+    /// Under the toggle while recordings can't have the microphone: it's on, but macOS says no.
+    var microphoneNote: String? {
+        guard recordsMicrophone, microphoneAccess == .denied || microphoneAccess == .restricted else { return nil }
+        return "Margin isn’t allowed to use the microphone. Allow it in Privacy & Security › Microphone."
+    }
+
+    static let microphoneSettings = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Microphone")!
+
+    func openMicrophoneSettings() { NSWorkspace.shared.open(Self.microphoneSettings) }
+
     // MARK: Launch at login
 
     /// Re-reads the login item (an `SMAppService` query, so not on every preference change): when the window
@@ -167,16 +209,17 @@ final class SettingsModel {
         systemShortcuts = readSystemShortcuts()
     }
 
-    /// Any of the four is on, so the row offers to turn them off; otherwise it offers to restore them.
+    /// Any of them is on, so the row offers to turn them off; otherwise it offers to restore them.
     var anySystemShortcutOn: Bool { systemShortcuts.contains { $0.enabled } }
 
-    /// The row's short status line, e.g. "All four are on, so macOS takes them before Margin."
+    /// The row's short status line, e.g. "All five are on, so macOS takes them before Margin."
     var systemShortcutsStatus: String {
         let on = systemShortcuts.filter(\.enabled)
         let keys = { (list: [SystemScreenshotShortcut]) in ListFormatter.localizedString(byJoining: list.map(\.keys)) }
+        let all = Self.spelledOut(systemShortcuts.count)
         let state = switch on.count {
-        case 0: "All four are off"
-        case systemShortcuts.count: "All four are on"
+        case 0: "All \(all) are off"
+        case systemShortcuts.count: "All \(all) are on"
         default: "\(keys(on)) \(on.count == 1 ? "is" : "are") on"
         }
         // From the observed `shortcuts`, so the line updates as soon as one of Margin's shortcuts is re-recorded.
@@ -185,6 +228,25 @@ final class SettingsModel {
         guard !conflicts.isEmpty else { return state + "." }
         let which = conflicts.count == on.count ? (on.count == 1 ? "it" : "them") : keys(conflicts)
         return "\(state), so macOS takes \(which) before Margin."
+    }
+
+    /// "five", for "All five are on".
+    private static func spelledOut(_ n: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .spellOut
+        formatter.locale = Locale(identifier: "en_US")
+        return formatter.string(from: NSNumber(value: n)) ?? "\(n)"
+    }
+
+    /// The macOS shortcut that takes `action`'s keys before Margin does, as "macOS uses ⇧⌘5…": the usual warning under a
+    /// shortcut until its macOS twin is turned off (below, or in First run). Hidden while that recorder is listening or
+    /// has a message of its own.
+    func systemConflictText(for action: ShortcutAction) -> String? {
+        guard recording != action, message?.action != action else { return nil }
+        let conflicts = SystemShortcuts.conflicts(systemShortcuts, with: action.registeredCombos(for: shortcut(for: action)))
+        guard !conflicts.isEmpty else { return nil }
+        let keys = ListFormatter.localizedString(byJoining: conflicts.map(\.keys))
+        return "macOS uses \(keys) first. Turn off its screenshot shortcuts below."
     }
 
     /// "Turn off macOS screenshot shortcuts" when any are on, "Restore macOS screenshot shortcuts" when all are off.
@@ -312,6 +374,7 @@ final class SettingsModel {
         case .captureScreen: "Capture screen"
         case .repeatArea: "Repeat last area"
         case .toggleShelf: "Show or tuck shelf"
+        case .recordScreen: "Record screen"
         }
     }
 }

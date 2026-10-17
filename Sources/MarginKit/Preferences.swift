@@ -18,6 +18,8 @@ public struct KeyCombo: Codable, Hashable, Sendable {
 
 public enum ShortcutAction: String, Codable, CaseIterable, Sendable {
     case captureArea, captureScreen, repeatArea, toggleShelf
+    /// ⇧⌘5: choose what to record and start a screen recording, or stop the one under way (spec §14.4).
+    case recordScreen
 
     public var defaultCombo: KeyCombo {
         let cs = KeyCombo.cmd | KeyCombo.shift
@@ -26,6 +28,7 @@ public enum ShortcutAction: String, Codable, CaseIterable, Sendable {
         case .captureScreen: return KeyCombo(keyCode: 0x14, modifiers: cs) // ⌘⇧3
         case .repeatArea: return KeyCombo(keyCode: 0x13, modifiers: cs)    // ⌘⇧2
         case .toggleShelf: return KeyCombo(keyCode: 0x12, modifiers: cs)   // ⌘⇧1
+        case .recordScreen: return KeyCombo(keyCode: 0x17, modifiers: cs)  // ⌘⇧5
         }
     }
 
@@ -79,7 +82,7 @@ public struct LastArea: Codable, Equatable, Sendable {
     }
 }
 
-/// The five user settings plus a little internal state. Posts `Preferences.didChange` on every write.
+/// The user settings plus a little internal state. Posts `Preferences.didChange` on every write.
 @MainActor
 public final class Preferences {
     public static let shared = Preferences()
@@ -135,6 +138,18 @@ public final class Preferences {
     public var showsCaptureHints: Bool {
         get { defaults.object(forKey: "showsCaptureHints") as? Bool ?? true }
         set { set(newValue, "showsCaptureHints") }
+    }
+
+    /// Screen recordings include what the Mac plays (Margin's own sounds aside). Off unless turned on in Settings.
+    public var recordsSystemAudio: Bool {
+        get { defaults.object(forKey: "recordsSystemAudio") as? Bool ?? false }
+        set { set(newValue, "recordsSystemAudio") }
+    }
+
+    /// Screen recordings include the microphone. Off unless turned on in Settings, which asks for microphone permission.
+    public var recordsMicrophone: Bool {
+        get { defaults.object(forKey: "recordsMicrophone") as? Bool ?? false }
+        set { set(newValue, "recordsMicrophone") }
     }
 
     public var firstRunDone: Bool {

@@ -24,6 +24,7 @@ final class FirstRunModel {
     /// IDs of enabled macOS shortcuts that take one of Margin's keys.
     private(set) var conflictIDs: Set<Int> = []
     private(set) var areaShortcut = ShortcutAction.captureArea.defaultCombo.displayString
+    private(set) var recordShortcut = ShortcutAction.recordScreen.defaultCombo.displayString
     /// The login item's real state (`LoginItem.state`), so step 3 only says "on" when it is.
     private(set) var loginItem: LoginItem.State = .off
     var capturedOnce = false
@@ -35,7 +36,7 @@ final class FirstRunModel {
     private(set) var turningOff = false
     /// Why "Turn off for me" didn't work, shown in step 2 until the next try.
     private(set) var turnOffError: String?
-    /// Keeps step 2 open for a moment after "Turn off for me", so the four boxes can be seen ticking.
+    /// Keeps step 2 open for a moment after "Turn off for me", so the boxes can be seen ticking.
     private var holdingShortcuts = false
 
     // Sources, swappable for visual checks.
@@ -89,6 +90,7 @@ final class FirstRunModel {
         shortcuts = readShortcuts()
         conflictIDs = Set(SystemShortcuts.conflicts(shortcuts, with: prefs.registeredCombos().map(\.combo)).map(\.id))
         areaShortcut = prefs.shortcut(for: .captureArea).displayString
+        recordShortcut = prefs.shortcut(for: .recordScreen).displayString
         loginItem = readLoginItem()
     }
 
@@ -100,7 +102,8 @@ final class FirstRunModel {
         refresh()
     }
 
-    /// "Turn off for me": switches off the four macOS screenshot shortcuts (spec, 0.0.6). Only ever on this click.
+    /// "Turn off for me": switches off the macOS screenshot shortcuts, 28–31 and 184 (spec, 0.0.6 and §14.4). Only ever on
+    /// this click.
     func turnOffSystemShortcuts() {
         guard !turningOff else { return }
         turningOff = true

@@ -1,26 +1,28 @@
 # Keyboard shortcuts
 
-Every shortcut in Margin 0.0.15. Modifiers are written in the macOS order ⌃⌥⇧⌘ (Control, Option, Shift, Command), as in System Settings: ⇧⌘4 is Shift-Command-4.
+Every shortcut in Margin 0.1.0. Modifiers are written in the macOS order ⌃⌥⇧⌘ (Control, Option, Shift, Command), as in System Settings: ⇧⌘4 is Shift-Command-4.
 
 ## Global
 
-These work from any app. The four marked *rebindable* can be changed in [Settings](user-guide.md#settings).
+These work from any app. The five marked *rebindable* can be changed in [Settings](user-guide.md#settings).
 
 | Default | Action | |
 |---|---|---|
 | ⇧⌘4 | Capture an area on a frozen screen. Press Space for window mode | Rebindable |
 | ⇧⌘3 | Capture the whole display under the pointer | Rebindable |
 | ⇧⌘2 | Capture the last area again, with no overlay. Falls back to ⇧⌘4 if there's no last area, or its display is gone or at another resolution | Rebindable |
+| ⇧⌘5 | Record the screen: choose an area, a window or the whole display. While recording, stop | Rebindable |
 | ⇧⌘1 | Tuck or show the shelf | Rebindable |
 | ⌃⇧⌘4 | Same as ⇧⌘4 | Follows ⇧⌘4 |
 | ⌃⇧⌘3 | Same as ⇧⌘3 | Follows ⇧⌘3 |
 | ⌃⇧⌘2 | Same as ⇧⌘2 | Follows ⇧⌘2 |
+| ⌃⇧⌘5 | Same as ⇧⌘5 | Follows ⇧⌘5 |
 
 - **The ⌃ twins.** Each capture shortcut also answers with ⌃ added, because macOS uses ⌃ to mean "copy to the clipboard" and every Margin shot is already copied. If you set a capture shortcut that already includes ⌃, there's no twin.
 - **Window capture** has no shortcut of its own: press Space after ⇧⌘4, or use **Capture Window** in the menu bar.
-- **⇧⌘5** stays with macOS for screen recording.
+- **Screen recording** (⇧⌘5) since 0.1.0: macOS used to keep it for its screenshot toolbar.
 
-The four macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4, ⌃⇧⌘4) must be off for Margin to receive those keys. First run's **Turn off for me** does that; see [Troubleshooting](troubleshooting.md#the-macos-screenshot-tool-opens-instead-of-margin).
+The five macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4, ⌃⇧⌘4, and ⇧⌘5 for "Screenshot and recording options") must be off for Margin to receive those keys. First run's **Turn off for me** does that; see [Troubleshooting](troubleshooting.md#the-macos-screenshot-tool-opens-instead-of-margin).
 
 ## While selecting an area
 
@@ -50,6 +52,20 @@ The four macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4, ⌃⇧⌘4) m
 | ⌥-click | Capture it with its shadow |
 | Space | Back to area mode |
 | Esc or right-click | Cancel |
+
+## Choosing what to record (⇧⌘5)
+
+The same frozen overlay, with the same keys as above, except that what you choose is recorded instead of captured.
+
+| Keys | Action |
+|---|---|
+| Drag, then release | Record that area (⇧, ⌥, Space and the arrows work as for a screenshot) |
+| ↩ after keeping a selection | Record the selection |
+| Click without dragging, or ↩ with nothing selected | Record the whole display under the pointer |
+| Space, then click a window | Record that window on its own, wherever it goes (no shadow) |
+| Esc or right-click | Cancel: nothing is recorded |
+
+While recording, ⇧⌘5 (or **Stop Recording** in the menu bar menu) stops and saves it. Screenshots work as usual meanwhile.
 
 ## On the shelf
 
@@ -87,4 +103,4 @@ A plain click copies a card and leaves the keyboard with your app, so ⌘V right
 
 ## In the menu bar menu
 
-With the menu open, **⌘,** opens Settings and **⌘Q** quits. The capture items show their current shortcuts.
+With the menu open, **⌘,** opens Settings and **⌘Q** quits. The capture items show their current shortcuts. While recording, the first item is **Stop Recording** with the record shortcut; quitting then stops and saves the recording first.

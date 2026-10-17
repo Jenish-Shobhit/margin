@@ -23,6 +23,9 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     private let check = CALayer.shelfQuiet()
     private let pill = CALayer.shelfQuiet()
     private let pillText = shelfQuiet(CATextLayer())
+    /// A recording's play glyph and length (bottom-left), there unless the hover chrome is (its meta line has the length).
+    /// Made for recordings only: a screenshot's card is built as it always was.
+    private var playBadge: (layer: CALayer, glyph: CAShapeLayer, text: CATextLayer)?
 
     private(set) var isHovered = false
     private(set) var isSelected = false
@@ -205,6 +208,7 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         pill.position = CGPoint(x: w - 6 - ps.width / 2, y: 6 + ps.height / 2)
         pill.shadowPath = CGPath(roundedRect: pill.bounds, cornerWidth: 6, cornerHeight: 6, transform: nil)
         pillText.frame = CGRect(x: 0, y: (ps.height - 12) / 2, width: ps.width, height: 12)
+        layoutPlayBadge()
         renameBox?.frame = renameFrame
         removeAllToolTips()
         addToolTip(moreHitRect, owner: self, userData: nil)
@@ -218,7 +222,7 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
         let s = window?.backingScaleFactor ?? 2
-        for l in [metaText, pillText] { l.contentsScale = s }
+        for l in [metaText, pillText] + [playBadge?.text].compactMap({ $0 }) { l.contentsScale = s }
         for l in [body, imageLayer, chrome] { l.contentsScale = s }
     }
 
@@ -253,10 +257,49 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
 
     private func updateMeta() {
         let time = ShelfStyle.metaFormatter.string(from: item.createdAt)
-        let text = "\(time) · \(item.pixelWidth) × \(item.pixelHeight)"
+        let size = "\(item.pixelWidth) × \(item.pixelHeight)"
+        let recording = item.kind == .recording
+        let length = RecordingFormat.cardDurationText(item.duration ?? 0)
+        let text = recording ? "\(time) · \(length) · \(size)" : "\(time) · \(size)"
         metaText.string = NSAttributedString(string: text, attributes: [
             .font: NSFont.systemFont(ofSize: 10.5, weight: .medium), .foregroundColor: NSColor.white,
         ])
+        guard recording else { return }
+        let badge = playBadge ?? makePlayBadge()
+        badge.text.string = NSAttributedString(string: length, attributes: [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .semibold), .foregroundColor: NSColor.white,
+        ])
+        layoutPlayBadge()
+    }
+
+    /// The ▶ and length of a recording's card, above the image and its border, under the hover chrome.
+    private func makePlayBadge() -> (layer: CALayer, glyph: CAShapeLayer, text: CATextLayer) {
+        let layer = CALayer.shelfQuiet(), glyph = shelfQuiet(CAShapeLayer()), text = shelfQuiet(CATextLayer())
+        layer.cornerRadius = 6
+        layer.backgroundColor = ShelfStyle.chip.cgColor
+        layer.borderColor = NSColor.white.withAlphaComponent(0.28).cgColor
+        layer.borderWidth = 1
+        let triangle = CGMutablePath()
+        triangle.move(to: CGPoint(x: 0, y: 0)); triangle.addLine(to: CGPoint(x: 0, y: 8)); triangle.addLine(to: CGPoint(x: 7, y: 4))
+        triangle.closeSubpath()
+        glyph.path = triangle
+        glyph.fillColor = NSColor.white.cgColor
+        layer.addSublayer(glyph)
+        text.alignmentMode = .left
+        text.contentsScale = window?.backingScaleFactor ?? 2
+        layer.addSublayer(text)
+        body.insertSublayer(layer, above: border)
+        playBadge = (layer, glyph, text)
+        return (layer, glyph, text)
+    }
+
+    private func layoutPlayBadge() {
+        guard let badge = playBadge else { return }
+        let textW = ceil((badge.text.string as? NSAttributedString)?.size().width ?? 22)
+        let size = CGSize(width: 7 + 4 + textW + 14, height: 18)
+        badge.layer.frame = CGRect(x: 6, y: 6, width: size.width, height: size.height)
+        badge.glyph.frame = CGRect(x: 7, y: 5, width: 7, height: 8)
+        badge.text.frame = CGRect(x: 18, y: (size.height - 13) / 2, width: textW + 2, height: 13)
     }
 
     // MARK: - State
@@ -297,6 +340,7 @@ final class ShelfCardView: NSView, NSTextFieldDelegate {
         guard on != isHovered, !isInPile, !isLeaving else { return }
         isHovered = on
         ShelfMotion.fade(chrome, to: on ? 1 : 0, duration: 0.2)
+        if let badge = playBadge?.layer { ShelfMotion.fade(badge, to: on ? 0 : 1, duration: 0.2) }
         if isSelected { ShelfMotion.fade(check, to: on ? 0 : 1, duration: 0.2) }
         applyBody(animated: true)
     }

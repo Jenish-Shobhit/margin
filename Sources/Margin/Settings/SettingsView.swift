@@ -46,6 +46,8 @@ struct SettingsView: View {
                 }
             }
 
+            RecordingSection(model: model)
+
             Section {
                 ForEach(ShortcutAction.allCases, id: \.self) { action in
                     ShortcutRow(model: model, action: action)
@@ -53,7 +55,7 @@ struct SettingsView: View {
             } header: {
                 Text("Shortcuts")
             } footer: {
-                Text("Window capture: press Space after \(model.shortcut(for: .captureArea).displayString). Adding ⌃ to any capture shortcut does the same thing.")
+                Text("Window capture: press Space after \(model.shortcut(for: .captureArea).displayString). \(model.shortcut(for: .recordScreen).displayString) again stops a recording. Adding ⌃ to any capture shortcut does the same thing.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -71,7 +73,33 @@ struct SettingsView: View {
     }
 }
 
-/// Turns the four macOS screenshot shortcuts off, or restores them, with a short status line (spec, 0.0.6).
+/// Screen recording's audio (spec §14.4): what the Mac plays, and the microphone, both off until turned on here. No
+/// header: the toggles say what they're for, and the window stays short enough for a small display.
+private struct RecordingSection: View {
+    let model: SettingsModel
+
+    var body: some View {
+        Section {
+            Toggle("Record system audio", isOn: Binding(get: { model.recordsSystemAudio }, set: model.setRecordsSystemAudio))
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle("Record microphone", isOn: Binding(get: { model.recordsMicrophone }, set: model.setRecordsMicrophone))
+                if let note = model.microphoneNote {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(note)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Button("Open Privacy Settings") { model.openMicrophoneSettings() }
+                            .buttonStyle(.link)
+                    }
+                    .font(.caption)
+                }
+            }
+        }
+    }
+}
+
+/// Turns the macOS screenshot shortcuts off (⇧⌘3, ⇧⌘4 and ⇧⌘5's toolbar), or restores them, with a short status line
+/// (spec, 0.0.6 and §14.4).
 private struct SystemShortcutsRow: View {
     let model: SettingsModel
 
@@ -124,7 +152,7 @@ private struct ShortcutRow: View {
                     .font(.caption)
                     .foregroundStyle(.red)
                     .transition(.opacity)
-            } else if let failure = model.failureText(for: action) {
+            } else if let failure = model.failureText(for: action) ?? model.systemConflictText(for: action) {
                 Label(failure, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(Color(nsColor: .systemOrange))
@@ -132,7 +160,7 @@ private struct ShortcutRow: View {
             }
         }
         .animation(.easeOut(duration: 0.15), value: model.message?.text)
-        .animation(.easeOut(duration: 0.15), value: model.failureText(for: action))
+        .animation(.easeOut(duration: 0.15), value: model.failureText(for: action) ?? model.systemConflictText(for: action))
     }
 }
 
@@ -170,7 +198,7 @@ private struct ShortcutRecorder: View {
 
     private var accessibilityValue: String {
         let keys = model.shortcut(for: action).displayString
-        return model.failureText(for: action).map { "\(keys), not working: \($0)" } ?? keys
+        return (model.failureText(for: action) ?? model.systemConflictText(for: action)).map { "\(keys), not working: \($0)" } ?? keys
     }
 
     private var label: String {

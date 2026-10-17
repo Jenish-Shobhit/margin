@@ -3,6 +3,11 @@ import Foundation
 import os
 
 public struct ShelfItem: Codable, Identifiable, Equatable, Sendable {
+    /// What the file is: a screenshot (PNG) or a screen recording (MP4, spec §14.4).
+    public enum Kind: String, Codable, Sendable {
+        case screenshot, recording
+    }
+
     public let id: UUID
     public var path: String
     /// Bookmark so a file moved in Finder is followed. Nil until the file exists (see `refreshBookmark()`).
@@ -10,19 +15,44 @@ public struct ShelfItem: Codable, Identifiable, Equatable, Sendable {
     public var createdAt: Date
     public var pixelWidth: Int
     public var pixelHeight: Int
+    /// Missing from shelf.json before 0.1.0, which held only screenshots: a missing kind is a screenshot. One this
+    /// version doesn't know (a newer Margin's) makes the item unreadable, so it's skipped like any other.
+    public var kind: Kind
+    /// A recording's length in seconds, for its card ("0:12"). Nil for screenshots.
+    public var duration: TimeInterval?
 
     public var url: URL { URL(fileURLWithPath: path) }
     public var pixelSize: CGSize { CGSize(width: pixelWidth, height: pixelHeight) }
 
     /// The bookmark is only created if the file already exists. If you create the item before the PNG is
     /// renamed into place, call `refreshBookmark()` afterwards (`ShelfStore.pruneMissing()` also fills it in).
-    public init(id: UUID = UUID(), url: URL, createdAt: Date, pixelSize: CGSize) {
+    public init(id: UUID = UUID(), url: URL, createdAt: Date, pixelSize: CGSize, kind: Kind = .screenshot,
+                duration: TimeInterval? = nil) {
         self.id = id
         self.path = url.path
         self.bookmark = Self.makeBookmark(for: url)
         self.createdAt = createdAt
         self.pixelWidth = Int(pixelSize.width)
         self.pixelHeight = Int(pixelSize.height)
+        self.kind = kind
+        self.duration = duration
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, path, bookmark, createdAt, pixelWidth, pixelHeight, kind, duration
+    }
+
+    /// As synthesized, except that `kind` may be missing (shelf.json written before 0.1.0).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        path = try c.decode(String.self, forKey: .path)
+        bookmark = try c.decodeIfPresent(Data.self, forKey: .bookmark)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        pixelWidth = try c.decode(Int.self, forKey: .pixelWidth)
+        pixelHeight = try c.decode(Int.self, forKey: .pixelHeight)
+        kind = try c.decodeIfPresent(Kind.self, forKey: .kind) ?? .screenshot
+        duration = try c.decodeIfPresent(TimeInterval.self, forKey: .duration)
     }
 
     /// Re-creates the bookmark from `path`. Call once the file exists on disk (or after renaming it).

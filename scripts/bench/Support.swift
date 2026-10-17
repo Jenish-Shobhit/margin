@@ -349,9 +349,12 @@ enum Gate {
     }
 
     /// Waits until the bench or Margin is in front and nobody is using the Mac: after any keyboard or mouse input,
-    /// until there's been none for `idle` seconds. False after `maxWait` seconds, or when `stop()` says so.
+    /// until there's been none for `idle` seconds. False after `maxWait` seconds, or when `stop()` says so. With
+    /// `retake`, another app left in front by someone who has since gone quiet for `idle` seconds is put behind the
+    /// bench window again (`retake` brings it forward), as the bench took the screen at the start.
     @MainActor
-    static func wait(idle: Double, maxWait: Double, stop: () -> Bool) async -> Bool {
+    static func wait(idle: Double, maxWait: Double, retake: (() -> Void)? = nil, stop: () -> Bool) async -> Bool {
+        var retaken = Date.distantPast
         var announced = ""
         let start = Date()
         var mustIdle = userActive()
@@ -366,6 +369,13 @@ enum Gate {
                     await sleep(ms: 1000)
                 }
                 return true
+            }
+            if !inFront, let retake, idleSeconds() >= idle, Date().timeIntervalSince(retaken) > 10 {
+                say("\(frontName(front)) was left in front and nobody has used the Mac for \(Int(idle)) s: bringing the bench back")
+                retaken = Date()
+                retake()
+                await sleep(ms: 1000)
+                continue
             }
             let why = !inFront ? "\(frontName(front)) is in front; click the bench window to go on"
                 : "the Mac is in use; going on after \(Int(idle)) s without input"

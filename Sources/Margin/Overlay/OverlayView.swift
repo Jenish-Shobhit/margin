@@ -36,6 +36,8 @@ struct OverlayFrame {
     var showsHUD = false
     /// Drawing a new selection: Space moves it instead of switching to window mode.
     var drawing = false
+    /// Choosing what to record (⇧⌘5): the hint bar says what a drag, Space and a click record, and ↩ records.
+    var recording = false
     /// Keys held right now that change what happens: highlighted in the HUD and named next to the selection
     /// (or on the window pill).
     var held: HUDView.Held = []
@@ -352,8 +354,9 @@ final class OverlayView: NSView {
 
         // Hint bar at the top center, below the menu bar and the notch.
         if f.showsHUD, f.mouseDisplayID == here {
-            hud.setItems(f.mode == .area ? HUDView.areaItems(drawing: f.drawing, held: f.held, magnifier: f.magnifier)
-                                         : HUDView.windowItems(held: f.held))
+            hud.setItems(f.mode == .window ? HUDView.windowItems(held: f.held, recording: f.recording)
+                         : f.recording && f.selection == nil ? HUDView.recordItems()
+                         : HUDView.areaItems(drawing: f.drawing, held: f.held, magnifier: f.magnifier, recording: f.recording))
             var top: CGFloat = 24
             if let screen = Displays.screen(for: here) {
                 top = max(top, screen.safeAreaInsets.top, screen.frame.maxY - screen.visibleFrame.maxY)

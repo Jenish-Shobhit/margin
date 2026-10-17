@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import ImageIO
 import MarginKit
 
@@ -37,6 +38,27 @@ enum ShelfThumbnails {
             guard let thumb = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
             return ShelfImageBox(image: thumb)
         }.value
+    }
+
+    /// A recording's card: its poster frame (the first), decoded at the card's 2× size (restored items, and a recording
+    /// that just finished).
+    nonisolated static func poster(url: URL, pixelSize: CGSize) async -> ShelfImageBox? {
+        let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
+        generator.appliesPreferredTrackTransform = true
+        if pixelSize.width > 0, pixelSize.height > 0 {
+            let s = fillScale(pixelSize, targetPixels(for: pixelSize))
+            generator.maximumSize = CGSize(width: ceil(pixelSize.width * s), height: ceil(pixelSize.height * s))
+        }
+        guard let image = try? await generator.image(at: .zero).image else { return nil }
+        return ShelfImageBox(image: image)
+    }
+
+    /// A card's thumbnail from its file: the image's own, or a recording's poster frame.
+    nonisolated static func load(_ item: ShelfItem) async -> ShelfImageBox? {
+        switch item.kind {
+        case .screenshot: await load(url: item.url, pixelSize: item.pixelSize)
+        case .recording: await poster(url: item.url, pixelSize: item.pixelSize)
+        }
     }
 
     /// Downsample the in-memory capture (new items).

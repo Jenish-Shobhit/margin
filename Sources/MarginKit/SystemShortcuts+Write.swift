@@ -36,21 +36,22 @@ public enum SystemShortcutsError: Error, Equatable, LocalizedError {
 }
 
 extension SystemShortcuts {
-    /// The screenshot shortcuts: 28–31.
+    /// The screenshot shortcuts: 28–31 and 184.
     public static var allIDs: [Int] { catalog.map(\.id) }
 
     /// Applies symbolic hot key changes from the preferences at once, without logging out.
     public static let activateSettingsPath =
         "/System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings"
 
-    /// The macOS default `value.parameters` for IDs 28–31: (character, Carbon key code, AppKit modifier flags).
-    /// 51/52 are "3"/"4", 20/21 their key codes, 1179648 = ⇧⌘ and 1441792 = ⌃⇧⌘.
+    /// The macOS default `value.parameters` for IDs 28–31 and 184: (character, Carbon key code, AppKit modifier flags).
+    /// 51/52/53 are "3"/"4"/"5", 20/21/23 their key codes, 1179648 = ⇧⌘ and 1441792 = ⌃⇧⌘.
     public static func defaultParameters(forID id: Int) -> [Int]? {
         switch id {
         case 28: [51, 20, 1_179_648]
         case 29: [51, 20, 1_441_792]
         case 30: [52, 21, 1_179_648]
         case 31: [52, 21, 1_441_792]
+        case 184: [53, 23, 1_179_648]
         default: nil
         }
     }
@@ -73,7 +74,7 @@ extension SystemShortcuts {
         return result
     }
 
-    /// Turns the macOS screenshot shortcuts off (so Margin gets ⇧⌘3/⇧⌘4) or back on. Only on an explicit click.
+    /// Turns the macOS screenshot shortcuts off (so Margin gets ⇧⌘3, ⇧⌘4 and ⇧⌘5) or back on. Only on an explicit click.
     ///
     /// Rewrites `AppleSymbolicHotKeys` in `com.apple.symbolichotkeys` (current user, any host) with
     /// `applying(enabled:ids:to:)`, then runs `activateSettings -u` so macOS uses it at once.

@@ -46,6 +46,8 @@ final class NotificationCounter: @unchecked Sendable {
         #expect(prefs.firstRunDone == false)
         #expect(prefs.lastArea == nil)
         #expect(prefs.isRecordingShortcut == false)
+        #expect(prefs.recordsSystemAudio == false)
+        #expect(prefs.recordsMicrophone == false)
         for action in ShortcutAction.allCases {
             #expect(prefs.shortcut(for: action) == action.defaultCombo)
         }
@@ -60,6 +62,8 @@ final class NotificationCounter: @unchecked Sendable {
         prefs.launchAtLogin = false
         prefs.completedCaptures = 7
         prefs.firstRunDone = true
+        prefs.recordsSystemAudio = true
+        prefs.recordsMicrophone = true
         let area = LastArea(rect: CGRect(x: -400.5, y: 20, width: 300, height: 200.25), displayID: 42,
                             displayFrame: CGRect(x: -1920, y: 0, width: 1920, height: 1080))
         prefs.lastArea = area
@@ -74,6 +78,8 @@ final class NotificationCounter: @unchecked Sendable {
         #expect(again.launchAtLogin == false)
         #expect(again.completedCaptures == 7)
         #expect(again.firstRunDone == true)
+        #expect(again.recordsSystemAudio == true)
+        #expect(again.recordsMicrophone == true)
         #expect(again.lastArea == area)
         #expect(again.shortcut(for: .toggleShelf) == combo)
         #expect(again.shortcut(for: .captureArea) == ShortcutAction.captureArea.defaultCombo)
@@ -99,7 +105,9 @@ final class NotificationCounter: @unchecked Sendable {
         prefs.lastArea = LastArea(rect: .zero, displayID: 1, displayFrame: .zero)
         prefs.setShortcut(ShortcutAction.toggleShelf.defaultCombo, for: .toggleShelf)
         prefs.resetShortcut(for: .toggleShelf)
-        #expect(counter.count == 9)
+        prefs.recordsSystemAudio = true
+        prefs.recordsMicrophone = true
+        #expect(counter.count == 11)
     }
 
     @Test func didChangeIsScopedToTheInstance() {
@@ -130,7 +138,7 @@ final class NotificationCounter: @unchecked Sendable {
 
     @Test func registeredCombosIncludeControlTwins() {
         let combos = prefs.registeredCombos()
-        #expect(combos.count == 7)
+        #expect(combos.count == 9)
         let area = combos.filter { $0.action == .captureArea }.map(\.combo)
         #expect(area == [ShortcutAction.captureArea.defaultCombo, ShortcutAction.captureArea.defaultCombo.withControl])
         #expect(combos.filter { $0.action == .toggleShelf }.map(\.combo) == [ShortcutAction.toggleShelf.defaultCombo])
@@ -181,7 +189,11 @@ final class NotificationCounter: @unchecked Sendable {
         #expect(ShortcutAction.captureScreen.defaultCombo.displayString == "⇧⌘3")
         #expect(ShortcutAction.repeatArea.defaultCombo.displayString == "⇧⌘2")
         #expect(ShortcutAction.toggleShelf.defaultCombo.displayString == "⇧⌘1")
-        #expect(ShortcutAction.allCases.filter(\.hasControlTwin) == [.captureArea, .captureScreen, .repeatArea])
+        #expect(ShortcutAction.recordScreen.defaultCombo.displayString == "⇧⌘5")
+        // Record Screen has its ⌃ twin like the capture actions; only the shelf's toggle doesn't.
+        #expect(ShortcutAction.allCases.filter(\.hasControlTwin) == [.captureArea, .captureScreen, .repeatArea, .recordScreen])
+        #expect(ShortcutAction.recordScreen.registeredCombos(for: ShortcutAction.recordScreen.defaultCombo)
+            == [ShortcutAction.recordScreen.defaultCombo, ShortcutAction.recordScreen.defaultCombo.withControl])
     }
 
     @Test func registeredCombos() {

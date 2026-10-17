@@ -165,7 +165,7 @@ extension ShelfController {
     }
 
     /// Reads the files off the main thread, then puts the same bytes on the clipboard, each with its file's
-    /// URL (as a capture does, so ⌘V in a terminal pastes the paths).
+    /// URL (as a capture does, so ⌘V in a terminal pastes the paths). A recording goes as its file alone, never read.
     func copy(_ ids: [UUID]) {
         let ids = ordered(ids)
         let ready = ids.filter { !pending.contains($0) }
@@ -179,10 +179,15 @@ extension ShelfController {
         copyGeneration += 1
         let generation = copyGeneration
         Task { [weak self] in
-            let results = await ShelfFiles.check(items) { url in ShelfFiles.pngData(at: url).map { (png: $0, url: url) } }
+            let results = await ShelfFiles.check(items) { item, url -> ClipboardWriter.Entry? in
+                switch item.kind {
+                case .screenshot: ShelfFiles.pngData(at: url).map { ClipboardWriter.Entry(png: $0, fileURL: url) }
+                case .recording: ClipboardWriter.Entry(fileURL: url)
+                }
+            }
             guard let self, generation == self.copyGeneration else { return }
             let live = self.apply(results)
-            let copied = live.compactMap { r in r.value.map { (id: r.item.id, png: $0.png, url: $0.url) } }
+            let copied = live.compactMap { r in r.value.map { (id: r.item.id, entry: $0) } }
             guard let markID = copied.last?.id else {
                 if results.contains(where: { $0.status.isGone }) {
                     self.showToast("File not found", isError: true)
@@ -191,8 +196,11 @@ extension ShelfController {
                 }
                 return
             }
-            let changeCount = ClipboardWriter.write(
-                pngs: copied.map(\.png), fileURLs: copied.map(\.url), to: self.pasteboard)
+            // Screenshots alone, as a capture writes them; with a recording, its file has no PNG.
+            let pngs = copied.compactMap(\.entry.png)
+            let changeCount = pngs.count == copied.count
+                ? ClipboardWriter.write(pngs: pngs, fileURLs: copied.map(\.entry.fileURL), to: self.pasteboard)
+                : ClipboardWriter.write(copied.map(\.entry), to: self.pasteboard)
             self.setClipboardMark(markID)
             self.showToast("Copied")
             self.onCopied?(markID, changeCount)

@@ -33,6 +33,68 @@ import Testing
         #expect(reloaded.items[2].bookmark == nil)
     }
 
+    @Test func recordingsRoundTripWithTheirKindAndDuration() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let store = makeStore(dir)
+        let date = Date(timeIntervalSince1970: 1_791_999_737)
+        let shot = ShelfItem(url: try dir.file("a.png"), createdAt: date, pixelSize: CGSize(width: 30, height: 20))
+        let movie = ShelfItem(url: try dir.file("b.mp4"), createdAt: date, pixelSize: CGSize(width: 2940, height: 1912),
+                              kind: .recording, duration: 12.48)
+        #expect(shot.kind == .screenshot && shot.duration == nil)
+        store.append(shot)
+        store.append(movie)
+        let reloaded = makeStore(dir)
+        reloaded.load()
+        #expect(reloaded.items == [shot, movie])
+        #expect(reloaded.items[1].kind == .recording)
+        #expect(reloaded.items[1].duration == 12.48)
+        // A screenshot has no duration in the file.
+        let list = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: store.fileURL)) as? [[String: Any]])
+        #expect(list[0]["kind"] as? String == "screenshot" && list[0]["duration"] == nil)
+        #expect(list[1]["kind"] as? String == "recording")
+    }
+
+    @Test func itemsFromBeforeRecordingsAreScreenshots() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let store = makeStore(dir)
+        try FileManager.default.createDirectory(at: store.fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        // shelf.json as 0.0.18 wrote it: no kind, no duration.
+        let id = UUID()
+        let json = """
+            [{"id":"\(id.uuidString)","path":"/tmp/Screenshot 2026-10-14 at 17.42.17.png","createdAt":813692537,\
+            "pixelWidth":3024,"pixelHeight":1964}]
+            """
+        try Data(json.utf8).write(to: store.fileURL)
+        store.load()
+        #expect(store.items.count == 1)
+        #expect(store.items.first?.id == id)
+        #expect(store.items.first?.kind == .screenshot)
+        #expect(store.items.first?.duration == nil)
+        #expect(store.items.first?.pixelSize == CGSize(width: 3024, height: 1964))
+        // Nothing unreadable, so nothing set aside.
+        #expect(stateFiles(dir) == ["shelf.json"])
+    }
+
+    @Test func aKindFromANewerMarginIsSkipped() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let store = makeStore(dir)
+        let date = Date(timeIntervalSince1970: 1_791_999_737)
+        let a = ShelfItem(url: try dir.file("a.png"), createdAt: date, pixelSize: CGSize(width: 30, height: 20))
+        store.append(a)
+        var list = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: store.fileURL)) as? [Any])
+        var gif = try #require(list[0] as? [String: Any])
+        gif["id"] = UUID().uuidString
+        gif["kind"] = "gif"
+        list.append(gif)
+        try JSONSerialization.data(withJSONObject: list).write(to: store.fileURL)
+        store.load()
+        #expect(store.items == [a])
+        #expect(stateFiles(dir) == ["shelf.json", "shelf.json.bad"])
+    }
+
     @Test func loadMissingFileIsEmpty() throws {
         let dir = try TempDir()
         defer { dir.remove() }
