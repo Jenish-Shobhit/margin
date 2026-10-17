@@ -222,13 +222,27 @@ final class UpdateController {
         case .available(let update):
             Self.log.notice("Margin \(update.versionString, privacy: .public) is available")
             phase = .available(update)
-            showWindow(activate: manual)
+            if manual { showWindow(activate: true) } else { showOfferWhenIdle() }
         case .upToDate:
             Self.log.notice("Margin \(self.currentVersion.description, privacy: .public) is up to date")
             if manual { phase = .upToDate }
         case .skipped(let version):
             Self.log.notice("Margin \(version, privacy: .public) is available, but skipped")
         }
+    }
+
+    /// An automatic check's offer, once no capture or recording is under way: one may have started while it asked, and
+    /// the window would be in it. Nothing, if the offer was answered meanwhile (a manual check, Later).
+    private func showOfferWhenIdle() {
+        guard case .available = phase else { return }
+        guard !isBusy() else {
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(5))
+                self?.showOfferWhenIdle()
+            }
+            return
+        }
+        showWindow(activate: false)
     }
 
     // MARK: - The window's buttons
