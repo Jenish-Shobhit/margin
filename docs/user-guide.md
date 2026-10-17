@@ -16,6 +16,7 @@ This guide covers Margin 0.0.15. Shortcuts are shown with their defaults; you ca
 - [Working with cards](#working-with-cards)
 - [Undo](#undo)
 - [Settings](#settings)
+- [Updates](#updates)
 - [Displays, Spaces and accessibility](#displays-spaces-and-accessibility)
 
 ## The menu bar icon
@@ -34,6 +35,7 @@ Margin has no Dock icon. Everything is in its menu bar icon, a small rectangle w
 | Show Unsaved Shots | Open the Unsaved folder, where shots go when the save folder can't be written. Only there while it holds shots |
 | Settings… | Open Settings |
 | About Margin | Version and copyright |
+| Check for Updates… | Ask GitHub whether there's a newer Margin, and offer to install it ([Updates](#updates)) |
 | Quit Margin | Quit |
 
 Captures started from the menu wait for the menu to close, so the menu is never in the shot. The shortcuts next to the items work while the menu is closed: pressed with a Margin menu open, they do nothing (rather than firing as it closes).
@@ -213,6 +215,7 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 | Copy each capture | Put every capture on the clipboard (on by default) |
 | Shutter sound | Play the capture sound (on by default) |
 | Show key hints while capturing | Show the bar of keys at the top of the screen while you capture (on by default) |
+| Check for updates automatically | Look for a newer Margin at launch and once a day (on by default; see [Updates](#updates)) |
 | Launch at login | Open Margin when you log in (on by default). If macOS wants your approval, a line with **Open Login Items** appears |
 | Shortcuts | Capture area, Capture screen, Repeat last area, Show or tuck shelf |
 | macOS screenshot shortcuts | Shows whether macOS still owns ⇧⌘3 / ⇧⌘4, with **Turn off macOS screenshot shortcuts** or, once they're all off, **Restore macOS screenshot shortcuts** |
@@ -229,6 +232,29 @@ Margin never moves or deletes a file because of a drag. "The drop landed" only m
 - Window capture is always Space after the area shortcut.
 - If a shortcut can't be registered (another app has it), a warning shows under it.
 - Shortcuts are shown with the letters of your keyboard layout: on a German keyboard the key right of T reads Z. A shortcut with ⌘ reads as its key types with ⌘ held, as menus show it: on "Dvorak – QWERTY ⌘" that's the QWERTY letter. Switch input source and Settings and the menu follow.
+
+## Updates
+
+Margin can update itself from its [GitHub releases](https://github.com/Jenish-Shobhit/margin/releases).
+
+**When it checks.**
+
+- **By itself**, while **Check for updates automatically** is on in Settings (the default): a few seconds after it starts, and once a day while it runs. A start within an hour of the last check (a relaunch) doesn't check again. Nothing is checked while you're capturing.
+- **When you ask:** choose **Check for Updates…** from the menu bar icon, or click **Update Margin** on [Margin's website](https://jenish-shobhit.github.io/margin/). That button opens the link `margin://update`, which your browser may ask to open in Margin. It only checks: nothing is installed until you click **Install and Relaunch** in Margin's window.
+
+A check asks GitHub for the latest release of Margin, and nothing else. It sends nothing about you, your Mac or your screenshots. With the setting off, Margin makes no network request at all unless you ask it to check.
+
+**When there's a newer version,** a window says "Margin 0.0.21 is available — you have 0.0.20", with what's new:
+
+- **Install and Relaunch** downloads it, with a progress bar, and checks it. Margin then quits (after finishing any shot still being saved), the new version takes its place and opens, and the shelf says "Updated to Margin 0.0.21". The old copy goes to the Trash as "Margin 0.0.20.app". **Cancel** stops the download.
+- **Later** closes the window. The next daily check offers it again.
+- **Skip This Version** stops the daily checks offering that version. A later one they offer again, and **Check for Updates…** still shows a skipped one.
+
+A window from a daily check comes to the front without taking the keyboard from the app you're typing in. A check you asked for also tells you when you're up to date ("Margin 0.0.20 is up to date."), and when something went wrong, what it was, with **Open Releases Page**.
+
+**What's checked before anything is replaced.** The download has to be the file GitHub lists (its size and checksum), with Margin.app inside, Margin's bundle ID and exactly the new version number. Its code signature has to be valid and made with the same certificate as the Margin you're running. That last check is also why Screen Recording permission carries over: macOS sees the same app. If any check fails, nothing is installed and the window says which.
+
+Margin replaces itself where it is, so it needs to be able to change that folder: `/Applications` on an administrator account. If it can't, it says so and opens the releases page so you can install the new version yourself. More in [Troubleshooting](troubleshooting.md#an-update-didnt-install).
 
 ## Displays, Spaces and accessibility
 

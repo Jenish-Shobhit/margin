@@ -16,7 +16,7 @@ You'll get a reply on the advisory. Please allow time for a fix and a release be
 
 ## What Margin accesses
 
-Margin is a local app. It has no networking code, no analytics, no telemetry and no update checks. It isn't sandboxed: it runs with the hardened runtime and no special entitlements. Release builds are signed with a self-signed certificate and aren't notarized.
+Margin is a local app. It has no analytics, no telemetry and no accounts; its only network requests are [update checks](#updates). It isn't sandboxed: it runs with the hardened runtime and no special entitlements. Release builds are signed with a self-signed certificate and aren't notarized.
 
 | What | When and why |
 |---|---|
@@ -31,6 +31,24 @@ Margin is a local app. It has no networking code, no analytics, no telemetry and
 | **Other system settings** | Reads "Play user interface sound effects" (`com.apple.sound.uiaudio.enabled`) to decide whether to play the shutter sound |
 | **Helper processes** | `activateSettings -u` (above). For **Relaunch Margin**, `/bin/sh` waits for Margin to exit, then runs `/usr/bin/open` on the app |
 | **Logs** | The macOS unified log, subsystem `io.github.jenish-shobhit.margin`: timings, errors, and saved file names and paths |
+| **Network** | Only for updates: `GET https://api.github.com/repos/Jenish-Shobhit/margin/releases/latest` at launch and once a day while **Check for updates automatically** is on, and when you choose **Check for Updates…** or open `margin://update`; and the release's `Margin-<version>.zip` when you click **Install and Relaunch**. No cookies, no cache, no account; the user agent is `Margin/<version>`. Nothing about you, your Mac or your files is sent. With the setting off, no request is made unless you ask |
+| **Updates** | `/usr/bin/ditto` unzips the download, and `/bin/sh` (the script in `UpdateInstall.helperScript`) waits for Margin to exit, moves the old app into the Trash, moves the new one into its place, clears its quarantine attribute and opens it, logging each step to `~/Library/Logs/Margin/Update.log`. See [Updates](#updates) |
+
+## Updates
+
+Margin replaces itself only after you click **Install and Relaunch**, and only with a release it has checked. `margin://update` (from the website) only runs a check: it can't install anything, and it ignores everything in the link after `update`.
+
+Before anything is replaced, the download must pass all of these (`UpdateVerifier`):
+
+1. It's the release's asset named exactly `Margin-<version>.zip`, fetched over https (redirects included), with the size GitHub lists and, when GitHub records one, the same SHA-256 `digest`.
+2. `/usr/bin/ditto -x -k` unzips it into a private temporary folder, and `Margin.app` is a folder at its top level, not a link.
+3. Its `Info.plist` has the bundle ID `io.github.jenish-shobhit.margin` and exactly the release's version as `CFBundleShortVersionString`.
+4. Its code signature is valid as `codesign --verify --deep --strict` checks it: the Security framework's `SecStaticCodeCheckValidity` with every architecture, nested code, strict validation and no links out of the bundle.
+5. It satisfies the **running** copy's designated requirement (`SecCodeCopySelf`, `SecCodeCopyDesignatedRequirement`): the same bundle ID signed by the same certificate leaf. So only whoever holds the private key that signed your copy can make an update it accepts, and macOS's Screen Recording permission, which is tied to that requirement, carries over. A copy signed ad hoc (a build from source without the certificate) refuses every update.
+
+If any check fails, nothing changes and the window says which one. The checks rely on the code signature, not on GitHub alone: a release whose zip someone else signed is refused even if it's served from the right place. The certificate is self-signed and releases aren't notarized, so this pins *continuity* with the copy you installed, not Apple's judgement of it; the first download is trusted the way any download from the releases page is.
+
+The swap happens after Margin quits. A helper waits for Margin's process to end (at most 30 s, then it gives up and changes nothing), moves the old app into your Trash as `Margin <old version>.app`, moves the checked app into its place (a rename on the same volume), puts the old one back if that fails, removes `com.apple.quarantine` and opens the app. The new app comes from the folder Margin verified it in, which only your user can write; Margin never asks for an administrator password, and an app folder it can't write ends with the releases page instead.
 
 ## Debug builds
 
@@ -52,3 +70,5 @@ strings /Applications/Margin.app/Contents/MacOS/Margin | grep -c margin.debug
 ```
 
 If you find a debug build distributed as a Margin release, report it as a vulnerability.
+
+Debug builds can also point the updater at a local release and install it (`update-check`, `update-install`); what they install still has to pass every check under [Updates](#updates).

@@ -64,7 +64,7 @@ Every capture is saved to disk, copied to the clipboard and put on a shelf of th
 
 ## Install
 
-1. Download `Margin-<version>.zip` from the [latest release](https://github.com/Jenish-Shobhit/margin/releases/latest).
+1. Download `Margin-<version>.zip` from [Margin's website](https://jenish-shobhit.github.io/margin/) or the [latest release](https://github.com/Jenish-Shobhit/margin/releases/latest).
 2. Unzip it and move **Margin.app** to `/Applications`. Keep it there: the Screen Recording permission belongs to that copy, and launch at login only registers from `/Applications`.
 3. Open Margin. It isn't notarized yet, so macOS blocks the first launch:
    1. In the "Margin" Not Opened dialog, click **Done** (not Move to Trash).
@@ -72,6 +72,8 @@ Every capture is saved to disk, copied to the clipboard and put on a shelf of th
    3. Next to "Margin" was blocked…, click **Open Anyway**, then confirm with your password or Touch ID.
 
 You only do this once per download. If it still won't open, see [Troubleshooting](docs/troubleshooting.md#margin-cant-be-opened).
+
+**Updating:** choose **Check for Updates…** from the menu bar icon, or click **Update Margin** on the website. Margin also checks once a day. It downloads the new version, checks it's signed like the one you have, and replaces itself, so there's no Open Anyway the next time ([user guide](docs/user-guide.md#updates)).
 
 **Requirements:** macOS 26 (Tahoe) or later on Apple silicon. Intel Macs aren't supported.
 
@@ -165,6 +167,7 @@ Open **Settings…** from the menu bar icon.
 | Copy each capture | On | Off leaves the clipboard alone; click a card to copy it |
 | Shutter sound | On | Silent when "Play user interface sound effects" is off in System Settings › Sound |
 | Show key hints while capturing | On | The bar of keys at the top of the screen while you select |
+| Check for updates automatically | On | At launch and once a day, asks GitHub for the latest release |
 | Launch at login | On | Shows what macOS really has, including "waiting for approval" |
 | Shortcuts | ⇧⌘4 · ⇧⌘3 · ⇧⌘2 · ⇧⌘1 | Capture area, Capture screen, Repeat last area, Show or tuck shelf |
 
@@ -172,7 +175,7 @@ Under the shortcuts, **macOS screenshot shortcuts** shows whether macOS still ow
 
 ## Privacy
 
-Margin works entirely on your Mac. It has no networking code, no analytics, no telemetry, no accounts and no update checks.
+Margin works entirely on your Mac. It has no analytics, no telemetry and no accounts. Its one network request is the update check: it asks GitHub for the latest release and sends nothing about you. Turn it off in Settings, and Margin goes online only when you choose **Check for Updates…**.
 
 | What | Where |
 |---|---|

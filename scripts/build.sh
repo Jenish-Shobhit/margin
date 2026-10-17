@@ -156,6 +156,7 @@ if [[ "$ZIP" == 1 ]]; then
     exit 1
   fi
   mkdir -p "$ROOT/dist"
+  # The updater (spec §14.3) installs only an asset with exactly this name.
   ZIP_PATH="$ROOT/dist/Margin-$VERSION.zip"
   rm -f "$ZIP_PATH"
   # No extended attributes: they'd become ._ files inside the bundle (and break its seal) when

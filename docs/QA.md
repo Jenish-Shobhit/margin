@@ -382,3 +382,35 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] The status line is right ("All four are on, so macOS takes them before Margin.", "All four are off.")
 - [ ] The button turns them off when any are on, and reads **Restore macOS screenshot shortcuts** once all four are off
 - [ ] Restore re-enables them at once
+
+## Updates (§14.3)
+
+Use a debug build and a local release ([building.md › Testing updates](building.md#testing-updates)); `scripts/debug.sh update-state` writes what the updater shows to `/tmp/margin-update-state.json`. Don't run `update-install` without a copy of `/Applications/Margin.app` to put back.
+
+**Menu, Settings, website**
+
+- [ ] **Check for Updates…** sits right below About Margin, and opens the update window at once ("Checking for updates…")
+- [ ] Settings has **Check for updates automatically**, on by default; its tooltip says what it does
+- [ ] With it off, quit and relaunch: `log stream --predicate 'subsystem == "io.github.jenish-shobhit.margin" && category == "updates"'` shows no automatic check, and `nettop -p Margin` (or Little Snitch) shows no connection. Check for Updates… still checks
+- [ ] With it on, a launch checks a few seconds after the first capture is ready (the log says "Checking for updates (automatic)"); a relaunch within the hour doesn't
+- [ ] `open margin://update` with Margin running shows the check and its result; `open "margin://update/install?now=1"` does the same and installs nothing; `open margin://capture` does nothing (the log says it's ignored)
+- [ ] `docs/index.html`: the button reads "Download Margin <latest>" and links its zip; offline (or with the API blocked) it reads "Download Margin" and links the releases page. Light and dark follow the system; at phone width (390 px, 360 px) nothing scrolls sideways and the shelf is a small tab. **Update Margin** opens Margin (after the browser asks) and checks
+
+**The window**
+
+- [ ] A newer release: "Margin X is available — you have Y.", the release date, the notes (headings, bullets, bold and `code`; no Install section or "Generated with" line), **Skip This Version**, **Later**, **Install and Relaunch** (Return)
+- [ ] From an automatic check, the window comes to the front but the app you're typing in keeps the keyboard; from Check for Updates…, Margin's window is key
+- [ ] Nothing newer: "Margin Y is up to date." (manual checks only; an automatic one stays silent). A copy newer than the latest release (a build of `main`) is up to date too
+- [ ] **Later** closes it; the next automatic check offers it again. **Skip This Version** closes it, automatic checks stay silent about that version, Check for Updates… still offers it, and a later version is offered again
+- [ ] Errors say what failed, with **Open Releases Page**: no connection ("couldn't reach GitHub"), a 403 rate limit ("too many update checks"), a 404, an answer that isn't JSON, a newer release without its zip ("has no Margin-X.zip to download yet")
+
+**Installing**
+
+- [ ] **Install and Relaunch** shows the download's progress ("Downloading… 1.2 MB of 2.1 MB"), then "Checking the download's signature…", then "Installing… Margin will quit and open the new version."
+- [ ] **Cancel** during the download stops it and goes back to the offer; nothing is left in the temporary folder
+- [ ] A capture still being saved finishes before Margin quits (take one just before clicking Install)
+- [ ] After the relaunch: exactly one Margin runs, the new version, from `/Applications`; the shelf says "Updated to Margin X"; the shelf's cards and Settings are as before; ⇧⌘4 captures with no Screen Recording prompt; the old app is in the Trash as "Margin Y.app"; `~/Library/Logs/Margin/Update.log` ends with "Installed …"
+- [ ] Each refusal leaves `/Applications/Margin.app` untouched and says why: another bundle ID ("isn't Margin"), another version ("is version …, not …"), signed ad hoc or by another certificate ("isn't signed with the same certificate"), changed after signing ("code signature isn't valid"), no `Margin.app` in the zip, a wrong size ("incomplete") or checksum ("doesn't match the file on GitHub"), a zip that isn't one ("couldn't be unzipped")
+- [ ] An `/Applications` Margin can't write (a standard account, or `update-readonly on`): "Margin can't replace itself: you don't have permission to change "/Applications"…", and the releases page opens
+- [ ] A copy signed ad hoc (built without the Margin Dev certificate) refuses before downloading ("isn't signed with a certificate") and opens the releases page
+- [ ] When the helper can't swap the app (`update-trash /var/empty`): the old version comes back, and its window says "Margin X wasn't installed: couldn't move … to the Trash, so nothing was changed"

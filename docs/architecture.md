@@ -12,6 +12,7 @@ How Margin 0.0.15 is put together, for anyone changing it. The product rules liv
 - [Hotkeys](#hotkeys)
 - [The macOS screenshot shortcuts](#the-macos-screenshot-shortcuts)
 - [Debug builds](#debug-builds)
+- [Updates](#updates)
 
 ## Targets and folders
 
@@ -64,6 +65,10 @@ flowchart LR
 | `ShelfUndo.swift` | `UndoSequencer`: the shelf's ⌘Z one step at a time, so a quick second ⌘Z waits for a slow first one. `TrashedFile.putBack`: a trashed shot back home (or already there, after Finder's Put Back) |
 | `ShutterSound.swift` | The system Screen Capture sound, honouring "Play user interface sound effects" |
 | `UnsavedShots.swift` | Whether the Unsaved folder holds shots (for the menu's Show Unsaved Shots), and the toast after a capture went there |
+| `SemanticVersion.swift` | Versions as tags and `CFBundleShortVersionString` write them (`v0.0.20`, `0.0.20`), in semantic-version order |
+| `GitHubRelease.swift` | GitHub's latest-release JSON, and the release's `Margin-<version>.zip` |
+| `UpdateCheck.swift` | What a check offers (`UpdateCheck.decide`: newer, skipped, up to date), when checks are due (`UpdateSchedule`), `margin://update` (`MarginURL`), the updater's errors and their sentences, and the release notes as headings, bullets and paragraphs |
+| `UpdateInstall.swift` | The checks of a downloaded bundle's `Info.plist` and of where the running copy is, the old copy's name in the Trash, and the helper script that swaps the app after Margin quits |
 
 **`Sources/Margin/`**
 
@@ -77,7 +82,8 @@ flowchart LR
 | `MenuBar/` | `StatusMenuController` (icon, warning dot, menu rebuilt on open) and `MenuKeyEquivalent` |
 | `Onboarding/` | The first-run window: `FirstRunModel` (polled state), `FirstRunView` (SwiftUI) and its window controller |
 | `Settings/` | `SettingsModel` (`@Observable`, shortcut recording), `SettingsView` (SwiftUI form) and its window controller |
-| `Debug/` | `DebugCommandListener`, compiled only under `#if DEBUG || MARGIN_BENCH` (debug and bench builds) |
+| `Updates/` | `UpdateController` (checks, their schedule, the window's state, installing), `UpdateWindow` (the window and its SwiftUI view), `UpdateNetwork` (the two requests) and `UpdateVerifier` (unzipping and the signature checks) |
+| `Debug/` | `DebugCommandListener`, compiled only under `#if DEBUG || MARGIN_BENCH` (debug and bench builds), and `UpdateDebugCommands` (its `update-*` commands) |
 
 ## The contracts
 
@@ -341,3 +347,25 @@ More on how these behave:
 Bench builds (`scripts/build.sh --bench`: release optimisation plus `-DMARGIN_BENCH`) have the listener too, but not `CaptureSimulation`. `scripts/bench.sh` drives them with its further commands (`hotkey`, `capture-window`, `select`, `click`, `cancel`, `mark`), which call the live overlay session's handlers in-process, and reads the `timing` log ([Building › Benchmarks](building.md#benchmarks)).
 
 Release builds contain neither. [Building › The debug hook](building.md#the-debug-hook) has the commands and the safety rules.
+
+## Updates
+
+Spec §14.3. `UpdateController.shared` owns it all; the pure parts are in `MarginKit` and tested there.
+
+**Checks.** `AppCoordinator.start` hands `UpdateController.start` its prewarm task. The launch check waits for that task, then 3 s more, and runs if one is due (`UpdateSchedule`: none got an answer in the last hour; afterwards 24 h after the last answer, looked at by an hourly timer). It's skipped while **Check for updates automatically** is off, while the window shows something unanswered, and, for a minute at a time, while a capture is under way (`capture.isCapturing`). A check is one `GET` of the latest release in an ephemeral `URLSession` (`UpdateNetwork.latestRelease`), off the main actor; only its result comes back to it. `UpdateCheck.decide` compares the tag with `CFBundleShortVersionString`. Check for Updates… and `margin://update` run the same check as a manual one: it shows "Checking…", then the result, error or "up to date" included, and offers a skipped version too. A manual check during an automatic one takes over that one's result.
+
+**URL scheme.** `CFBundleURLTypes` registers `margin`. `AppDelegate.application(_:open:)` hands the URL to `UpdateController.open`, which accepts `margin://update` (`MarginURL`) and ignores everything else. At a launch by URL the call can come before `start`; the check then waits for it. It never installs.
+
+**Install and Relaunch** (`install`, `runInstall`):
+
+1. Refuses at once, opening the releases page, when the running copy isn't a bundle, is translocated, can't write its folder or itself, or isn't signed with a certificate (`UpdateVerifier.runningCopyIsSigned`).
+2. Downloads the zip into an item replacement directory on the app's volume (`UpdateNetwork.download`: a delegate session for progress, https redirects only). The window's progress bar redraws at most every 0.1 s.
+3. In a detached task: the size and SHA-256 (`checkDownload`), `ditto -x -k` (`unzip`), the bundle's `Info.plist` (`UpdateInstall.checkBundleInfo`), `SecStaticCodeCheckValidity` with `codesign --verify --deep --strict`'s flags, and again with the running copy's designated requirement.
+4. Starts the helper (`/bin/sh -c UpdateInstall.helperScript`, see its comment) with the app's path, the verified app, the staging folder, this pid, the Trash folder for the app's volume and the log, sets `Preferences.pendingUpdate`, and quits with `NSApp.terminate` from a run-loop block, so the wait for saves isn't stuck behind the main-queue block it would otherwise run in.
+5. The next launch reads `pendingUpdate` (`reportInstalledUpdate`): the new version shows "Updated to Margin X" in the shelf; the old one (the helper put it back) shows the window with the log's last `FAILED:` line.
+
+Cancel (or Later, or closing the window) during the download cancels the task and deletes the staging folder; once the helper runs, nothing cancels.
+
+**Preferences:** `checksForUpdates`, `skippedUpdateVersion`, `lastUpdateCheck` (the last answer from GitHub), `pendingUpdateVersion` and `pendingUpdateDate`.
+
+**Testing it.** DEBUG and bench builds take a local feed: `scripts/debug.sh update-check file:///…/latest.json` (or `http://127.0.0.1:…`, or the `debugUpdateFeedURL` default), `update-check-auto`, `update-install`, `update-later`, `update-skip`, `update-cancel`, `update-open <url>`, `update-trash <folder>` (a Trash the helper can't write reaches its failure path), `update-readonly on` and `update-state` (`/tmp/margin-update-state.json`). With a local feed the window never takes the keyboard and Open Releases Page only logs, so a test can't type into it or open a browser. [Building › Testing updates](building.md#testing-updates) has the recipe.
