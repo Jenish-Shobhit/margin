@@ -238,6 +238,38 @@ final class DebugCommandListener: NSObject {
         return out
     }
 
+    /// "Delete screenshots after pasting" (spec §14.2): the setting, the watched clipboard write and who read it (with
+    /// the keys held), the files waiting to be deleted, the clipboard's Pasteboard files, and the ⌘Z steps.
+    private static func pasteboardState(_ c: AppCoordinator) -> [String: Any] {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        var out: [String: Any] = [
+            "deletesAfterPasting": c.prefs.deletesAfterPasting,
+            "folder": Preferences.pasteboardFolder.path,
+            "waiting": c.retention.waiting.mapValues { iso.string(from: $0) },
+            "clipboardFiles": c.clipboardFiles.map { ["changeCount": $0.changeCount, "paths": $0.paths] as [String: Any] } ?? NSNull(),
+            "undo": c.shelf.undoStack.map { step -> [String: Any] in
+                ["kind": "\(step.kind)", "ids": step.removals.map(\.item.id.uuidString), "paths": step.removals.map(\.item.path),
+                 "removedAt": iso.string(from: step.removedAt)]
+            },
+        ]
+        if let w = c.pasteWatch {
+            out["watch"] = [
+                "changeCount": w.changeCount,
+                "current": w.changeCount == NSPasteboard.general.changeCount,
+                "finished": w.isFinished,
+                "pasted": w.pasted.map(\.uuidString).sorted(),
+                "reads": w.reads.map { r -> [String: Any] in
+                    ["type": r.type, "id": r.id.uuidString, "afterMs": (r.after * 1000).rounded(),
+                     "v": r.keys.v, "command": r.keys.command, "control": r.keys.control]
+                },
+            ] as [String: Any]
+        } else {
+            out["watch"] = NSNull()
+        }
+        return out
+    }
+
     private func dumpState(_ c: AppCoordinator) async {
         let prefs = c.prefs
         let stats = await c.recording.recorder?.currentStats()
@@ -319,6 +351,7 @@ final class DebugCommandListener: NSObject {
         }
         state["recordsSystemAudio"] = prefs.recordsSystemAudio
         state["recordsMicrophone"] = prefs.recordsMicrophone
+        state["pasteboard"] = Self.pasteboardState(c)
         do {
             let data = try JSONSerialization.data(withJSONObject: state, options: [.prettyPrinted, .sortedKeys])
             try data.write(to: Self.stateFileURL, options: .atomic)

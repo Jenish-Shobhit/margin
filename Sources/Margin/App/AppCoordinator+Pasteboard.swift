@@ -17,6 +17,38 @@ extension AppCoordinator {
         shelf.pasteboardFilesOnClipboard = clipboardFiles?.paths(at: current) ?? []
         shelf.onUndoExpired = { [weak self] steps in self?.undoStepsExpired(steps) }
         shelf.onClipboardFiles = { [weak self] files, changeCount in self?.clipboardHolds(files, changeCount: changeCount) }
+        shelf.writeWatchedCopy = { [weak self] copied in self?.writeWatchedCopy(copied) }
+    }
+
+    // MARK: - Pasted
+
+    /// Writes `entries` to the clipboard watched for a paste (`PasteWatch`: promised, kept on this Mac) and returns the
+    /// change count. A paste takes the pasted cards off the shelf.
+    func writeWatched(_ entries: [PasteWatch.Entry]) -> Int {
+        let watch = PasteWatch()
+        watch.onPaste = { [weak self] ids in self?.pasted(ids) }
+        let changeCount = watch.write(entries)
+        pasteWatch = watch
+        return changeCount
+    }
+
+    /// A shelf copy (click, ⌘C) with a Pasteboard screenshot in it, while the option is on, is watched again; any other
+    /// copy is left to the shelf, written as always.
+    func writeWatchedCopy(_ copied: [(id: UUID, entry: ClipboardWriter.Entry)]) -> Int? {
+        guard prefs.deletesAfterPasting else { return nil }
+        let watched = copied.map { $0.entry.png != nil && $0.entry.fileURL.map { PasteboardShots.isInFolder($0.path) } == true }
+        guard watched.contains(true) else { return nil }
+        return writeWatched(zip(copied, watched).map { copy, watched in
+            PasteWatch.Entry(id: copy.id, png: copy.entry.png, fileURL: copy.entry.fileURL, watched: watched)
+        })
+    }
+
+    /// Another app pasted these: they leave the shelf as after a drop (Restore Last Removed brings them back). Not once
+    /// the option is off: turning it off changes nothing on the shelf.
+    func pasted(_ ids: [UUID]) {
+        guard prefs.deletesAfterPasting else { return }
+        Self.log.notice("Pasted into another app: \(ids.count) card(s) leave the shelf")
+        shelf.pasted(ids)
     }
 
     /// After `shelf.restore()`: a file kept because the clipboard holds it, with no card, goes once the clipboard moves on.

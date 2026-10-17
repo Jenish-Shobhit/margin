@@ -76,10 +76,12 @@ enum ShelfFiles {
     static func deletePasteboardFiles(_ paths: [String]) {
         Task.detached(priority: .utility) {
             for path in paths where PasteboardShots.isInFolder(path) {
-                if unlink(path) == 0 {
-                    log.notice("Deleted \(URL(fileURLWithPath: path).lastPathComponent, privacy: .public): pasted or dismissed, and ⌘Z can't bring it back")
-                } else if errno != ENOENT {
-                    log.error("Couldn't delete \(URL(fileURLWithPath: path).lastPathComponent, privacy: .public): \(String(cString: strerror(errno)), privacy: .public)")
+                let failed = unlink(path) == 0 ? 0 : errno
+                let name = URL(fileURLWithPath: path).lastPathComponent
+                if failed == 0 {
+                    log.notice("Deleted \(name, privacy: .public): pasted or dismissed, and ⌘Z can't bring it back")
+                } else if failed != ENOENT {
+                    log.error("Couldn't delete \(name, privacy: .public): \(String(cString: strerror(failed)), privacy: .public)")
                 }
             }
         }

@@ -151,7 +151,13 @@ extension AppCoordinator {
         guard prefs.copyEachCapture, sequence > lastClipboardSequence else { return }
         lastClipboardSequence = sequence
         let clock = Stopwatch()
-        let changeCount = ClipboardWriter.write(pngs: [data], fileURLs: [fileURL])
+        let changeCount: Int
+        if toPasteboard, prefs.deletesAfterPasting, let fileURL, PasteboardShots.isInFolder(fileURL.path) {
+            // Watched for a paste (spec §14.2). Not a shot that fell back to Unsaved: that's a file like any other.
+            changeCount = writeWatched([PasteWatch.Entry(id: itemID, png: data, fileURL: fileURL)])
+        } else {
+            changeCount = ClipboardWriter.write(pngs: [data], fileURLs: [fileURL])
+        }
         CaptureTimings.shared.record("finishSave.clipboard", clock.ms)
         if toPasteboard || clipboardFiles != nil { clipboardHolds(fileURL.map { [$0] } ?? [], changeCount: changeCount) }
         let releaseToClipboardMs = Date().timeIntervalSince(releaseDate) * 1000

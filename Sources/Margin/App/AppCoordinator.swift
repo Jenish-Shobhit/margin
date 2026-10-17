@@ -31,6 +31,8 @@ final class AppCoordinator {
     var retention = PasteboardShots.Retention()
     /// The Pasteboard files on the clipboard as Margin last wrote it, while it may still hold them.
     var clipboardFiles: PasteboardShots.ClipboardFiles?
+    /// Margin's clipboard write that's watched for a paste, while the pasteboard may still ask it for data.
+    var pasteWatch: PasteWatch?
     /// Last known Screen Recording state (`CGPreflightScreenCaptureAccess`). Never requests access.
     private(set) var permissionGranted = false
     /// The permission warning (dot, "Allow Screen Recording…") shows while preflight says no, and after a
@@ -148,6 +150,8 @@ final class AppCoordinator {
     }
 
     func stop() {
+        // A watched copy is only promised: give the pasteboard its data, so the clipboard keeps the shot after Margin.
+        if let pasteWatch, pasteWatch.changeCount == NSPasteboard.general.changeCount { pasteWatch.fulfil() }
         hotkeys?.stop()
         pasteboardTimer?.invalidate()
         pasteboardTimer = nil
@@ -406,6 +410,7 @@ final class AppCoordinator {
             shelf.setClipboardMark(nil)
         }
         clipboardMoved(to: changeCount)
+        if let watch = pasteWatch, watch.isFinished || watch.changeCount != changeCount { pasteWatch = nil }
         deletePasteboardFilesDue()
         if needsPermission { refreshPermission() }
     }
