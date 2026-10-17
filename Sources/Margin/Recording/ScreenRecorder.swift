@@ -139,7 +139,20 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         stream = SCStream(filter: source.filter, configuration: configuration, delegate: forwarder)
         super.init()
         forwarder.recorder = self
+        #if DEBUG
+        Self.alive.withLock { $0 += 1 }
+        #endif
     }
+
+    #if DEBUG
+    /// Recorders not yet freed, for the DEBUG state dump: 0 once a recording is over (1 during one). The stream lets go
+    /// of its outputs (the recorder) once it has stopped, so no `removeStreamOutput` is needed for this to reach 0.
+    static let alive = Mutex(0)
+
+    deinit {
+        Self.alive.withLock { $0 -= 1 }
+    }
+    #endif
 
     /// Builds the writer for a new file at `url` (which must not exist) and starts capturing. Throws `RecorderError.file`
     /// if the file can't be created (the folder isn't writable: the caller tries the Unsaved folder), or ScreenCaptureKit's

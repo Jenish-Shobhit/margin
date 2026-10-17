@@ -236,6 +236,9 @@ final class DebugCommandListener: NSObject {
             out["audioSamples"] = stats.audioSamples
             out["microphoneSamples"] = stats.microphoneSamples
         }
+        #if DEBUG
+        out["recordersAlive"] = ScreenRecorder.alive.withLock { $0 }
+        #endif
         if let last = r.lastOutcome {
             out["last"] = ["duration": last.duration, "framesWritten": last.framesWritten,
                            "framesDropped": last.framesDropped, "ending": last.ending.rawValue,
@@ -291,6 +294,7 @@ final class DebugCommandListener: NSObject {
                 return ["live": true, "inPile": card.isInPile, "thumbnail": card.thumbnail != nil]
             },
             "isTucked": c.shelf.isTucked,
+            "lastToast": c.shelf.debugLastToast ?? NSNull(),
             "markedItemID": c.shelf.markedItemID?.uuidString ?? NSNull(),
             "clipboardMarkItemID": c.mark.itemID?.uuidString ?? NSNull(),
             "pasteboardChangeCount": NSPasteboard.general.changeCount,
