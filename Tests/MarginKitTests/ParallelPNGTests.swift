@@ -272,6 +272,23 @@ import zlib
         }
     }
 
+    @Test func pngWriterUsesItFromTwoBandsUp() throws {
+        let small = Self.image(width: 200, height: 150, content: .noise)
+        #expect(!ParallelPNG.isWorthIt(small))
+        #expect(try PNGWriter.encode(small, scale: 2) == PNGWriter.encodeWithImageIO(small, scale: 2))
+
+        let large = Self.image(width: 800, height: 600, content: .alphaNoise)
+        #expect(ParallelPNG.isWorthIt(large))
+        let ours = try PNGWriter.encode(large, scale: 2)
+        let theirs = try #require(PNGWriter.encodeWithImageIO(large, scale: 2))
+        #expect(ours == ParallelPNG.encode(large, scale: 2))
+        #expect(ours != theirs) // several bands: a sync flush between each
+        #expect(try Self.samples(ours) == Self.samples(theirs))
+        #expect(try Self.metadata(ours) == Self.metadata(theirs))
+        // Within a fraction of a percent of ImageIO's size.
+        #expect(abs(Double(ours.count) / Double(theirs.count) - 1) < 0.01)
+    }
+
     @Test func bandsCoverEveryRowOnce() {
         for (w, h, bands) in [(2940, 1912, nil), (7680, 4320, nil), (1, 1, nil), (8, 4000, 12), (100, 7, 50), (16000, 16000, nil)] as [(Int, Int, Int?)] {
             let layout = ParallelPNG.Layout(width: w, height: h, bands: bands)
