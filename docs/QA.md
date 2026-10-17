@@ -196,7 +196,10 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 - [ ] Dragging a card into Finder: the card leaves, Finder's copy stays, and the Pasteboard file is still there for at least 30 s
 - [ ] Twenty other removals later (`scripts/debug.sh dismiss` one card at a time; the 20th pushes the paste's ⌘Z step out), with something else copied, a pasted shot's file is gone from the Pasteboard folder (the log says "Deleted …"); while nothing else has been copied, it stays
 - [ ] A dismissed card's file stays until its ⌘Z step is pushed out; a card moved to the Trash leaves its file in the Trash
-- [ ] Quit and relaunch: the files of cards on the shelf are there, those of removed cards are gone; a shot still on the clipboard stays, and still pastes after Margin has quit
+- [ ] Quit and relaunch: the files of cards on the shelf are there, those of removed cards are gone 30 s into the launch (not before); a shot still on the clipboard stays, and still pastes after Margin has quit
+- [ ] ⌘V of a copied shot into Rename… pastes its name text (or nothing) and the card stays
+- [ ] Choosing `~/Library/Application Support/Margin/Pasteboard` as Save to leaves Save to on the default folder
+- [ ] A shelf.json set aside as `shelf.json.bad` (corrupt it while Margin is quit): the Pasteboard files its cards named are still there after the relaunch's 30 s
 - [ ] With a clipboard manager that saves images (Maccy, Raycast): a ⌘V paste leaves the card on the shelf (the documented caveat), and dismissing it works as usual
 - [ ] Turning the option off moves and deletes nothing: new shots go to Save to, a paste no longer takes a card away, and cards from before keep their files until they're dismissed and their ⌘Z step is gone
 - [ ] With the Pasteboard folder unwritable (`chmod 500` it, then back), a capture goes to Unsaved with a toast naming “Pasteboard”, and that shot behaves as a normal file

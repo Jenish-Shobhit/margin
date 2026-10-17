@@ -62,10 +62,12 @@ enum ShelfFiles {
         }.value
     }
 
-    /// `PasteboardShots.cleanUp` of the Pasteboard folder, off the main thread, and what it deleted in the log.
-    static func cleanUpPasteboard(items: [ShelfItem], keeping: Set<String>, writtenBefore: Date) async {
+    /// `PasteboardShots.cleanUp` of the Pasteboard folder, keeping what the lists set aside next to `shelfFile` name,
+    /// off the main thread, and what it deleted in the log.
+    static func cleanUpPasteboard(items: [ShelfItem], keeping: Set<String>, shelfFile: URL, writtenBefore: Date) async {
         await Task.detached(priority: .utility) {
-            for url in PasteboardShots.cleanUp(items: items, keeping: keeping, writtenBefore: writtenBefore) {
+            let setAside = ShelfStore.setAsideFiles(of: shelfFile)
+            for url in PasteboardShots.cleanUp(items: items, keeping: keeping, setAside: setAside, writtenBefore: writtenBefore) {
                 log.notice("Deleted a pasted or dismissed shot no card holds: \(url.lastPathComponent, privacy: .public)")
             }
         }.value

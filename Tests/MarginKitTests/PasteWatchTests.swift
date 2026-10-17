@@ -104,6 +104,21 @@ import Testing
         #expect(w.reads.count == 2)
     }
 
+    /// ⌘V in one of Margin's own fields (Rename…) reads Margin's clipboard with the paste keys held: the keys went to
+    /// Margin, so no other app pasted, and the card stays.
+    @Test func aReadByMarginItselfIsntAPaste() async {
+        let pb = NSPasteboard.withUniqueName()
+        defer { pb.releaseGlobally() }
+        var pasted: [[UUID]] = []
+        let w = PasteWatch(keys: { PasteKeys(command: true, sinceKeyDown: 0) }, readerIsSelf: { true }, reportDelay: 0.01, quiet: 0)
+        w.onPaste = { pasted.append($0) }
+        w.write([.init(id: a, png: shot, fileURL: url)], to: pb)
+        _ = pb.data(forType: .png)
+        await settle()
+        #expect(pasted.isEmpty && w.pasted.isEmpty)
+        #expect(w.reads.count == 1)
+    }
+
     /// The pasteboard keeps what it was given: once someone has read a type, a later paste of it isn't seen. Then the
     /// card stays, which is the safe way to be wrong.
     @Test func onlyTheFirstReadOfATypeIsSeen() async {

@@ -115,8 +115,14 @@ public final class Preferences {
     /// so `didChange` isn't posted for it.
     public static let recordingShortcutDidChange = Notification.Name("MarginPreferencesRecordingShortcutDidChange")
 
+    /// Never the Pasteboard folder, where every file goes once its card can't come back (spec §14.2): chosen as Save to,
+    /// it's the default instead.
     public var saveFolder: URL {
-        get { defaults.string(forKey: "saveFolder").map { URL(fileURLWithPath: $0, isDirectory: true) } ?? Self.defaultSaveFolder }
+        get {
+            guard let path = defaults.string(forKey: "saveFolder") else { return Self.defaultSaveFolder }
+            let folder = URL(fileURLWithPath: path, isDirectory: true)
+            return folder.standardizedFileURL.path == Self.pasteboardFolder.standardizedFileURL.path ? Self.defaultSaveFolder : folder
+        }
         set { set(newValue.path, "saveFolder") }
     }
 

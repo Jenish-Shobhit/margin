@@ -45,6 +45,10 @@ extension PasteboardShots {
         }
     }
 
+    /// How long after a launch its cleanup waits (`cleanUp`), and a file kept for the clipboard alone may go: the
+    /// longest grace, which a quit and relaunch straight after a paste or a drop would otherwise cut short.
+    public static let launchCleanupDelay: TimeInterval = Departure.dropped.grace
+
     /// Files in the Pasteboard folder waiting to be deleted: their card has left the shelf and its ⌘Z step has gone
     /// too (pushed out by newer ones). Each goes once its time has come, unless something can reach it again: a card
     /// for it (back by some other way), or the clipboard, while Margin's copy of it is still what's there.
@@ -111,10 +115,12 @@ extension PasteboardShots {
     /// (its path, or where its bookmark leads: a file renamed in Finder while Margin was quit), or it's in `keeping` (on
     /// the clipboard). Only visible files last written before `writtenBefore` are looked at: hidden ones are Finder's
     /// or a save's, and a capture of this launch's can't be older. Nothing, while `folder` is a link (`isRealFolder`).
-    /// Blocking. Returns what was deleted.
+    /// A file named in one of the `setAside` lists stays too: a damaged shelf.json, or one with items this version can't
+    /// read, is set aside with its cards (`ShelfStore.setAsideFiles`), and they may still be wanted. Blocking. Returns
+    /// what was deleted.
     @discardableResult
     public static func cleanUp(folder: URL = Preferences.pasteboardFolder, items: [ShelfItem], keeping: Set<String> = [],
-                               writtenBefore: Date) -> [URL] {
+                               setAside: [URL] = [], writtenBefore: Date) -> [URL] {
         guard isRealFolder(folder), let names = try? FileManager.default.contentsOfDirectory(atPath: folder.path) else { return [] }
         let keys: Set<URLResourceKey> = [.isRegularFileKey, .contentModificationDateKey]
         let candidates = names.filter { !$0.hasPrefix(".") }.map { folder.appendingPathComponent($0) }.filter { url in
@@ -135,6 +141,17 @@ extension PasteboardShots {
             }
             unclaimed = unclaimed.filter { !kept.contains(real($0.path)) }
         }
+        // Last, the set-aside lists, read as bytes: one that's damaged can't be decoded, but its names are still there.
+        if !unclaimed.isEmpty, !setAside.isEmpty {
+            let lists = setAside.compactMap { try? Data(contentsOf: $0) }
+            unclaimed = unclaimed.filter { url in !lists.contains { $0.range(of: jsonText(url.lastPathComponent)) != nil } }
+        }
         return unclaimed.filter { (try? FileManager.default.removeItem(at: $0)) != nil }
+    }
+
+    /// `name` as it appears inside a JSON string (`JSONEncoder` escapes `/` and quotes), as bytes.
+    static func jsonText(_ name: String) -> Data {
+        guard let encoded = try? JSONEncoder().encode(name), encoded.count >= 2 else { return Data(name.utf8) }
+        return encoded.dropFirst().dropLast()
     }
 }

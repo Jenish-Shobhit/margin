@@ -4,7 +4,7 @@ import MarginKit
 /// "Delete screenshots after pasting" (spec §14.2). While it's on, screenshots are written to the Pasteboard folder
 /// (`AppCoordinator+Save`). A file there is deleted only once nothing can reach it: its card has left the shelf, the ⌘Z
 /// step that would bring it back has been pushed out, its grace after a paste or a drop is over, and the clipboard no
-/// longer holds it. Anything left over at quit goes at the next launch (`PasteboardShots.cleanUp`). Off, and with no
+/// longer holds it. Anything left over at quit goes half a minute into the next launch (`PasteboardShots.cleanUp`). Off, and with no
 /// Pasteboard files about, none of this does anything.
 extension AppCoordinator {
     /// Before `shelf.restore()`: the files the clipboard still holds from the last session stay through the launch's
@@ -25,7 +25,8 @@ extension AppCoordinator {
     /// Writes `entries` to the clipboard watched for a paste (`PasteWatch`: promised, kept on this Mac) and returns the
     /// change count. A paste takes the pasted cards off the shelf.
     func writeWatched(_ entries: [PasteWatch.Entry]) -> Int {
-        let watch = PasteWatch()
+        // Margin in front reads its own clipboard (⌘V in Rename…): keys go to the app in front, so no other app pasted.
+        let watch = PasteWatch(readerIsSelf: { NSApp.isActive || NSApp.keyWindow != nil })
         watch.onPaste = { [weak self] ids in self?.pasted(ids) }
         let changeCount = watch.write(entries)
         pasteWatch = watch
@@ -51,11 +52,13 @@ extension AppCoordinator {
         shelf.pasted(ids)
     }
 
-    /// After `shelf.restore()`: a file kept because the clipboard holds it, with no card, goes once the clipboard moves on.
+    /// After `shelf.restore()`: a file kept because the clipboard holds it, with no card, goes once the clipboard moves on,
+    /// but not before the launch's cleanup would (`PasteboardShots.launchCleanupDelay`): it may have just been pasted.
     func retainClipboardFilesWithoutCards() {
         guard let files = clipboardFiles else { return }
         let onShelf = Set(store.items.map(\.path))
-        for path in files.paths where !onShelf.contains(path) { retention.add(path, notBefore: Date()) }
+        let notBefore = Date().addingTimeInterval(PasteboardShots.launchCleanupDelay)
+        for path in files.paths where !onShelf.contains(path) { retention.add(path, notBefore: notBefore) }
     }
 
     /// ⌘Z steps pushed out by newer ones: their cards can't come back, so their Pasteboard files wait out their grace

@@ -87,13 +87,17 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
     private var items: [NSPasteboardItem] = []
     private var reporting: Set<UUID> = []
     private let keys: () -> PasteKeys
+    private let readerIsSelf: () -> Bool
     private let reportDelay: TimeInterval
     private let quiet: TimeInterval
 
     /// `keys` reads the keyboard at a read, and `quiet` is `PasteKeys.isPaste`'s (both injectable for tests).
-    public init(keys: @escaping () -> PasteKeys = { PasteKeys.current }, reportDelay: TimeInterval = 0.15,
-                quiet: TimeInterval = PasteKeys.quietAfterWrite) {
+    /// `readerIsSelf` says the keys went to Margin itself (in front, or with a key window): a read then is never another
+    /// app's paste.
+    public init(keys: @escaping () -> PasteKeys = { PasteKeys.current }, readerIsSelf: @escaping () -> Bool = { false },
+                reportDelay: TimeInterval = 0.15, quiet: TimeInterval = PasteKeys.quietAfterWrite) {
         self.keys = keys
+        self.readerIsSelf = readerIsSelf
         self.reportDelay = reportDelay
         self.quiet = quiet
     }
@@ -144,7 +148,8 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
         }
         let held = keys(), after = Date().timeIntervalSince(writtenAt)
         reads.append((type.rawValue, entry.id, after, held))
-        guard entry.watched, held.isPaste(sinceWrite: after, quiet: quiet), pasted.insert(entry.id).inserted else { return }
+        guard entry.watched, held.isPaste(sinceWrite: after, quiet: quiet), !readerIsSelf(),
+              pasted.insert(entry.id).inserted else { return }
         if reporting.isEmpty {
             // Held until then: the pasteboard may be done with the watch before the report is.
             DispatchQueue.main.asyncAfter(deadline: .now() + reportDelay) {

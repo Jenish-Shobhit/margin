@@ -186,6 +186,30 @@ import Testing
         #expect(PasteboardShots.cleanUp(folder: below, items: [], writtenBefore: launch).count == 1)
     }
 
+    /// A shelf.json that couldn't all be read is set aside with its cards (`ShelfStore.load`): the files it names stay,
+    /// even when it's too damaged to decode.
+    @Test func filesNamedInASetAsideShelfStay() throws {
+        let dir = try TempDir(), lists = try TempDir()
+        defer { dir.remove(); lists.remove() }
+        let named = try file("Screenshot 2026-10-17 at 10.00.00.png", in: dir)
+        let damaged = try file("Screenshot 2026-10-17 at 10.00.01.png", in: dir)
+        let orphan = try file("Screenshot 2026-10-17 at 10.00.02.png", in: dir)
+        let shelf = lists.url.appendingPathComponent("shelf.json")
+        try JSONEncoder().encode([item(at: named)]).write(to: lists.url.appendingPathComponent("shelf.json.bad"))
+        // Cut off just after the name: no longer JSON.
+        let whole = try JSONEncoder().encode([item(at: damaged)])
+        let name = try #require(whole.range(of: Data(damaged.lastPathComponent.utf8)))
+        let cut = whole.prefix(upTo: name.upperBound + 2)
+        #expect((try? JSONDecoder().decode([ShelfItem].self, from: cut)) == nil)
+        try cut.write(to: lists.url.appendingPathComponent("shelf.json.bad 2"))
+        try Data("[]".utf8).write(to: lists.url.appendingPathComponent("shelf.json.bak"))
+        let setAside = ShelfStore.setAsideFiles(of: shelf)
+        #expect(setAside.map(\.lastPathComponent) == ["shelf.json.bad", "shelf.json.bad 2"])
+        let deleted = PasteboardShots.cleanUp(folder: dir.url, items: [], setAside: setAside, writtenBefore: launch)
+        #expect(deleted.map(\.lastPathComponent) == [orphan.lastPathComponent])
+        #expect(Set(dir.contents()) == [named.lastPathComponent, damaged.lastPathComponent])
+    }
+
     @Test func cardsElsewhereDontKeepAnything() throws {
         let dir = try TempDir(), other = try TempDir()
         defer { dir.remove(); other.remove() }
