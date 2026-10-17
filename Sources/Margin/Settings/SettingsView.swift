@@ -44,6 +44,8 @@ struct SettingsView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                Toggle("Check for updates automatically", isOn: Binding(get: { model.checksForUpdates }, set: model.setChecksForUpdates))
+                    .help("At launch and once a day, Margin asks GitHub for its latest release. Nothing about you is sent.")
             }
 
             Section {

@@ -133,7 +133,8 @@ import Testing
             .incompleteDownload, .checksumMismatch, .unzip("exit 1"), .noAppInDownload, .wrongBundle("com.example"),
             .wrongBundle(nil), .wrongVersion(found: "0.0.19", expected: "0.0.20"), .badSignature("invalid"),
             .differentSigner, .runningCopyUnsigned, .notAnApp, .translocated, .folderNotWritable("/Applications"),
-            .helper("no /bin/sh"),
+            .helper("no /bin/sh"), .helperFailed(version: "0.0.20", detail: "couldn't move it"),
+            .helperFailed(version: "0.0.20", detail: nil),
         ]
         for error in all {
             #expect(error.message.count > 20, "\(error)")
@@ -145,6 +146,8 @@ import Testing
         #expect(UpdateError.folderNotWritable("/Applications").message.contains("/Applications"))
         #expect(!UpdateError.checksumMismatch.opensReleasesPage)
         #expect(UpdateError.noDownload("0.0.20").message.contains("Margin-0.0.20.zip"))
+        #expect(UpdateError.helperFailed(version: "0.0.20", detail: "couldn't move it").message
+                == "Margin 0.0.20 wasn’t installed: couldn't move it. There’s more in ~/Library/Logs/Margin/Update.log.")
     }
 }
 

@@ -1,4 +1,5 @@
 import AppKit
+import MarginKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -18,6 +19,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let coordinator = AppCoordinator()
         self.coordinator = coordinator
         coordinator.start()
+    }
+
+    /// `margin://update` (spec §14.3), from the website's Update Margin button: a check, and its result in the update
+    /// window. Nothing is installed without a click there. Any other URL is ignored. At a launch it may come before
+    /// `applicationDidFinishLaunching`; the check then waits for `start`.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        // One check for any number of them; `open` logs and ignores anything else.
+        if let url = urls.first(where: MarginURL.isUpdateRequest) ?? urls.first { UpdateController.shared.open(url) }
     }
 
     /// Opening Margin again (Finder, Spotlight, `open`) while it's running.

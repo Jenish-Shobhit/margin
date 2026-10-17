@@ -134,6 +134,8 @@ public enum UpdateError: Error, Equatable, Sendable {
     case translocated
     case folderNotWritable(String)
     case helper(String)
+    /// The helper ran but didn't install `version` (found at the next launch): what it logged, if anything.
+    case helperFailed(version: String, detail: String?)
 
     /// True for the install's errors, false for the check's: the window's title says which went wrong.
     public var isInstallError: Bool {
@@ -195,6 +197,8 @@ public enum UpdateError: Error, Equatable, Sendable {
             "Margin can’t replace itself: you don’t have permission to change “\(folder)”. Install the new version from the releases page, or ask an administrator."
         case .helper(let detail):
             "The installer couldn’t start (\(detail))."
+        case .helperFailed(let version, let detail):
+            "Margin \(version) wasn’t installed\(detail.map { ": " + $0 } ?? ""). There’s more in ~/Library/Logs/Margin/Update.log."
         }
     }
 }
