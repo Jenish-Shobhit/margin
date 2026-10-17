@@ -161,14 +161,12 @@ final class UpdateController {
         return true
     }
 
-    /// At launch and every hour: checks when the setting is on and one is due, unless the window is busy with an update
-    /// or a capture is under way (then a minute later).
+    /// At launch and every hour: checks when the setting is on and one is due, unless the update window is open (it shows
+    /// something the user hasn't answered yet, a failed install's report among them) or a capture is under way (then a
+    /// minute later).
     private func automaticCheck(atLaunch: Bool) {
-        guard prefs.checksForUpdates, checkTask == nil, installTask == nil else { return }
-        switch phase {
-        case .idle, .upToDate, .failed: break
-        default: return // the window shows something the user hasn't answered yet
-        }
+        guard prefs.checksForUpdates, checkTask == nil, installTask == nil,
+              !UpdateWindowController.shared.isVisible, !phase.isInstalling else { return }
         guard UpdateSchedule.isDue(lastCheck: prefs.lastUpdateCheck, now: Date(), atLaunch: atLaunch) else { return }
         if isBusy() {
             Task { [weak self] in
