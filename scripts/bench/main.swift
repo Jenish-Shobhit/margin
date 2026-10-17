@@ -5,9 +5,10 @@
 // through the same calls a shortcut or a drag makes, collects the `timing` log lines each capture writes, and
 // prints median / p90 / min / max per metric. Two builds can be compared, interleaved in blocks.
 //
-// Safety: it backs up and restores the installed app, Margin's preferences, shelf.json and the clipboard; saves
-// go to a scratch folder with Copy each capture and the sound off; and it acts only while its own window or Margin
-// is in front (checked before every capture; it pauses otherwise).
+// Safety: it backs up and restores the installed app, Margin's preferences, shelf.json (with the Pasteboard folder of
+// Delete screenshots after pasting) and the clipboard; saves go to a scratch folder with Copy each capture and the
+// sound off; and it acts only while its own window or Margin is in front (checked before every capture; it pauses
+// otherwise).
 import AppKit
 import CoreGraphics
 import Darwin

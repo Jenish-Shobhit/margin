@@ -237,6 +237,12 @@ enum Margin {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Margin/shelf.json")
     }
 
+    /// Delete screenshots after pasting's folder (spec §14.2). A launch of a build that has the option deletes the
+    /// files there that its shelf.json doesn't hold, and during a run that's the bench's shelf, not the user's.
+    static var pasteboardFolder: URL {
+        shelfURL.deletingLastPathComponent().appendingPathComponent("Pasteboard", isDirectory: true)
+    }
+
     /// Margin's physical footprint in MB (what Activity Monitor calls Memory).
     static func footprintMB(_ pid: pid_t) -> Double? {
         var info = rusage_info_v4()
@@ -247,11 +253,13 @@ enum Margin {
     }
 }
 
-/// Everything the bench changes, put back at the end: the installed app, Margin's preferences, shelf.json and the
-/// clipboard (the bench turns Copy each capture off, so it shouldn't change, but it's checked).
+/// Everything the bench changes, put back at the end: the installed app, Margin's preferences, shelf.json with the
+/// Pasteboard folder's shots, and the clipboard (the bench turns Copy each capture off, so it shouldn't change, but
+/// it's checked).
 final class Backup {
     let dir: URL
     private var hadShelf = false
+    private var hadPasteboard = false
     private var clipboard: [[(NSPasteboard.PasteboardType, Data)]] = []
     private var clipboardCount = 0
 
@@ -268,10 +276,14 @@ final class Backup {
         if fm.fileExists(atPath: shelf.path) { try fm.removeItem(at: shelf) }
         hadShelf = fm.fileExists(atPath: Margin.shelfURL.path)
         if hadShelf { try fm.copyItem(at: Margin.shelfURL, to: shelf) }
+        let pasteboard = dir.appendingPathComponent("Pasteboard", isDirectory: true)
+        if fm.fileExists(atPath: pasteboard.path) { try fm.removeItem(at: pasteboard) }
+        hadPasteboard = fm.fileExists(atPath: Margin.pasteboardFolder.path)
+        if hadPasteboard { try shell("/usr/bin/ditto", [Margin.pasteboardFolder.path, pasteboard.path]) }
         let pb = NSPasteboard.general
         clipboardCount = pb.changeCount
         clipboard = (pb.pasteboardItems ?? []).map { item in item.types.compactMap { t in item.data(forType: t).map { (t, $0) } } }
-        say("backed up the app, prefs and shelf.json to \(dir.path)")
+        say("backed up the app, prefs, shelf.json and the Pasteboard folder to \(dir.path)")
     }
 
     /// Margin must have quit. Reinstalls the app as it was; doesn't launch it.
@@ -281,6 +293,10 @@ final class Backup {
         try shell("/usr/bin/defaults", ["import", marginBundleID, dir.appendingPathComponent("prefs.plist").path])
         if fm.fileExists(atPath: Margin.shelfURL.path) { try fm.removeItem(at: Margin.shelfURL) }
         if hadShelf { try fm.copyItem(at: dir.appendingPathComponent("shelf.json"), to: Margin.shelfURL) }
+        if fm.fileExists(atPath: Margin.pasteboardFolder.path) { try fm.removeItem(at: Margin.pasteboardFolder) }
+        if hadPasteboard {
+            try shell("/usr/bin/ditto", [dir.appendingPathComponent("Pasteboard").path, Margin.pasteboardFolder.path])
+        }
         let app = dir.appendingPathComponent("Margin.app")
         if fm.fileExists(atPath: app.path) { try Margin.install(app.path) }
         guard fm.fileExists(atPath: installedApp + "/Contents/MacOS/Margin") else {
@@ -296,7 +312,7 @@ final class Backup {
             })
             say("the clipboard changed during the run; put it back")
         }
-        say("restored the app, prefs and shelf.json")
+        say("restored the app, prefs, shelf.json and the Pasteboard folder")
     }
 }
 
