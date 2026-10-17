@@ -49,6 +49,9 @@ final class UpdateController {
     }
 
     private(set) var phase: Phase = .idle
+    /// The window's check came from a `margin://update` link, which any page or app can open: Install and Relaunch then
+    /// isn't the default button, so a Return meant for something else doesn't start an install.
+    private(set) var askedByLink = false
 
     nonisolated static var currentVersionString: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
@@ -115,7 +118,7 @@ final class UpdateController {
         reportInstalledUpdate()
         if checkAskedBeforeStart {
             checkAskedBeforeStart = false
-            checkForUpdates()
+            checkForUpdates(byLink: true) // only `margin://update` comes before `start`
         }
         Task(priority: .utility) { [weak self] in
             await prewarm?.value
@@ -132,8 +135,8 @@ final class UpdateController {
 
     // MARK: - Checking
 
-    /// Check for Updates… and `margin://update`: checks now (skipped versions too) and shows the result.
-    func checkForUpdates() {
+    /// Check for Updates… and `margin://update` (`byLink`): checks now (skipped versions too) and shows the result.
+    func checkForUpdates(byLink: Bool = false) {
         guard started else {
             checkAskedBeforeStart = true
             return
@@ -142,6 +145,7 @@ final class UpdateController {
             showWindow(activate: true)
             return
         }
+        askedByLink = byLink
         phase = .checking
         showWindow(activate: true)
         if checkTask != nil {
@@ -159,7 +163,7 @@ final class UpdateController {
             return false
         }
         Self.log.notice("margin://update: checking for updates")
-        checkForUpdates()
+        checkForUpdates(byLink: true)
         return true
     }
 
@@ -177,6 +181,7 @@ final class UpdateController {
             }
             return
         }
+        askedByLink = false
         runCheck(manual: false)
     }
 

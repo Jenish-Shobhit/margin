@@ -99,7 +99,8 @@ struct UpdateView: View {
                 Button("Skip This Version") { updates.skip() }
                 Spacer()
                 Button("Later") { updates.later() }.keyboardShortcut(.cancelAction)
-                Button("Install and Relaunch") { updates.install() }.keyboardShortcut(.defaultAction)
+                Button("Install and Relaunch") { updates.install() }
+                    .keyboardShortcut(updates.askedByLink ? nil : .defaultAction)
             }
         case .downloading(let update, let fraction, let received, let total):
             header(update)
