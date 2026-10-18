@@ -2,6 +2,19 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 0.1.3 — 2026-10-18
+
+### Added
+
+- Close Shelf: a "✕ Close Shelf" button above the stack (it shows when the pointer is over the shelf), and Close Shelf in the menu bar menu and the pile's menu, take every card off at once. The files stay in your folder, and Restore Last Removed brings them all back. It replaces Clear shelf, and gives the keyboard back to your app.
+- With Delete screenshots after pasting on, Close Shelf keeps the shots you haven't pasted: they move into your Save to folder as normal files.
+
+### Changed
+
+- Settings has General, Shortcuts and Recording panes, none taller than a small display, with a line under each option whose effect isn't obvious. The note about ⌃ now says what it means: each capture shortcut also works with ⌃ added, since every shot is already copied.
+- The menu bar menu is grouped: captures, shelf, files, then Margin, with Quit on its own. Without Screen Recording permission, every capture item stays.
+- The shelf thumbnail appears 2–5 ms sooner after a capture (it's made ahead of the PNG encode), and with Copy each capture on, the clipboard is written as soon as the file is in place.
+
 ## 0.1.2 — 2026-10-18
 
 ### Added

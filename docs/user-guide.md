@@ -2,7 +2,7 @@
 
 Margin is a menu bar app. Every capture is saved as a PNG, copied to the clipboard and put on a **shelf** of thumbnails (**cards**) at the right edge of the screen, where it waits until you drag it into another app or dismiss it. Screen recordings (⇧⌘5) are saved as MP4 movies and land on the same shelf.
 
-This guide covers Margin 0.1.2. Shortcuts are shown with their defaults; you can change them in [Settings](#settings).
+This guide covers Margin 0.1.3. Shortcuts are shown with their defaults; you can change them in [Settings](#settings).
 
 **Contents**
 
@@ -327,13 +327,13 @@ Margin can update itself from its [GitHub releases](https://github.com/Jenish-Sh
 
 A check asks GitHub for the latest release of Margin, and nothing else. It sends nothing about you, your Mac or your screenshots. With the setting off, Margin makes no network request at all unless you ask it to check.
 
-**When there's a newer version,** a window says "Margin 0.1.3 is available — you have 0.1.2", with what's new:
+**When there's a newer version,** a window says "Margin 0.1.4 is available — you have 0.1.3", with what's new:
 
-- **Install and Relaunch** downloads it, with a progress bar, and checks it. Margin then quits (after finishing any shot still being saved), the new version takes its place and opens, and the shelf says "Updated to Margin 0.1.3". The old copy goes to the Trash as "Margin 0.1.2.app". **Cancel** stops the download.
+- **Install and Relaunch** downloads it, with a progress bar, and checks it. Margin then quits (after finishing any shot still being saved), the new version takes its place and opens, and the shelf says "Updated to Margin 0.1.4". The old copy goes to the Trash as "Margin 0.1.3.app". **Cancel** stops the download.
 - **Later** closes the window. The next daily check offers it again.
 - **Skip This Version** stops the daily checks offering that version. A later one they offer again, and **Check for Updates…** still shows a skipped one.
 
-A window from a daily check comes to the front without taking the keyboard from the app you're typing in. A check you asked for also tells you when you're up to date ("Margin 0.1.2 is up to date."), and when something went wrong, what it was, with **Open Releases Page**.
+A window from a daily check comes to the front without taking the keyboard from the app you're typing in. A check you asked for also tells you when you're up to date ("Margin 0.1.3 is up to date."), and when something went wrong, what it was, with **Open Releases Page**.
 
 **What's checked before anything is replaced.** The download has to be the file GitHub lists (its size and checksum), with Margin.app inside, Margin's bundle ID and exactly the new version number. Its code signature has to be valid and made with the same certificate as the Margin you're running. That last check is also why Screen Recording permission carries over: macOS sees the same app. If any check fails, nothing is installed and the window says which.
 

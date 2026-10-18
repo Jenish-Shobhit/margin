@@ -1,6 +1,6 @@
 # Architecture
 
-How Margin 0.1.2 is put together, for anyone changing it. The product rules live in [`spec.md`](../spec.md); this page describes the code that implements them.
+How Margin 0.1.3 is put together, for anyone changing it. The product rules live in [`spec.md`](../spec.md); this page describes the code that implements them.
 
 - [Targets and folders](#targets-and-folders)
 - [The contracts](#the-contracts)
