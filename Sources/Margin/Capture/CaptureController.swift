@@ -450,9 +450,10 @@ final class CaptureController: CaptureControlling {
     private func finishArea(_ rect: CGRect, display: DisplayInfo, image: CGImage, pixelRect: CGRect, scale: CGFloat) {
         let clock = Stopwatch()
         let date = Date()
-        // The crop and the thumbnail start at once, off the main thread, while the overlay comes down here.
+        // The crop and the thumbnail start at once, off the main thread (user-interactive: `Interactive`), while the
+        // overlay comes down here.
         let source = SendableImage(image: image)
-        let prepared = Task.detached(priority: .userInitiated) { await Self.timedCrop(source, to: pixelRect, scale: scale) }
+        let prepared = Interactive { Self.timedCrop(source, to: pixelRect, scale: scale) }
         // Overlay first: the shelf's fly-in starts from the selection, over the live screen.
         let previous = owesFocus ? previousApp : nil
         // Owed from the mouse-up on, not from the hand-off: a ⇧⌘4 that lands while the crop and thumbnail are being
@@ -556,7 +557,8 @@ final class CaptureController: CaptureControlling {
         let pixelRect = Geometry.pixelRect(for: window.frame, displayFrame: display.frame, scale: scale,
                                            imageSize: CGSize(width: frozen.width, height: frozen.height))
         let source = SendableImage(image: frozen)
-        return Task.detached(priority: .userInitiated) { StandIn(cutting: pixelRect, from: source, scale: scale) }
+        let cut = Interactive { StandIn(cutting: pixelRect, from: source, scale: scale) }
+        return Task.detached(priority: .userInitiated) { await cut.value }
     }
 
     /// The stand-in for a window the frozen frame doesn't show alone (with ⌥, covered, not all on one display): the window
@@ -572,7 +574,7 @@ final class CaptureController: CaptureControlling {
         return Task.detached(priority: .userInitiated) {
             guard let (image, scale) = try? await ScreenGrabber.captureWindow(target, keepShadow: keepShadow,
                                                                               timing: "windowStandIn") else { return nil }
-            return StandIn(image.image, scale: scale)
+            return await Interactive { StandIn(image.image, scale: scale) }.value
         }
     }
 
@@ -698,29 +700,29 @@ final class CaptureController: CaptureControlling {
 
     // MARK: Helpers
 
-    // Each of these starts the PNG encode and makes the shelf's thumbnail as well (`Shot`), before going back to the
-    // main actor.
+    // Each of these starts the PNG encode and makes the shelf's thumbnail as well (`Shot`), on a user-interactive
+    // thread (`Interactive`), before going back to the main actor.
 
     /// One display's frame.
     @concurrent
     private nonisolated static func capture(_ target: DisplayTarget) async throws -> Shot {
-        Shot(try await ScreenGrabber.capture(target).image, scale: target.scale)
+        await Shot.make(try await ScreenGrabber.capture(target).image, scale: target.scale)
     }
 
     @concurrent
     private nonisolated static func captureWindow(_ target: WindowTarget, keepShadow: Bool) async throws -> Shot {
         let (image, scale) = try await ScreenGrabber.captureWindow(target, keepShadow: keepShadow)
-        return Shot(image.image, scale: scale)
+        return await Shot.make(image.image, scale: scale)
     }
 
     @concurrent
     private nonisolated static func crop(_ image: SendableImage, to pixelRect: CGRect, scale: CGFloat) async -> Shot? {
-        ScreenGrabber.crop(image.image, to: pixelRect).map { Shot($0, scale: scale) }
+        await Interactive { ScreenGrabber.crop(image.image, to: pixelRect).map { Shot($0, scale: scale) } }.value
     }
 
     /// `crop`, and how long the crop itself took (without the thumbnail and the hops to and from the main actor).
-    @concurrent
-    private nonisolated static func timedCrop(_ image: SendableImage, to pixelRect: CGRect, scale: CGFloat) async -> (Shot, Double)? {
+    /// Synchronous: run it on a user-interactive thread (`Interactive`).
+    private nonisolated static func timedCrop(_ image: SendableImage, to pixelRect: CGRect, scale: CGFloat) -> (Shot, Double)? {
         let clock = Stopwatch()
         guard let cropped = ScreenGrabber.crop(image.image, to: pixelRect) else { return nil }
         let cropMs = clock.ms
