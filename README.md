@@ -17,8 +17,6 @@
   <img alt="Swift 6" src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white">
 </p>
 
-![A Mac desktop with Margin's shelf of screenshot cards on the right edge](docs/images/hero.png)
-
 ![Capturing an area: the shot flies onto the shelf, then gets dragged into another app](docs/images/demo.gif)
 
 Every capture is saved to disk, copied to the clipboard and put on a shelf of thumbnails at the right edge of the screen. A thumbnail stays there until you drag it into another app or dismiss it.
@@ -169,8 +167,6 @@ Each capture (with **Copy each capture** on) and each copy from the shelf puts o
 ## Settings
 
 Open **Settings…** from the menu bar icon. It has three panes: **General** (the first seven below), **Recording** (the audio) and **Shortcuts**.
-
-![Margin Settings](docs/images/settings.png)
 
 | Setting | Default | |
 |---|---|---|
