@@ -43,6 +43,7 @@ final class ShelfController: ShelfControlling {
     let stage = NSView()
     let container = NSView()
     let pile = ShelfPileView()
+    let closeButton = ShelfCloseButton()
     let toast = ShelfToastView()
     let tab = ShelfTabView()
 
@@ -96,6 +97,7 @@ final class ShelfController: ShelfControlling {
     private var peekTask: Task<Void, Never>?
     private var peekPoll: Task<Void, Never>?
     private var hideTask: Task<Void, Never>?
+    private var closeButtonHide: Task<Void, Never>?
     /// Shots in the air, by item.
     private var flights: [UUID: ShelfFlight] = [:]
     /// After the user empties the shelf, the (invisible) panel stays a moment so ⌘Z can still reach it.
@@ -122,6 +124,10 @@ final class ShelfController: ShelfControlling {
         pile.isHidden = true
         container.addSubview(pile.fan)
         container.addSubview(pile)
+        // Above the cards and the fan.
+        closeButton.onClick = { [weak self] in self?.close() }
+        closeButton.onHover = { [weak self] _ in self?.updateCloseButton() }
+        container.addSubview(closeButton)
         tab.isHidden = true
         tab.onHover = { [weak self] in self?.tabHover($0) }
         tab.onClick = { [weak self] in self?.tabClicked() }
@@ -437,6 +443,7 @@ final class ShelfController: ShelfControlling {
             }
         }
         updatePile(pileFrame, animated: animated)
+        placeCloseButton(animated: animated)
         tab.count = items.count - pendingTabArrivals
         positionToast(animated: animated)
         updateVisibility()
@@ -474,6 +481,7 @@ final class ShelfController: ShelfControlling {
 
     private func accessibilityChanged() {
         pile.rebuildMaterial()
+        closeButton.rebuildMaterial()
         tab.rebuildMaterial()
         toast.rebuildMaterial()
     }
@@ -513,6 +521,42 @@ final class ShelfController: ShelfControlling {
 
     func pileHover(_ inside: Bool) {
         pile.fan.setFanned(inside && dragSource == nil, animated: true)
+        updateCloseButton()
+    }
+
+    // MARK: - Close button
+
+    /// Just above the top card or the pile, at the stack's left edge: the toasts sit at its right on the same line.
+    private func placeCloseButton(animated: Bool) {
+        let top = layout.contentHeight - ShelfLayout.edgeInset
+        let origin = CGPoint(x: ShelfStyle.leftPad + ShelfLayout.edgeInset, y: top + (layout.pileCount > 0 ? 14 : 10))
+        let old = closeButton.frame.origin
+        closeButton.setFrameOrigin(origin)
+        if animated, closeButton.isShown, let layer = closeButton.layer {
+            ShelfMotion.slide(layer, from: CGPoint(x: old.x - origin.x, y: old.y - origin.y))
+        }
+        updateCloseButton()
+    }
+
+    /// The close button shows while the pointer is on the shelf (a card, or the button itself), not while the pile fans
+    /// out where it sits, a drag is on, a toast is in its way, or the shelf is empty or tucked away. Leaving, it waits a
+    /// moment (`now` false), so crossing the gap between two cards doesn't make it blink.
+    func updateCloseButton(now: Bool = false) {
+        let onScreen = !store.items.isEmpty && (!isTucked || isPeeking)
+        let buttonInStage = closeButton.frame.offsetBy(dx: container.frame.minX, dy: container.frame.minY)
+        let toastInTheWay = !toast.isHidden && toast.frame.intersects(buttonInStage)
+        let blocked = !onScreen || dragSource != nil || pile.isHovered || toastInTheWay
+        let wanted = !blocked && (hoveredID != nil || closeButton.isHovered)
+        closeButtonHide?.cancel()
+        if wanted {
+            closeButton.setShown(true)
+        } else if closeButton.isShown {
+            if blocked || now {
+                closeButton.setShown(false)
+            } else {
+                closeButtonHide = ShelfMotion.after(0.3) { [weak self] in self?.updateCloseButton(now: true) }
+            }
+        }
     }
 
     // MARK: - Visibility
@@ -560,6 +604,7 @@ final class ShelfController: ShelfControlling {
             for card in cards.values { card.setHovered(false) }
             pile.fan.setFanned(false, animated: true)
             setContainerOffset(stageSize.width, animated: true, spring: false)
+            updateCloseButton(now: true)
             showTab(animated: true)
             if !store.items.isEmpty { showToast(tuckedToastText, isError: false) }
         } else {
@@ -685,6 +730,7 @@ final class ShelfController: ShelfControlling {
         positionToast()
         if !panel.isVisible { showPanel() }
         applyGeometry(deferShrink: false)
+        updateCloseButton(now: true)
     }
 
     /// Keeps the toast just above the top card (or beside the tab while tucked).
@@ -714,5 +760,6 @@ final class ShelfController: ShelfControlling {
     private func toastDidHide() {
         applyGeometry(deferShrink: false)
         updateVisibility()
+        updateCloseButton()
     }
 }

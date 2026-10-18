@@ -110,6 +110,7 @@ extension ShelfController {
             if hoveredID == card.id { hoveredID = nil }
             card.setHovered(false)
         }
+        updateCloseButton()
     }
 
     func toggleSelection(_ id: UUID) {

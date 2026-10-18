@@ -3,7 +3,8 @@ import MarginKit
 
 /// VoiceOver and other assistive apps. The shelf's views are layer-drawn, so each says what it is here.
 ///
-/// The panel's children are the visible pile, cards and tab, top to bottom (`ShelfController.accessibilityElements`).
+/// The panel's children are the Close Shelf button, the visible pile, cards and tab, top to bottom
+/// (`ShelfController.accessibilityElements`).
 /// Each card is a button: pressing it copies (as a click does), its actions menu has the rest, and its ✕ and •••
 /// are buttons inside it. Toasts are spoken as announcements. Nothing here makes the panel key: an action takes
 /// the keys only where its mouse twin does (✕, Rename, Move to Trash, Quick Look), so the focus rules hold.
@@ -13,6 +14,8 @@ extension ShelfController {
     var accessibilityElements: [Any] {
         if isTucked && !isPeeking { return tab.isHidden ? [] : [tab] }
         var elements: [Any] = []
+        // There whether or not the pointer is over the shelf, which is when it shows.
+        if !store.items.isEmpty { elements.append(closeButton) }
         if !pile.isHidden { elements.append(pile) }
         // The oldest visible card is at the top.
         for item in store.items {
@@ -203,6 +206,19 @@ extension ShelfPileView {
             controller.close()
             return true
         }]
+    }
+}
+
+extension ShelfCloseButton {
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .button }
+    override func accessibilityLabel() -> String? { "Close shelf" }
+    override func accessibilityHelp() -> String? { "Takes every card off the shelf. The files stay in their folder." }
+    override func accessibilityChildren() -> [Any]? { [] }
+
+    override func accessibilityPerformPress() -> Bool {
+        onClick?()
+        return true
     }
 }
 

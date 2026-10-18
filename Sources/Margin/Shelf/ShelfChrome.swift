@@ -235,3 +235,120 @@ final class ShelfTabView: NSView {
         if bounds.contains(convert(event.locationInWindow, from: nil)) { onClick?() }
     }
 }
+
+/// "✕ Close Shelf": a small Liquid Glass pill above the stack, at its top-left, shown while the pointer is over the
+/// shelf (spec §5). A click takes every card off the shelf, files kept (`ShelfController.close`). It never takes the
+/// keys.
+@MainActor
+final class ShelfCloseButton: NSView {
+    var onClick: (() -> Void)?
+    var onHover: ((Bool) -> Void)?
+
+    static let height: CGFloat = 22
+    static let title = "Close Shelf"
+
+    private let background = GlassBackground(cornerRadius: ShelfCloseButton.height / 2)
+    private let icon = NSImageView()
+    private let label = NSTextField(labelWithString: ShelfCloseButton.title)
+    private var tracking: NSTrackingArea?
+    private(set) var isHovered = false
+    /// Faded in: it takes clicks only then (VoiceOver can press it either way).
+    private(set) var isShown = false
+    private var pressed = false
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        alphaValue = 0
+        addSubview(background)
+        let config = NSImage.SymbolConfiguration(pointSize: 8.5, weight: .bold)
+        icon.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: nil)?.withSymbolConfiguration(config)
+        icon.imageScaling = .scaleNone
+        label.font = .systemFont(ofSize: 11, weight: .medium)
+        addContent()
+        updateColors()
+        toolTip = "Take every card off the shelf. The files stay in their folder."
+        setFrameSize(NSSize(width: 9 + 10 + 4 + ceil(label.intrinsicContentSize.width) + 10, height: Self.height))
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    private func addContent() {
+        background.content.addSubview(icon)
+        background.content.addSubview(label)
+    }
+
+    func rebuildMaterial() { background.rebuild(); addContent(); needsLayout = true }
+
+    override func layout() {
+        super.layout()
+        background.frame = bounds
+        icon.frame = CGRect(x: 9, y: (bounds.height - 10) / 2, width: 10, height: 10)
+        let size = label.intrinsicContentSize
+        label.frame = CGRect(x: 23, y: (bounds.height - size.height) / 2, width: ceil(size.width) + 1, height: size.height)
+    }
+
+    /// Quiet until the pointer is on it.
+    private func updateColors() {
+        let color: NSColor = isHovered && !pressed ? .labelColor : .secondaryLabelColor
+        icon.contentTintColor = color
+        label.textColor = color
+    }
+
+    /// Fades in or out (a fade, not a move, so Reduce Motion keeps it).
+    func setShown(_ on: Bool, animated: Bool = true) {
+        guard on != isShown else { return }
+        isShown = on
+        if !on, isHovered {
+            isHovered = false
+            updateColors()
+        }
+        guard animated else {
+            alphaValue = on ? 1 : 0
+            return
+        }
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = on ? 0.18 : 0.15
+            animator().alphaValue = on ? 1 : 0
+        }
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard isShown, !isHidden, frame.contains(point) else { return nil }
+        return self
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override var needsPanelToBecomeKey: Bool { false }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking { removeTrackingArea(tracking) }
+        let t = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self, userInfo: nil)
+        addTrackingArea(t)
+        tracking = t
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+        updateColors()
+        onHover?(true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        updateColors()
+        onHover?(false)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        pressed = true
+        updateColors()
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        pressed = false
+        updateColors()
+        if isShown, bounds.contains(convert(event.locationInWindow, from: nil)) { onClick?() }
+    }
+}
