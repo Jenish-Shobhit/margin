@@ -1,4 +1,5 @@
 import AppKit
+import MarginKit
 import QuartzCore
 
 /// Hosts the plain CALayers (frozen image, dim, border, handles, guides, window highlight).
@@ -60,6 +61,8 @@ final class OverlayView: NSView {
     }
     weak var session: OverlaySession?
     private(set) var image: CGImage?
+    /// The IOSurface under the frame the layers show (`FrozenImage`), discarded once they let go of it.
+    private var shownSurface: IOSurfaceRef?
     /// This display can't be captured: the live screen shows through, dimmed, with a note.
     private(set) var isUnavailable = false
 
@@ -151,6 +154,7 @@ final class OverlayView: NSView {
     /// Back to an empty, transparent overlay.
     func reset() {
         image = nil
+        discardShownSurface()
         isUnavailable = false
         loupe.clear()
         CATransaction.begin()
@@ -206,21 +210,33 @@ final class OverlayView: NSView {
         reset()
     }
 
-    /// Shows the frozen frame and commits it right away.
-    /// `frozenCommit` and `frozenFlush` time the two halves on the main thread (Core Animation may copy the image's
-    /// pixels for the render server in either).
-    func setFrozen(_ image: CGImage) {
+    /// Shows the frozen frame and commits it right away. `image` is the frame's pixels (the loupe reads them); the
+    /// layers show `shown`, the same pixels in an IOSurface (`FrozenImage`), which Core Animation takes as it is.
+    /// `frozenCommit` and `frozenFlush` time the two halves on the main thread: handed ScreenCaptureKit's own image,
+    /// the commit copied its pixels for the render server, 3.6–3.8 ms for a full display; the surface takes about 0.1.
+    func setFrozen(_ image: CGImage, shown: CGImage, surface: IOSurfaceRef?) {
         self.image = image
+        discardShownSurface()
+        shownSurface = surface
         let commit = Stopwatch()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        imageLayer.contents = image
-        holeLayer.contents = image
+        imageLayer.contents = shown
+        holeLayer.contents = shown
         CATransaction.commit()
         CaptureTimings.log("frozenCommit", commit.ms)
         let flush = Stopwatch()
         CATransaction.flush()
         CaptureTimings.log("frozenFlush", flush.ms)
+    }
+
+    /// The window server holds on to an ordered-out window's last frame, and the surface counts in Margin's footprint:
+    /// its pixels go a little later, once nothing shows them (`SurfaceImage.discard`). Never one still on screen: each
+    /// frozen frame has a surface of its own.
+    private func discardShownSurface() {
+        guard let surface = shownSurface else { return }
+        shownSurface = nil
+        SurfaceImage.discard(surface)
     }
 
     // MARK: Rendering

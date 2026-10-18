@@ -138,14 +138,15 @@ final class OverlaySession {
         render()
     }
 
-    /// Shows a display's frozen frame. `committed` runs once the frame is handed to the render server,
-    /// before the chrome (loupe, pills) catches up.
-    func setFrozen(_ image: CGImage, for id: CGDirectDisplayID, committed: () -> Void = {}) {
+    /// Shows a display's frozen frame (its pixels are the selection's; the layers show its copy). `committed` runs once
+    /// the frame is handed to the render server, before the chrome (loupe, pills) catches up.
+    func setFrozen(_ frame: FrozenImage, for id: CGDirectDisplayID, committed: () -> Void = {}) {
+        let image = frame.image
         images[id] = image
         let view = panels.first { $0.display.id == id }?.overlayView
         // A frame that arrives after the display was given up on still counts.
         if unavailable.remove(id) != nil { view?.setUnavailable(false) }
-        view?.setFrozen(image)
+        view?.setFrozen(image, shown: frame.shown, surface: frame.surface)
         committed()
         if mode == .window { hovered = window(at: mouse) }
         render()
