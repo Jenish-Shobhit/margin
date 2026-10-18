@@ -8,24 +8,56 @@ public enum RecordingStop: Equatable, Sendable {
     /// Margin is quitting.
     case quit
     case displayGone, windowClosed, sleep, sessionChanged, diskFull
+    /// The file came close to the largest its volume takes (this many bytes: FAT32's 4 GiB).
+    case fileSizeLimit(Int64)
     /// Stopped from macOS's screen-recording indicator in the menu bar, or by macOS itself.
     case stoppedBySystem
     case permission
+    /// The writer failed (the encoder, the disk), or ScreenCaptureKit stopped with an error: its description.
     case error(String)
+
+    /// Why, as the end of a toast; nil for a stop that was asked for.
+    var cause: String? {
+        switch self {
+        case .user, .quit: nil
+        case .displayGone: "the display was disconnected"
+        case .windowClosed: "the window closed"
+        case .sleep: "the Mac went to sleep"
+        case .sessionChanged: "another user took over the Mac"
+        case .diskFull: "the disk is almost full"
+        case .fileSizeLimit(let bytes): "the disk can't hold files over \(Self.size(bytes))"
+        case .stoppedBySystem: "macOS stopped it"
+        case .permission: "Margin lost Screen Recording permission"
+        case .error(let why): why
+        }
+    }
+
+    /// A file size limit as people know it: FAT32's 4 GiB less a byte is "4 GB".
+    static func size(_ bytes: Int64) -> String {
+        let gib = Double(bytes) / 1_073_741_824
+        return gib >= 1 ? "\(Int(gib.rounded())) GB" : "\(Int((Double(bytes) / 1_048_576).rounded())) MB"
+    }
 
     /// The toast, or nil for a stop that was asked for.
     public var note: String? {
         switch self {
-        case .user, .quit: nil
-        case .displayGone: "Recording stopped: the display was disconnected"
-        case .windowClosed: "Recording stopped: the window closed"
-        case .sleep: "Recording stopped: the Mac went to sleep"
-        case .sessionChanged: "Recording stopped: another user took over the Mac"
-        case .diskFull: "Recording stopped: the disk is almost full"
         case .stoppedBySystem: "Recording stopped by macOS"
-        case .permission: "Recording stopped: Margin lost Screen Recording permission"
-        case .error(let why): "Recording stopped: \(why)"
+        default: cause.map { "Recording stopped: \($0)" }
         }
+    }
+
+    /// The toast for a recording that ended this way. `saved` is the length of what was kept (nil: nothing could be
+    /// saved); `complete`, whether its file was finished. One that wasn't plays up to its last fragment: for a writer
+    /// that failed, that's what was recorded (the stop's own note says why); after a stop that was asked for, or one
+    /// for another reason, it's less than the recording, and the toast says how much is there.
+    public func toast(saved: TimeInterval?, complete: Bool) -> String? {
+        guard let saved else {
+            if case .error(let why) = self { return "Couldn't save the recording: \(why)" }
+            return "Couldn't save the recording"
+        }
+        if complete { return note }
+        if case .error = self { return note }
+        return "The recording couldn't be finished: saved up to \(RecordingFormat.cardDurationText(saved))"
     }
 
     /// ScreenCaptureKit's error domain (`SCStreamErrorDomain`).

@@ -35,11 +35,33 @@ import Testing
         #expect(RecordingStop.user.note == nil)
         #expect(RecordingStop.quit.note == nil)
         for stop: RecordingStop in [.displayGone, .windowClosed, .sleep, .sessionChanged, .diskFull, .stoppedBySystem,
-                                    .permission, .error("the encoder stopped")] {
+                                    .permission, .fileSizeLimit(4_294_967_295), .error("the encoder stopped")] {
             let note = stop.note ?? ""
             #expect(note.hasPrefix("Recording stopped"), "\(stop)")
         }
         #expect(RecordingStop.windowClosed.note == "Recording stopped: the window closed")
+        #expect(RecordingStop.stoppedBySystem.note == "Recording stopped by macOS")
         #expect(RecordingStop.error("the encoder stopped").note == "Recording stopped: the encoder stopped")
+    }
+
+    @Test func aFileSizeLimitIsSaidAsPeopleKnowIt() {
+        #expect(RecordingStop.fileSizeLimit(4_294_967_295).note == "Recording stopped: the disk can't hold files over 4 GB")
+        #expect(RecordingStop.fileSizeLimit(500 * 1024 * 1024).note == "Recording stopped: the disk can't hold files over 500 MB")
+    }
+
+    @Test func theToastSaysWhatWasKept() {
+        // A finished file: the stop's own note, or nothing for one that was asked for.
+        #expect(RecordingStop.user.toast(saved: 12, complete: true) == nil)
+        #expect(RecordingStop.windowClosed.toast(saved: 12, complete: true) == "Recording stopped: the window closed")
+        // A writer that failed stopped the recording: what it wrote is what was recorded, and the note says why.
+        #expect(RecordingStop.error("Disk Full").toast(saved: 41.6, complete: false) == "Recording stopped: Disk Full")
+        // Not finished after a stop that was asked for, or one for another reason: how much is there.
+        #expect(RecordingStop.user.toast(saved: 41.6, complete: false) == "The recording couldn't be finished: saved up to 0:42")
+        #expect(RecordingStop.quit.toast(saved: 0.2, complete: false) == "The recording couldn't be finished: saved up to 0:01")
+        #expect(RecordingStop.sleep.toast(saved: 75, complete: false) == "The recording couldn't be finished: saved up to 1:15")
+        // Nothing kept.
+        #expect(RecordingStop.user.toast(saved: nil, complete: false) == "Couldn't save the recording")
+        #expect(RecordingStop.windowClosed.toast(saved: nil, complete: true) == "Couldn't save the recording")
+        #expect(RecordingStop.error("Disk Full").toast(saved: nil, complete: false) == "Couldn't save the recording: Disk Full")
     }
 }

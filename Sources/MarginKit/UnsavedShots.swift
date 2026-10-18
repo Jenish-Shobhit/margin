@@ -10,17 +10,33 @@ public enum UnsavedShots {
         return names.contains { !$0.hasPrefix(".") }
     }
 
-    /// The shelf toast after a capture went to Unsaved: which folder refused it, where the shot is, and how to
-    /// find it. The menu item's name has no-break spaces, so the wrapped toast keeps it on one line. A long folder
-    /// name is shortened: in full it could push the way back past the toast's three lines.
-    public static func fallbackToast(saveFolder: URL) -> String {
-        "Can't write to “\(shortened(saveFolder.lastPathComponent))”. Saved to Unsaved: menu bar › \(menuItemTitle.replacingOccurrences(of: " ", with: "\u{00A0}"))"
+    /// Why a capture went to Unsaved.
+    public enum Reason: Equatable, Sendable {
+        /// The save folder couldn't be written (or, for a recording, its disk was nearly full).
+        case notWritable
+        /// A recording's folder went to the Trash while it was recorded.
+        case trashed
+        /// A recording's folder was deleted while it was recorded.
+        case deleted
+    }
+
+    /// The shelf toast after a capture went to Unsaved: which folder refused it (or what became of it), where the shot
+    /// is, and how to find it. The menu item's name has no-break spaces, so the wrapped toast keeps it on one line. A
+    /// long folder name is shortened: in full it could push the way back past the toast's three lines.
+    public static func fallbackToast(saveFolder: URL, reason: Reason = .notWritable) -> String {
+        let name = "“\(shortened(saveFolder.lastPathComponent))”"
+        let why = switch reason {
+        case .notWritable: "Can't write to \(name)."
+        case .trashed: "\(name) is in the Trash."
+        case .deleted: "\(name) was deleted."
+        }
+        return "\(why) Saved to Unsaved: menu bar › \(menuItemTitle.replacingOccurrences(of: " ", with: "\u{00A0}"))"
     }
 
     /// The longest folder name the toast shows in full (a Dutch "Schermafbeeldingen" already takes a fourth line).
     static let maxFolderNameLength = 16
 
-    private static func shortened(_ name: String) -> String {
+    static func shortened(_ name: String) -> String {
         guard name.count > maxFolderNameLength else { return name }
         return name.prefix(maxFolderNameLength - 1).trimmingCharacters(in: .whitespaces) + "…"
     }
