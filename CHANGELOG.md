@@ -2,6 +2,12 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Changed
+
+- Showing the frozen screen after ⇧⌘4 no longer holds Margin's main thread for about 4 ms per display: the frame is copied in the background, with the same pixels and the same files. Thumbnails reach the shelf about 1 ms sooner.
+
 ## 0.1.3 — 2026-10-18
 
 ### Added
