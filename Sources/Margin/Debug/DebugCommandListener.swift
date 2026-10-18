@@ -15,6 +15,7 @@ import os
 ///   clear                  Close Shelf: every card off the shelf, files kept (undoable)
 ///   dismiss [n]            remove the n newest cards (default 1) as one undo step, as ✕ does but keeping the keys
 ///   restore-last           the menu's Restore Last Removed (the shelf's ⌘Z)
+///   hover-shelf [off]      as if the pointer were on the newest card, or had left it: its hover chrome and Close Shelf
 ///   copy [n]               click the n-th newest card (default 1): the shelf's copy
 ///   dump-state             write the state as JSON to /tmp/margin-state.json
 ///   record-area x y w h    record a rect in AppKit global points, no overlay
@@ -79,6 +80,10 @@ final class DebugCommandListener: NSObject {
             coordinator.shelf.dismiss(coordinator.store.items.suffix(max(count, 0)).map(\.id), exit: .collapse)
         case "restore-last":
             coordinator.restoreLastRemoved()
+        case "hover-shelf":
+            // As if the pointer were on the newest card (or had left it): its hover chrome and the close button.
+            guard let id = coordinator.store.items.last?.id, let card = coordinator.shelf.cards[id] else { return }
+            coordinator.shelf.cardHover(card, inside: parts.count < 2 || parts[1] != "off")
         case "copy":
             let n = parts.count > 1 ? Int(parts[1]) ?? 1 : 1
             let items = coordinator.store.items
@@ -289,6 +294,11 @@ final class DebugCommandListener: NSObject {
                 return ["live": true, "inPile": card.isInPile, "thumbnail": card.thumbnail != nil]
             },
             "isTucked": c.shelf.isTucked,
+            "shelfPanel": [
+                "visible": c.shelf.panel.isVisible,
+                "windowNumber": c.shelf.panel.windowNumber,
+                "closeButtonShown": c.shelf.closeButton.isShown,
+            ] as [String: Any],
             "markedItemID": c.shelf.markedItemID?.uuidString ?? NSNull(),
             "clipboardMarkItemID": c.mark.itemID?.uuidString ?? NSNull(),
             "pasteboardChangeCount": NSPasteboard.general.changeCount,
