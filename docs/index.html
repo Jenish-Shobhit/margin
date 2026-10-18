@@ -2,305 +2,716 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<title>Margin for macOS</title>
-<meta name="description" content="Margin is a macOS menu bar app: every screenshot is saved, copied and kept on a shelf at the right edge of your screen until you drag it where it belongs.">
-<link rel="icon" href="icon.png">
+<title>Margin: screenshots that wait in the margin of your screen</title>
+<meta name="description" content="Margin is a free, open-source menu bar app for macOS. Every screenshot is saved, copied and kept on a shelf at the right edge of your screen until you drag it where it belongs.">
+<link rel="canonical" href="https://jenish-shobhit.github.io/margin/">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="theme-color" content="#fafafc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#100e1c" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Margin">
+<meta property="og:url" content="https://jenish-shobhit.github.io/margin/">
+<meta property="og:title" content="Margin for macOS">
+<meta property="og:description" content="Screenshots that wait in the margin of your screen until you drag them where they belong. Free and open source.">
+<meta property="og:image" content="https://jenish-shobhit.github.io/margin/images/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Margin app icon and the headline Screenshots that wait in the margin of your screen, beside a MacBook whose desktop has a shelf of screenshot thumbnails at the right edge.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Margin for macOS">
+<meta name="twitter:description" content="Screenshots that wait in the margin of your screen until you drag them where they belong.">
+<meta name="twitter:image" content="https://jenish-shobhit.github.io/margin/images/og.png">
+<link rel="preload" as="image" href="images/demo.gif" fetchpriority="high" media="(prefers-reduced-motion: no-preference)">
 <style>
   :root {
-    --ink: #1e1b3a;
-    --muted: #5f5b82;
-    --paper: #f6f6fb;
+    --bg: #fafafc;
+    --bg-alt: #f2f1f7;
     --surface: #ffffff;
-    --line: #dddbee;
-    --lilac: #ecebfd;
-    --indigo: #5546e0;
-    --button: #4a3bd6;
-    --button-ink: #ffffff;
-    --red: #ff5f57;
-    --card-shadow: 0 1px 2px rgba(30, 27, 58, 0.12), 0 8px 24px rgba(30, 27, 58, 0.14);
+    --ink: #1a1830;
+    --ink-2: #3b3854;
+    --muted: #5e5b78;
+    --line: #e4e3ee;
+    --line-strong: #d3d1e3;
+    --accent: #5140e0;
+    --accent-ink: #4535d0;
+    --accent-soft: #edebfd;
+    --on-accent: #ffffff;
+    --glow-a: rgba(108, 82, 240, 0.30);
+    --glow-b: rgba(230, 120, 60, 0.20);
+    --key-top: #ffffff;
+    --key-bottom: #f1f0f6;
+    --key-edge: #cfcde0;
+    --nav-bg: rgba(250, 250, 252, 0.72);
+    --shadow-lg: 0 2px 6px rgba(26, 24, 48, 0.06), 0 30px 60px -20px rgba(26, 24, 48, 0.30), 0 60px 120px -40px rgba(81, 64, 224, 0.28);
+    --shadow-sm: 0 1px 2px rgba(26, 24, 48, 0.08), 0 8px 24px -8px rgba(26, 24, 48, 0.18);
+    --bezel: #0d0c12;
+    --bezel-edge: rgba(255, 255, 255, 0.08);
+    --deck-top: #e3e3e8;
+    --deck-bottom: #b9b9c2;
+    --radius-lg: 22px;
+    --gutter: max(16px, env(safe-area-inset-left));
+    --wide: 1040px;
+    --narrow: 720px;
+    --display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", system-ui, "Helvetica Neue", Arial, sans-serif;
+    --text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", system-ui, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --ink: #eceaf7;
-      --muted: #aaa6c8;
-      --paper: #14121e;
-      --surface: #1e1b2c;
-      --line: #34304a;
-      --lilac: #2a2647;
-      --indigo: #8f84ff;
-      --button: #6b5cf0;
-      --button-ink: #ffffff;
-      --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 28px rgba(0, 0, 0, 0.45);
+      --bg: #100e1c;
+      --bg-alt: #161427;
+      --surface: #1b1930;
+      --ink: #f1f0f9;
+      --ink-2: #d4d2e6;
+      --muted: #a8a5c4;
+      --line: #2a2742;
+      --line-strong: #3a3657;
+      --accent: #6656f2;
+      --accent-ink: #aa9fff;
+      --accent-soft: #24204a;
+      --on-accent: #ffffff;
+      --glow-a: rgba(112, 88, 255, 0.42);
+      --glow-b: rgba(232, 118, 52, 0.26);
+      --key-top: #2b2843;
+      --key-bottom: #221f37;
+      --key-edge: #110f1e;
+      --nav-bg: rgba(16, 14, 28, 0.70);
+      --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.4), 0 30px 70px -20px rgba(0, 0, 0, 0.75), 0 60px 140px -40px rgba(102, 86, 242, 0.45);
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 28px -8px rgba(0, 0, 0, 0.6);
+      --bezel: #050508;
+      --bezel-edge: rgba(255, 255, 255, 0.16);
+      --deck-top: #4a4a54;
+      --deck-bottom: #26262d;
     }
   }
 
-  * { box-sizing: border-box; }
-  html { overflow-x: clip; -webkit-text-size-adjust: 100%; }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 72px; overflow-x: clip; }
   body {
     margin: 0;
-    background: var(--paper);
+    background: var(--bg);
     color: var(--ink);
-    font: 17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-    font-feature-settings: "kern";
+    font: 17px/1.53 var(--text);
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overflow-x: clip;
   }
-  a { color: var(--indigo); text-underline-offset: 0.18em; }
-  a:focus-visible, .button:focus-visible { outline: 3px solid var(--indigo); outline-offset: 3px; border-radius: 6px; }
+  img { max-width: 100%; height: auto; display: block; }
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
+  a:hover { text-decoration-thickness: 2px; }
+  :focus-visible { outline: 3px solid var(--accent-ink); outline-offset: 3px; border-radius: 8px; }
+  strong { font-weight: 600; color: var(--ink); }
+  code {
+    font: 0.88em/1 var(--mono);
+    letter-spacing: 0;
+    background: var(--accent-soft);
+    color: var(--ink);
+    padding: 0.16em 0.38em;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  h1, h2, h3 { font-family: var(--display); color: var(--ink); margin: 0; text-wrap: balance; }
+  p { margin: 0; text-wrap: pretty; }
 
-  main { max-width: 40rem; margin: 0 0 0 max(16px, 8vw); padding: 64px 16px 48px 0; }
+  .skip {
+    position: absolute; left: 12px; top: -60px; z-index: 50;
+    padding: 10px 16px; border-radius: 10px;
+    background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none;
+  }
+  .skip:focus { top: 12px; }
 
-  .brand { display: flex; align-items: center; gap: 14px; margin: 0 0 40px; font-weight: 600; font-size: 19px; }
-  .brand img { width: 64px; height: 64px; margin: -6px; }
+  .wrap { width: 100%; max-width: calc(var(--wide) + 2 * var(--gutter)); margin-inline: auto; padding-inline: var(--gutter); }
 
-  h1 {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
-    font-size: clamp(36px, 6.4vw, 60px);
-    line-height: 1.04;
-    letter-spacing: -0.028em;
+  /* Navigation */
+  .nav {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--nav-bg);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+  }
+  .nav.scrolled { border-bottom-color: var(--line); }
+  .nav .wrap { display: flex; align-items: center; gap: 24px; height: 56px; }
+  .nav .brand { display: flex; align-items: center; gap: 9px; font: 600 17px/1 var(--display); color: var(--ink); text-decoration: none; letter-spacing: -0.02em; }
+  .nav .brand img { width: 30px; height: 30px; margin: -3px; }
+  .nav nav { margin-left: auto; }
+  .nav ul { display: flex; gap: 26px; list-style: none; margin: 0; padding: 0; font-size: 14px; }
+  .nav ul a { color: var(--ink-2); text-decoration: none; }
+  .nav ul a:hover { color: var(--ink); }
+  .nav .pill {
+    display: inline-flex; align-items: center; height: 30px; padding: 0 14px; border-radius: 999px;
+    background: var(--accent); color: var(--on-accent); font-size: 14px; font-weight: 600; text-decoration: none;
+  }
+  .nav .pill:hover { filter: brightness(1.08); }
+
+  /* Hero */
+  .hero { position: relative; text-align: center; padding-top: 60px; }
+  .hero .app-icon { width: 112px; height: 112px; margin: 0 auto 24px; filter: drop-shadow(0 14px 24px rgba(81, 64, 224, 0.28)); }
+  .hero h1 {
+    font-size: clamp(40px, 6.4vw, 76px);
+    line-height: 1.02;
+    letter-spacing: -0.042em;
     font-weight: 700;
-    margin: 0 0 24px;
-    max-width: 13em;
+    max-width: 11.5em;
+    margin: 0 auto;
     position: relative;
   }
-  .lede { font-size: 19px; color: var(--ink); margin: 0 0 32px; max-width: 34em; }
-  .lede code, li code, p code {
-    font: 0.92em/1 ui-monospace, "SF Mono", Menlo, monospace;
-    background: var(--lilac);
-    padding: 0.12em 0.32em;
-    border-radius: 5px;
+  .hero .pitch {
+    font-size: clamp(19px, 2.1vw, 23px);
+    line-height: 1.42;
+    letter-spacing: -0.017em;
+    color: var(--muted);
+    max-width: 31em;
+    margin: 22px auto 0;
   }
-
-  .get { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+  .cta { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px 26px; margin: 36px 0 0; }
   .button {
-    display: inline-flex; align-items: center; gap: 10px;
-    padding: 13px 22px;
-    border-radius: 12px;
-    font-weight: 600; font-size: 17px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    min-height: 50px; padding: 0 26px;
+    border-radius: 999px;
+    font: 600 17px/1 var(--text); letter-spacing: -0.01em;
     text-decoration: none;
-    background: var(--button); color: var(--button-ink);
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 6px 18px rgba(74, 59, 214, 0.28);
+    background: var(--accent); color: var(--on-accent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 22px -6px rgba(81, 64, 224, 0.55);
+    transition: transform 0.15s ease, filter 0.15s ease;
   }
-  .button:hover { filter: brightness(1.07); }
+  .button:hover { filter: brightness(1.08); text-decoration: none; }
+  .button:active { transform: scale(0.98); }
   .button svg { width: 18px; height: 18px; flex: none; }
-  .button.quiet { background: transparent; color: var(--indigo); box-shadow: inset 0 0 0 1.5px var(--line); }
-  .button.quiet:hover { box-shadow: inset 0 0 0 1.5px var(--indigo); filter: none; }
-  .meta { color: var(--muted); font-size: 15px; margin: 12px 0 0; }
-  .update { margin: 28px 0 0; padding: 20px 0 0; border-top: 1px solid var(--line); }
-  .update p { margin: 12px 0 0; color: var(--muted); font-size: 15px; max-width: 32em; }
-
-  section { margin: 72px 0 0; }
-  h2 { font-size: 24px; line-height: 1.25; letter-spacing: -0.012em; margin: 0 0 16px; }
-  section > p { margin: 0 0 16px; max-width: 36em; }
-
-  .points { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
-  .points li { padding-left: 20px; position: relative; max-width: 36em; }
-  .points li::before {
-    content: ""; position: absolute; left: 0; top: 0.5em;
-    width: 8px; height: 12px; border-radius: 2px; background: var(--indigo); opacity: 0.85;
+  .button:focus-visible { border-radius: 999px; }
+  .button.secondary {
+    background: var(--surface); color: var(--accent-ink);
+    box-shadow: inset 0 0 0 1px var(--line-strong), var(--shadow-sm);
   }
-  .points strong { display: block; }
+  .button.secondary:hover { filter: none; box-shadow: inset 0 0 0 1px var(--accent-ink), var(--shadow-sm); }
+  .textlink { font-size: 17px; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  .textlink:hover { text-decoration: underline; }
+  .textlink svg { width: 15px; height: 15px; }
+  .meta { color: var(--muted); font-size: 14px; margin: 16px auto 0; max-width: 44em; text-wrap: balance; }
 
-  .keys { display: grid; grid-template-columns: max-content 1fr; gap: 10px 18px; margin: 24px 0 0; align-items: baseline; }
-  .keys dt { white-space: nowrap; }
-  .keys dd { margin: 0; color: var(--muted); }
-  kbd {
-    display: inline-block; min-width: 1.9em; padding: 2px 7px; margin-right: 3px;
-    font: 600 14px/1.4 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    text-align: center; color: var(--ink);
-    background: var(--surface); border: 1px solid var(--line); border-bottom-width: 2.5px; border-radius: 7px;
+  /* The Mac */
+  .stage { position: relative; margin: 56px auto 0; max-width: 960px; }
+  .stage::before {
+    content: ""; position: absolute; inset: 8% -10% -6%; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(48% 55% at 34% 42%, var(--glow-a), transparent 70%),
+      radial-gradient(42% 50% at 72% 64%, var(--glow-b), transparent 72%);
+    filter: blur(36px);
   }
+  .mac { position: relative; z-index: 1; margin: 0 auto; width: min(100%, 880px); }
+  .lid {
+    position: relative;
+    background: var(--bezel);
+    border-radius: 22px 22px 8px 8px;
+    padding: 2.4% 2.4% 3.2%;
+    box-shadow: inset 0 0 0 1px var(--bezel-edge), var(--shadow-lg);
+  }
+  .lid::before { /* camera */
+    content: ""; position: absolute; top: 1.05%; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%, #2c3044, #0b0c12 70%);
+  }
+  .screen { position: relative; border-radius: 6px; overflow: hidden; background: #1b1638; aspect-ratio: 800 / 508; }
+  .screen img { width: 100%; height: 100%; object-fit: cover; }
+  .deck {
+    position: relative; height: 16px; width: 112%; margin-left: -6%;
+    background: linear-gradient(var(--deck-top), var(--deck-bottom) 70%, #8d8d96);
+    border-radius: 2px 2px 14px 14px / 2px 2px 12px 12px;
+    box-shadow: 0 18px 30px -12px rgba(0, 0, 0, 0.35);
+  }
+  .deck::before { /* the thumb notch */
+    content: ""; position: absolute; left: 50%; top: 0; width: 15%; height: 6px; transform: translateX(-50%);
+    border-radius: 0 0 8px 8px; background: linear-gradient(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.06));
+  }
+  .stage figcaption {
+    position: relative; z-index: 1;
+    display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px 18px;
+    margin: 40px auto 0; max-width: 46em; color: var(--muted); font-size: 15px;
+  }
+  .motion-toggle {
+    display: inline-flex; align-items: center; gap: 7px;
+    font: 500 14px/1 var(--text); color: var(--ink-2);
+    background: transparent; border: 1px solid var(--line-strong); border-radius: 999px;
+    height: 30px; padding: 0 12px; cursor: pointer;
+  }
+  .motion-toggle:hover { border-color: var(--accent-ink); color: var(--accent-ink); }
+  .motion-toggle svg { width: 12px; height: 12px; }
 
-  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 20px; }
-  ol.steps > li { counter-increment: step; position: relative; padding-left: 48px; max-width: 36em; }
-  ol.steps > li::before {
-    content: counter(step); position: absolute; left: 0; top: -1px;
-    width: 30px; height: 30px; border-radius: 9px;
+  /* Sections */
+  section { padding: 128px 0 0; }
+  .section-head { max-width: 40rem; margin: 0 0 56px; }
+  .section-head.center { margin-left: auto; margin-right: auto; text-align: center; }
+  h2 { font-size: clamp(34px, 4.6vw, 52px); line-height: 1.06; letter-spacing: -0.034em; font-weight: 700; }
+  .section-head p { margin-top: 18px; font-size: 20px; line-height: 1.45; letter-spacing: -0.016em; color: var(--muted); }
+
+  /* Features */
+  .features { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 52px 48px; }
+  .features li { max-width: 21rem; }
+  .features .glyph {
+    width: 44px; height: 44px; border-radius: 12px; margin-bottom: 18px;
     display: grid; place-items: center;
-    font-weight: 700; font-size: 15px;
-    background: var(--lilac); color: var(--indigo);
+    color: var(--accent-ink); background: var(--accent-soft);
   }
-  ol.steps ol { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
-  ol.steps ol li { margin: 4px 0; }
+  .features .glyph svg { width: 24px; height: 24px; }
+  .features h3 { font-size: 19px; line-height: 1.3; letter-spacing: -0.02em; font-weight: 600; margin-bottom: 6px; }
+  .features p { color: var(--muted); font-size: 16px; line-height: 1.5; }
+
+  /* Detail rows */
+  .detail { display: grid; grid-template-columns: 1.25fr 1fr; gap: 64px; align-items: center; }
+  .detail.flip { grid-template-columns: 1fr 1.25fr; }
+  .detail.flip .shot { order: 2; }
+  .shot { margin: 0; }
+  .shot img { border-radius: 16px; box-shadow: var(--shadow-lg); outline: 1px solid rgba(255, 255, 255, 0.06); outline-offset: -1px; }
+  .detail h2 { font-size: clamp(30px, 3.6vw, 42px); }
+  .detail .body p { margin-top: 18px; color: var(--muted); font-size: 18px; line-height: 1.5; }
+  .ticks { list-style: none; margin: 26px 0 0; padding: 0; display: grid; gap: 12px; font-size: 16px; color: var(--ink-2); }
+  .ticks li { position: relative; padding-left: 30px; }
+  .ticks li::before {
+    content: ""; position: absolute; left: 0; top: 0.18em; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M5.2 9.4l2.4 2.4 5.2-5.6' fill='none' stroke='%237566f0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 18px no-repeat;
+  }
+  .wide-shot { margin: 0; }
+  .wide-shot .scroller { overflow-x: auto; overscroll-behavior-x: contain; border-radius: 18px; scrollbar-width: thin; }
+  .wide-shot img { border-radius: 18px; min-width: 760px; width: 100%; }
+  .wide-shot figcaption { margin-top: 18px; color: var(--muted); font-size: 15px; text-align: center; }
+
+  /* Shortcuts */
+  .keys-band { margin-top: 128px; padding: 96px 0 104px; background: var(--bg-alt); border-block: 1px solid var(--line); }
+  .keys-band section { padding-top: 0; }
+  .shortcuts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px; }
+  .shortcuts li { text-align: center; }
+  .caps { display: flex; justify-content: center; gap: 6px; margin-bottom: 18px; }
+  kbd {
+    display: inline-grid; place-items: center;
+    min-width: 48px; height: 48px; padding: 0 10px;
+    font: 500 21px/1 var(--text); color: var(--ink);
+    background: linear-gradient(var(--key-top), var(--key-bottom));
+    border-radius: 9px;
+    box-shadow: 0 0 0 1px var(--line-strong), 0 2px 0 var(--key-edge), 0 3px 6px rgba(0, 0, 0, 0.08);
+  }
+  .shortcuts strong { display: block; font-size: 16px; letter-spacing: -0.015em; }
+  .shortcuts span { display: block; color: var(--muted); font-size: 14px; line-height: 1.45; margin-top: 4px; }
+  .keys-note { margin: 48px auto 0; text-align: center; color: var(--muted); font-size: 15px; max-width: 40em; }
+  kbd.mini { min-width: 0; height: auto; padding: 1px 6px; font-size: 13px; border-radius: 5px; box-shadow: 0 0 0 1px var(--line-strong), 0 1px 0 var(--key-edge); vertical-align: 1px; }
+
+  /* Install */
+  .install { display: grid; grid-template-columns: 1.3fr 1fr; gap: 56px; align-items: start; }
+  ol.steps { list-style: none; margin: 0; padding: 0; counter-reset: step; display: grid; gap: 30px; }
+  ol.steps > li { counter-increment: step; position: relative; padding-left: 56px; }
+  ol.steps > li::before {
+    content: counter(step); position: absolute; left: 0; top: -3px;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: grid; place-items: center;
+    font: 600 16px/1 var(--display);
+    color: var(--accent-ink); background: var(--accent-soft);
+  }
+  ol.steps h3 { font-size: 19px; letter-spacing: -0.02em; font-weight: 600; line-height: 1.3; }
+  ol.steps p { color: var(--muted); margin-top: 6px; font-size: 16px; }
+  .gatekeeper {
+    margin: 16px 0 0; padding: 18px 20px 18px 44px; border-radius: 14px;
+    background: var(--surface); box-shadow: inset 0 0 0 1px var(--line);
+    font-size: 15px; color: var(--ink-2); display: grid; gap: 8px;
+  }
+  .gatekeeper li::marker { color: var(--accent-ink); font-weight: 600; }
   .path { white-space: nowrap; }
 
-  .asks { display: grid; gap: 16px; margin: 0; }
-  .asks div { max-width: 36em; }
-  .asks dt { font-weight: 600; }
-  .asks dd { margin: 2px 0 0; color: var(--muted); }
+  .side { display: grid; gap: 20px; }
+  .panel {
+    padding: 28px; border-radius: var(--radius-lg);
+    background: var(--surface); box-shadow: inset 0 0 0 1px var(--line), var(--shadow-sm);
+  }
+  .panel h3 { font-size: 21px; letter-spacing: -0.022em; font-weight: 600; }
+  .panel p { color: var(--muted); font-size: 15px; margin-top: 10px; }
+  .panel .button { margin-top: 20px; min-height: 44px; padding: 0 20px; font-size: 16px; }
+  .reqs { margin: 16px 0 0; display: grid; gap: 12px; font-size: 15px; }
+  .reqs div { display: grid; grid-template-columns: 7.5em 1fr; gap: 12px; }
+  .reqs dt { color: var(--muted); }
+  .reqs dd { margin: 0; color: var(--ink); }
 
-  footer { margin: 88px 0 0; padding: 24px 0 0; border-top: 1px solid var(--line); color: var(--muted); font-size: 15px; display: flex; flex-wrap: wrap; gap: 8px 24px; }
+  /* Privacy */
+  .privacy { display: grid; grid-template-columns: 1fr 1.15fr; gap: 64px; align-items: start; }
+  .privacy .lead p { margin-top: 18px; color: var(--muted); font-size: 18px; line-height: 1.5; }
+  .privacy .lead p:first-of-type { margin-top: 22px; }
+  .asks { margin: 0; display: grid; gap: 0; border-top: 1px solid var(--line); }
+  .asks div { padding: 18px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 11em 1fr; gap: 6px 24px; }
+  .asks dt { font-weight: 600; font-size: 16px; letter-spacing: -0.015em; }
+  .asks dd { margin: 0; color: var(--muted); font-size: 15px; }
 
-  /* The page's own shelf: three screenshot cards at the right edge, newest at the bottom. Decorative. */
-  .shelf { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 10px; z-index: 2; }
-  .card {
-    width: 136px; height: 88px; border-radius: 10px; overflow: hidden; position: relative;
-    background: var(--surface); box-shadow: var(--card-shadow); outline: 1px solid rgba(127, 120, 180, 0.22);
-  }
-  .card .shot { position: absolute; inset: 0; }
-  .card.web .shot {
-    background:
-      linear-gradient(var(--line), var(--line)) 10px 24px / 70px 5px no-repeat,
-      linear-gradient(var(--line), var(--line)) 10px 35px / 104px 4px no-repeat,
-      linear-gradient(var(--line), var(--line)) 10px 44px / 96px 4px no-repeat,
-      linear-gradient(var(--lilac), var(--lilac)) 10px 56px / 52px 22px no-repeat,
-      linear-gradient(var(--lilac), var(--lilac)) 68px 56px / 52px 22px no-repeat,
-      linear-gradient(rgba(127, 120, 180, 0.16), rgba(127, 120, 180, 0.16)) 0 0 / 100% 14px no-repeat;
-  }
-  .card.web .shot::before {
-    content: ""; position: absolute; left: 7px; top: 5px; width: 4px; height: 4px; border-radius: 50%;
-    background: #ff5f57; box-shadow: 7px 0 #febc2e, 14px 0 #28c840;
-  }
-  .card.chart .shot {
-    background:
-      linear-gradient(var(--indigo), var(--indigo)) 16px 46px / 12px 30px no-repeat,
-      linear-gradient(var(--indigo), var(--indigo)) 36px 30px / 12px 46px no-repeat,
-      linear-gradient(var(--indigo), var(--indigo)) 56px 52px / 12px 24px no-repeat,
-      linear-gradient(var(--indigo), var(--indigo)) 76px 20px / 12px 56px no-repeat,
-      linear-gradient(var(--indigo), var(--indigo)) 96px 38px / 12px 38px no-repeat,
-      linear-gradient(var(--line), var(--line)) 10px 77px / 112px 1px no-repeat;
-    opacity: 0.9;
-  }
-  .card.title { background: var(--paper); }
-  .card.title .shot { padding: 12px 12px 0; font-weight: 700; font-size: 13px; line-height: 1.08; letter-spacing: -0.02em; color: var(--ink); }
-  .pill {
-    position: absolute; right: 6px; bottom: 6px; padding: 1px 6px; border-radius: 6px;
-    font: 700 10px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; color: #fff; background: var(--indigo);
-  }
-  .card.ring { animation: ring 1.5s ease-out 1 both; }
-  @keyframes ring { from { box-shadow: var(--card-shadow), 0 0 0 3px var(--indigo); } to { box-shadow: var(--card-shadow), 0 0 0 3px transparent; } }
+  /* Closing CTA */
+  .closing { text-align: center; padding-top: 144px; }
+  .closing img { width: 88px; height: 88px; margin: 0 auto 24px; }
+  .closing h2 { max-width: 14em; margin: 0 auto; }
+  .closing .cta { margin-top: 32px; }
 
-  /* Tucked (narrow windows): the shelf becomes a small tab at the edge, as ⇧⌘1 does. */
-  .tab {
-    display: none; position: fixed; right: 0; bottom: 96px; z-index: 2;
-    padding: 10px 8px 10px 10px; border-radius: 10px 0 0 10px;
-    background: var(--surface); box-shadow: var(--card-shadow); color: var(--indigo);
-    font: 700 13px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    flex-direction: column; align-items: center; gap: 6px;
-  }
-  .tab svg { width: 16px; height: 16px; }
+  footer { margin-top: 128px; border-top: 1px solid var(--line); padding: 28px 0 44px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; }
+  footer nav ul { display: flex; flex-wrap: wrap; gap: 10px 24px; list-style: none; margin: 0; padding: 0; }
+  footer a { color: var(--ink-2); text-decoration: none; }
+  footer a:hover { color: var(--accent-ink); text-decoration: underline; }
+  footer .copy { margin-left: auto; }
 
-  .selection { position: absolute; pointer-events: none; z-index: 3; opacity: 0; }
-  .selection i { position: absolute; width: 18px; height: 18px; border: 0 solid var(--indigo); }
-  .selection i:nth-child(1) { left: 0; top: 0; border-left-width: 3px; border-top-width: 3px; }
-  .selection i:nth-child(2) { right: 0; top: 0; border-right-width: 3px; border-top-width: 3px; }
-  .selection i:nth-child(3) { left: 0; bottom: 0; border-left-width: 3px; border-bottom-width: 3px; }
-  .selection i:nth-child(4) { right: 0; bottom: 0; border-right-width: 3px; border-bottom-width: 3px; }
-
-  @media (max-width: 1080px) {
-    .shelf { display: none; }
-    .tab { display: flex; }
-    main { padding-right: 64px; }
+  /* The page's own shelf: the headline is captured on load and waits at the right edge, as a shot does in Margin.
+     Decorative; only where there's room beside the page, and never with Reduce Motion. */
+  .selection { position: absolute; pointer-events: none; z-index: 30; opacity: 0; }
+  .selection i { position: absolute; width: 22px; height: 22px; border: 0 solid var(--accent-ink); }
+  .selection i:nth-child(1) { left: 0; top: 0; border-left-width: 3px; border-top-width: 3px; border-top-left-radius: 4px; }
+  .selection i:nth-child(2) { right: 0; top: 0; border-right-width: 3px; border-top-width: 3px; border-top-right-radius: 4px; }
+  .selection i:nth-child(3) { left: 0; bottom: 0; border-left-width: 3px; border-bottom-width: 3px; border-bottom-left-radius: 4px; }
+  .selection i:nth-child(4) { right: 0; bottom: 0; border-right-width: 3px; border-bottom-width: 3px; border-bottom-right-radius: 4px; }
+  .flash { position: fixed; inset: 0; z-index: 29; background: #fff; opacity: 0; pointer-events: none; }
+  .shelf-card {
+    position: fixed; right: 16px; bottom: 24px; z-index: 25;
+    width: 148px; height: 92px; border-radius: 11px; overflow: hidden;
+    background: var(--bg); box-shadow: var(--shadow-sm), 0 0 0 1px var(--line-strong);
+    padding: 12px 12px 0; text-align: left;
+    font: 700 13px/1.06 var(--display); letter-spacing: -0.035em; color: var(--ink);
+    cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+    visibility: hidden;
   }
-  @media (max-width: 600px) {
+  .shelf-card:active { cursor: grabbing; }
+  .shelf-card .pill {
+    position: absolute; right: 7px; bottom: 7px; padding: 2px 7px; border-radius: 7px;
+    font: 700 11px/1.4 var(--text); letter-spacing: 0; color: #fff; background: var(--accent);
+  }
+  .shelf-card.ring { animation: ring 1.6s ease-out 1 both; }
+  @keyframes ring { from { box-shadow: var(--shadow-sm), 0 0 0 3px var(--accent-ink); } to { box-shadow: var(--shadow-sm), 0 0 0 1px var(--line-strong); } }
+
+  /* One orchestrated entrance, only with motion allowed. */
+  @media (prefers-reduced-motion: no-preference) {
+    .rise { animation: rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+    .rise.d1 { animation-delay: 0.06s; }
+    .rise.d2 { animation-delay: 0.14s; }
+    .rise.d3 { animation-delay: 0.22s; }
+    .rise.d4 { animation-delay: 0.34s; animation-duration: 1.2s; }
+    @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition: none !important; }
+  }
+
+  @media (max-width: 1040px) {
+    .features { grid-template-columns: repeat(2, 1fr); }
+    .shortcuts { grid-template-columns: repeat(3, 1fr); row-gap: 44px; }
+    .detail, .detail.flip, .install, .privacy { grid-template-columns: 1fr; gap: 40px; }
+    .detail.flip .shot { order: 0; }
+    .detail .body, .privacy .lead { max-width: 40rem; }
+  }
+  @media (max-width: 760px) {
+    .nav ul { display: none; }
+    .nav .pill { margin-left: auto; }
     body { font-size: 16px; }
-    main { margin: 0; padding: 32px 16px 40px; }
-    .brand { margin-bottom: 28px; }
-    .lede { font-size: 17px; }
-    .button { width: 100%; justify-content: center; }
-    section { margin-top: 56px; }
-    .keys { grid-template-columns: 1fr; gap: 2px 0; }
-    .keys dd { margin-bottom: 10px; }
+    .hero { padding-top: 48px; }
+    .hero .app-icon { width: 96px; height: 96px; margin-bottom: 20px; }
+    .hero h1 { letter-spacing: -0.036em; }
+    .cta { flex-direction: column; gap: 16px; }
+    .cta .button { width: 100%; max-width: 360px; }
+    .stage { margin-top: 48px; }
+    .lid { border-radius: 14px 14px 5px 5px; }
+    .lid::before { width: 4px; height: 4px; margin-left: -2px; }
+    .screen { border-radius: 3px; }
+    .deck { height: 9px; width: 104%; margin-left: -2%; }
+    .stage figcaption { margin-top: 28px; font-size: 14px; }
+    section { padding-top: 96px; }
+    .section-head { margin-bottom: 40px; }
+    .section-head p { font-size: 18px; }
+    .features { grid-template-columns: 1fr; gap: 36px; }
+    .features li { max-width: none; display: grid; grid-template-columns: 44px 1fr; column-gap: 16px; }
+    .features .glyph { grid-row: span 2; margin: 2px 0 0; }
+    .detail .body p, .privacy .lead p { font-size: 17px; }
+    .keys-band { margin-top: 96px; padding: 72px 0; }
+    .shortcuts { grid-template-columns: 1fr; gap: 0; }
+    .shortcuts li { display: grid; grid-template-columns: 9.5em 1fr; align-items: center; gap: 16px; text-align: left; padding: 16px 0; border-bottom: 1px solid var(--line); }
+    .shortcuts li:first-child { border-top: 1px solid var(--line); }
+    .caps { justify-content: flex-start; margin: 0; gap: 4px; }
+    kbd { min-width: 36px; height: 36px; padding: 0 8px; font-size: 16px; border-radius: 7px; }
+    kbd.mini { min-width: 0; height: auto; padding: 1px 5px; font-size: 12px; }
+    .asks div { grid-template-columns: 1fr; padding: 16px 0; }
+    .reqs div { grid-template-columns: 6.5em 1fr; }
     .path { white-space: normal; }
-    /* Beside the name, at the top of the page, where nothing else is. */
-    .tab { position: absolute; top: 34px; bottom: auto; flex-direction: row; padding: 8px 10px; }
+    .panel { padding: 22px; }
+    ol.steps > li { padding-left: 48px; }
+    .gatekeeper { padding: 16px 16px 16px 36px; }
+    .closing { padding-top: 112px; }
+    footer { margin-top: 96px; }
+    footer .copy { margin-left: 0; width: 100%; }
   }
 </style>
 </head>
 <body>
-<main>
-  <div class="brand"><img src="icon.png" alt="" width="64" height="64">Margin</div>
+<a class="skip" href="#main">Skip to content</a>
 
-  <h1 id="headline">Screenshots that wait in the margin of your screen</h1>
-  <p class="lede">Margin is a menu bar app for your Mac. Every capture is saved to <code>~/Desktop/Screenshots</code>, copied to the clipboard and put on a shelf of thumbnails at the right edge of the screen. A thumbnail stays there until you drag it into another app.</p>
-
-  <div class="get">
-    <a class="button" id="download" href="https://github.com/Jenish-Shobhit/margin/releases/latest">
-      <svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42l2.3 2.3V3a1 1 0 0 1 1-1ZM4 16a1 1 0 1 0 0 2h12a1 1 0 1 0 0-2H4Z"/></svg>
-      <span id="download-label">Download Margin</span>
-    </a>
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Margin, back to top"><img src="icon.png" alt="" width="30" height="30">Margin</a>
+    <nav aria-label="Sections">
+      <ul>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#shortcuts">Shortcuts</a></li>
+        <li><a href="#install">Install</a></li>
+        <li><a href="#privacy">Privacy</a></li>
+        <li><a href="https://github.com/Jenish-Shobhit/margin">GitHub</a></li>
+      </ul>
+    </nav>
+    <a class="pill" data-download href="https://github.com/Jenish-Shobhit/margin/releases/latest">Download</a>
   </div>
-  <p class="meta" id="download-meta">For macOS 26 or later on Apple silicon. Free and open source.</p>
+</header>
 
-  <div class="update">
-    <a class="button quiet" href="margin://update">
-      <svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 3a7 7 0 0 1 6.32 4H14a1 1 0 1 0 0 2h4a1 1 0 0 0 1-1V4a1 1 0 1 0-2 0v1.6A9 9 0 1 0 19 10a1 1 0 1 0-2 0 7 7 0 1 1-7-7Z"/></svg>
-      Update Margin
-    </a>
-    <p>Already have Margin? This opens it and checks for a newer version, or choose <strong>Check for Updates…</strong> in Margin's menu. Nothing is installed until you click Install in Margin's window. A copy too old to have that menu item needs a fresh download instead.</p>
+<main id="main">
+  <div class="hero wrap" id="top">
+    <img class="app-icon rise" src="icon.png" alt="" width="128" height="128">
+    <h1 id="headline" class="rise d1">Screenshots that wait in the margin of your screen</h1>
+    <p class="pitch rise d2">Margin saves every capture, copies it, and keeps it on a shelf at the edge of your screen until you drag it where it belongs.</p>
+
+    <div class="cta rise d3">
+      <a class="button" id="download" data-download href="https://github.com/Jenish-Shobhit/margin/releases/latest">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42l2.3 2.3V3a1 1 0 0 1 1-1ZM4 16a1 1 0 1 0 0 2h12a1 1 0 1 0 0-2H4Z"/></svg>
+        <span id="download-label">Download Margin</span>
+      </a>
+      <a class="textlink" href="#update">Already have it? Update Margin</a>
+    </div>
+    <p class="meta rise d3" id="download-meta">For macOS 26 or later on Apple silicon. Free and open source.</p>
+
+    <figure class="stage rise d4">
+      <div class="mac">
+        <div class="lid">
+          <div class="screen">
+            <picture id="demo-picture">
+              <source media="(prefers-reduced-motion: reduce)" srcset="images/demo-poster.jpg">
+              <img id="demo" src="images/demo.gif" width="800" height="508" fetchpriority="high"
+                   alt="A Mac desktop with a chat and a code editor. An area of the code is selected with ⇧⌘4, the shot flies onto a shelf of thumbnails at the right edge, then its card is dragged into the chat and leaves the shelf.">
+            </picture>
+          </div>
+        </div>
+        <div class="deck" aria-hidden="true"></div>
+      </div>
+      <figcaption>
+        <span>Press ⇧⌘4, drag, let go. The shot is saved, copied and on the shelf before you look up.</span>
+        <button class="motion-toggle" id="motion-toggle" type="button" hidden aria-pressed="false">
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path id="motion-icon" fill="currentColor" d="M2.5 1.5h2.2v9H2.5zM7.3 1.5h2.2v9H7.3z"/></svg>
+          <span id="motion-label">Pause</span>
+        </button>
+      </figcaption>
+    </figure>
   </div>
 
-  <section aria-labelledby="what">
-    <h2 id="what">What it does</h2>
-    <ul class="points">
-      <li><strong>Saved and copied, every time.</strong> Each shot is a PNG in your Screenshots folder and on the clipboard. There's no preview to dismiss and no "save?" step.</li>
-      <li><strong>A shelf that waits.</strong> The thumbnail stays at the edge of the screen until you drag it somewhere, even after you quit or restart. Click it to copy it again.</li>
-      <li><strong>Never in its own shots.</strong> The shelf, the selection and the fly-in are left out of every capture.</li>
-      <li><strong>⌘V works in terminals.</strong> The clipboard holds the image and the saved file, so a terminal pastes the file's path and image apps paste the picture.</li>
-    </ul>
-    <dl class="keys">
-      <dt><kbd>⇧</kbd><kbd>⌘</kbd><kbd>4</kbd></dt><dd>Drag over an area. Press Space for a single window.</dd>
-      <dt><kbd>⇧</kbd><kbd>⌘</kbd><kbd>3</kbd></dt><dd>The whole screen under the pointer.</dd>
-      <dt><kbd>⇧</kbd><kbd>⌘</kbd><kbd>5</kbd></dt><dd>Record an area, a window or the whole screen. Press it again to stop.</dd>
-      <dt><kbd>⇧</kbd><kbd>⌘</kbd><kbd>2</kbd></dt><dd>The last area again, with no overlay.</dd>
-      <dt><kbd>⇧</kbd><kbd>⌘</kbd><kbd>1</kbd></dt><dd>Tuck the shelf into a small tab, or bring it back.</dd>
-    </dl>
-  </section>
-
-  <section aria-labelledby="install">
-    <h2 id="install">Install</h2>
-    <ol class="steps">
-      <li>Download <span id="zip-name">the zip</span> and open it. You get <strong>Margin.app</strong>.</li>
-      <li>Move Margin.app to your <strong>Applications</strong> folder, and keep it there: macOS ties Margin's permissions to that copy.</li>
-      <li>Open Margin. It isn't notarized by Apple yet, so macOS blocks the first launch once:
-        <ol>
-          <li>In the "Margin" Not Opened dialog, click <strong>Done</strong>.</li>
-          <li>Open <span class="path"><strong>System Settings › Privacy &amp; Security</strong></span> and scroll down to Security.</li>
-          <li>Next to "Margin" was blocked, click <strong>Open Anyway</strong>, then confirm with your password or Touch ID.</li>
-        </ol>
+  <section id="features" class="wrap" aria-labelledby="features-title">
+    <div class="section-head">
+      <h2 id="features-title">Out of your way until you need it.</h2>
+      <p>No preview to dismiss, no save dialog, no editor in between. Margin does the boring part instantly and keeps the shot within reach.</p>
+    </div>
+    <ul class="features">
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 14 2 2 4-4"/></svg></div>
+        <h3>Saved and copied, every time</h3>
+        <p>Each shot is a PNG in <code>~/Desktop/Screenshots</code> and on the clipboard the moment you let go.</p>
       </li>
-      <li>Follow Margin's welcome window: allow Screen Recording, hand over the screenshot shortcuts, and take your first shot.</li>
-    </ol>
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><rect x="13.5" y="6" width="5" height="3.5" rx="1"/><rect x="13.5" y="10.5" width="5" height="3.5" rx="1"/><rect x="13.5" y="15" width="5" height="3.5" rx="1"/></svg></div>
+        <h3>A shelf that waits</h3>
+        <p>Thumbnails stack at the right edge and stay until you drag them into an app, even after a restart.</p>
+      </li>
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/></svg></div>
+        <h3>Instant, on a frozen screen</h3>
+        <p><kbd class="mini">⇧</kbd><kbd class="mini">⌘</kbd><kbd class="mini">4</kbd> freezes the screen at once. Letting go of the mouse captures, with no confirm step.</p>
+      </li>
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg></div>
+        <h3>⌘V works in terminals</h3>
+        <p>The clipboard holds the image and the file, so Ghostty pastes the path and Claude Code attaches the shot.</p>
+      </li>
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.6" fill="currentColor" stroke="none"/></svg></div>
+        <h3>Screen recording, too</h3>
+        <p><kbd class="mini">⇧</kbd><kbd class="mini">⌘</kbd><kbd class="mini">5</kbd> records an area, a window or a display as a Retina MP4 at up to 60 fps, with sound if you want it.</p>
+      </li>
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.8 9.8 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></div>
+        <h3>Never in its own shots</h3>
+        <p>The shelf, the selection and the fly-in are left out of every capture and every recording.</p>
+      </li>
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></div>
+        <h3>Close the shelf, keep the files</h3>
+        <p>Close Shelf clears every card at once. ⌘Z brings back the last 20 removals, even files you put in the Trash.</p>
+      </li>
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4h6v3"/></svg></div>
+        <h3>Or don't keep them at all</h3>
+        <p>Turn on Delete screenshots after pasting, and a shot is gone once it's pasted or dropped where it belongs.</p>
+      </li>
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg></div>
+        <h3>Native and light</h3>
+        <p>Written in Swift for macOS 26. A menu bar icon, no Dock icon, no accounts and no third-party code.</p>
+      </li>
+    </ul>
   </section>
 
-  <section aria-labelledby="asks">
-    <h2 id="asks">What it asks for</h2>
-    <dl class="asks">
-      <div><dt>Screen Recording</dt><dd>To capture and record the screen. It asks only when you click Allow… in the welcome window; the switch is in <span class="path">Privacy &amp; Security › Screen &amp; System Audio Recording</span>.</dd></div>
-      <div><dt>Your Desktop folder</dt><dd>macOS asks once, before Margin first saves into <code>~/Desktop/Screenshots</code>. Choose another folder in Settings if you like.</dd></div>
-      <div><dt>The screenshot shortcuts</dt><dd>macOS keeps <kbd>⇧</kbd><kbd>⌘</kbd><kbd>3</kbd>, <kbd>⇧</kbd><kbd>⌘</kbd><kbd>4</kbd> and <kbd>⇧</kbd><kbd>⌘</kbd><kbd>5</kbd> for itself until they're turned off. <strong>Turn off for me</strong> does that when you click it, and Settings can restore them.</dd></div>
-      <div><dt>The microphone</dt><dd>Only if you turn on <strong>Record microphone</strong> in Settings, for screen recordings; macOS asks then.</dd></div>
-      <div><dt>Launch at login</dt><dd>On by default, so the shortcuts are there after a restart. Turn it off in Settings.</dd></div>
-    </dl>
-    <p style="margin-top:20px">Margin doesn't need Accessibility or Input Monitoring. It has no accounts and no analytics. Once a day it asks GitHub whether there's a newer version, sending nothing about you; turn that off in Settings.</p>
+  <section class="wrap" aria-labelledby="precise-title">
+    <div class="detail">
+      <figure class="shot">
+        <img src="images/capture.png" width="1760" height="1120" loading="lazy" decoding="async"
+             alt="Selecting part of a code editor on a frozen screen: resize handles, a magnifier showing pixel coordinates and colour, and labels reading From center and Snapped to window.">
+      </figure>
+      <div class="body">
+        <h2 id="precise-title">Precise when it matters.</h2>
+        <p>Most shots are a quick drag. For the others, everything you need is on the overlay before you let go.</p>
+        <ul class="ticks">
+          <li>Resize handles and arrow-key nudging, 1 px at a time</li>
+          <li>Edges that snap to the windows underneath</li>
+          <li>Press <kbd class="mini">Z</kbd> for a magnifier with the exact position and colour</li>
+          <li>Press <kbd class="mini">Space</kbd> for one window, with clean rounded corners</li>
+          <li>Every display, at its own Retina scale and colour profile</li>
+        </ul>
+      </div>
+    </div>
   </section>
 
-  <footer>
-    <a href="https://github.com/Jenish-Shobhit/margin">Source on GitHub</a>
-    <a id="notes" href="https://github.com/Jenish-Shobhit/margin/releases/latest">Release notes</a>
-    <a href="https://github.com/Jenish-Shobhit/margin/blob/main/docs/user-guide.md">User guide</a>
-    <a href="https://github.com/Jenish-Shobhit/margin/blob/main/docs/troubleshooting.md">Troubleshooting</a>
-    <span>MIT license</span>
-  </footer>
+  <section class="wrap" aria-labelledby="shelf-title">
+    <div class="section-head center">
+      <h2 id="shelf-title">Your shots, in reach.</h2>
+      <p>Drag a card into Finder, Slack, Chrome or Terminal. Click to copy it again, press Space to look closer, and tuck the shelf away with <kbd class="mini">⇧</kbd><kbd class="mini">⌘</kbd><kbd class="mini">1</kbd>.</p>
+    </div>
+    <figure class="wide-shot">
+      <div class="scroller" tabindex="0" role="group" aria-label="The shelf in four states; scrolls sideways on small screens">
+        <img src="images/shelf-states.png" width="2188" height="728" loading="lazy" decoding="async"
+             alt="Four views of the shelf: a card on hover with its menu and close buttons; two selected cards dragged together with a count badge; older shots folded into a +6 older pile; and the shelf tucked into a small tab at the screen edge.">
+      </div>
+      <figcaption>Up to six cards, newest at the bottom. Older shots fold into a pile.</figcaption>
+    </figure>
+  </section>
+
+  <div class="keys-band">
+    <section id="shortcuts" class="wrap" aria-labelledby="shortcuts-title">
+      <div class="section-head center">
+        <h2 id="shortcuts-title">The shortcuts you already know.</h2>
+        <p>Margin takes over the macOS screenshot keys, with your permission, and you can change any of them in Settings.</p>
+      </div>
+      <ul class="shortcuts">
+        <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>4</kbd></div><div><strong>Capture an area</strong><span>Press Space for a single window.</span></div></li>
+        <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>3</kbd></div><div><strong>Capture the screen</strong><span>The display under the pointer.</span></div></li>
+        <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>2</kbd></div><div><strong>Repeat last area</strong><span>The same area again, no overlay.</span></div></li>
+        <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>5</kbd></div><div><strong>Record the screen</strong><span>Press it again to stop.</span></div></li>
+        <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>1</kbd></div><div><strong>Tuck the shelf</strong><span>Into a small tab, and back.</span></div></li>
+      </ul>
+      <p class="keys-note">Every shot is already copied, so the <kbd class="mini">⌃</kbd> versions do the same. The <a href="https://github.com/Jenish-Shobhit/margin/blob/main/docs/shortcuts.md">full list</a> covers the keys for selecting and for the shelf.</p>
+    </section>
+  </div>
+
+  <section id="install" class="wrap" aria-labelledby="install-title">
+    <div class="section-head">
+      <h2 id="install-title">Install in a minute.</h2>
+      <p>Margin isn't notarized by Apple yet, so the first launch takes one extra step. You only do it once.</p>
+    </div>
+    <div class="install">
+      <ol class="steps">
+        <li>
+          <h3>Download and unzip</h3>
+          <p>Open <span id="zip-name">the zip</span> from your Downloads folder. You get <strong>Margin.app</strong>.</p>
+        </li>
+        <li>
+          <h3>Move it to Applications</h3>
+          <p>And keep it there: macOS ties Margin's Screen Recording permission to that copy.</p>
+        </li>
+        <li>
+          <h3>Open it, then Open Anyway</h3>
+          <p>macOS blocks the first launch of an app that isn't notarized:</p>
+          <ol class="gatekeeper">
+            <li>In the "Margin" Not Opened dialog, click <strong>Done</strong>, not Move to Trash.</li>
+            <li>Open <span class="path"><strong>System Settings › Privacy &amp; Security</strong></span> and scroll down to Security.</li>
+            <li>Next to "Margin" was blocked, click <strong>Open Anyway</strong>, then confirm with your password or Touch ID.</li>
+          </ol>
+        </li>
+        <li>
+          <h3>Follow the welcome window</h3>
+          <p>Allow Screen Recording, hand over the screenshot shortcuts, and take your first shot.</p>
+        </li>
+      </ol>
+
+      <div class="side">
+        <div class="panel" id="update">
+          <h3 id="update-title">Already have Margin?</h3>
+          <p>This opens Margin and checks for a newer version, or choose <strong>Check for Updates…</strong> in Margin's menu. Nothing is installed until you click Install in Margin's window, and updates need no Open Anyway.</p>
+          <a class="button secondary" href="margin://update">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 3a7 7 0 0 1 6.32 4H14a1 1 0 1 0 0 2h4a1 1 0 0 0 1-1V4a1 1 0 1 0-2 0v1.6A9 9 0 1 0 19 10a1 1 0 1 0-2 0 7 7 0 1 1-7-7Z"/></svg>
+            Update Margin
+          </a>
+          <p>A copy too old to have that menu item needs a fresh download instead.</p>
+        </div>
+        <div class="panel">
+          <h3 id="reqs-title">Requirements</h3>
+          <dl class="reqs">
+            <div><dt>macOS</dt><dd>macOS 26 Tahoe or later</dd></div>
+            <div><dt>Mac</dt><dd>Apple silicon (Intel Macs aren't supported)</dd></div>
+            <div><dt>Price</dt><dd>Free and open source, MIT license</dd></div>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy" class="wrap" aria-labelledby="privacy-title">
+    <div class="privacy">
+      <div class="lead">
+        <h2 id="privacy-title">No accounts. No analytics.</h2>
+        <p>Margin works entirely on your Mac and sends no telemetry. Your screenshots and recordings never leave it unless you drag them somewhere.</p>
+        <p>Its one network request is the update check: once a day it asks GitHub for the latest release, sending nothing about you. Turn that off in Settings. It doesn't need Accessibility or Input Monitoring.</p>
+      </div>
+      <dl class="asks">
+        <div><dt>Screen Recording</dt><dd>To capture and record the screen. It asks only when you click Allow… in the welcome window.</dd></div>
+        <div><dt>Your Desktop folder</dt><dd>macOS asks once, before Margin first saves into <code>~/Desktop/Screenshots</code>. Pick another folder in Settings if you like.</dd></div>
+        <div><dt>Screenshot shortcuts</dt><dd>macOS keeps ⇧⌘3, ⇧⌘4 and ⇧⌘5 until they're turned off. <strong>Turn off for me</strong> does that when you click it, and Settings can restore them.</dd></div>
+        <div><dt>The microphone</dt><dd>Only if you turn on <strong>Record microphone</strong> for screen recordings.</dd></div>
+        <div><dt>Launch at login</dt><dd>On by default, so the shortcuts work after a restart. Turn it off in Settings.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="closing wrap" aria-labelledby="closing-title">
+    <img src="icon.png" alt="" width="88" height="88" loading="lazy">
+    <h2 id="closing-title">Take a screenshot. Leave it in the margin.</h2>
+    <div class="cta">
+      <a class="button" data-download href="https://github.com/Jenish-Shobhit/margin/releases/latest">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42l2.3 2.3V3a1 1 0 0 1 1-1ZM4 16a1 1 0 1 0 0 2h12a1 1 0 1 0 0-2H4Z"/></svg>
+        <span data-download-label>Download Margin</span>
+      </a>
+      <a class="textlink" href="https://github.com/Jenish-Shobhit/margin/blob/main/docs/user-guide.md">Read the user guide</a>
+    </div>
+  </section>
 </main>
 
-<div class="shelf" aria-hidden="true">
-  <div class="card web"><div class="shot"></div></div>
-  <div class="card chart"><div class="shot"></div></div>
-  <div class="card title" id="newest"><div class="shot">Screenshots that wait in the margin of your screen</div><span class="pill">⌘V</span></div>
-</div>
-<div class="tab" aria-hidden="true">
-  <svg viewBox="0 0 16 16"><path fill="currentColor" d="M3 2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm6 1.5V12.5h4a.5.5 0 0 0 .5-.5V4a.5.5 0 0 0-.5-.5H9Z"/></svg>
-  3
-</div>
+<footer>
+  <div class="wrap">
+    <nav aria-label="Project">
+      <ul>
+        <li><a href="https://github.com/Jenish-Shobhit/margin">Source on GitHub</a></li>
+        <li><a id="notes" href="https://github.com/Jenish-Shobhit/margin/releases/latest">Release notes</a></li>
+        <li><a href="https://github.com/Jenish-Shobhit/margin/releases">All releases</a></li>
+        <li><a href="https://github.com/Jenish-Shobhit/margin/blob/main/docs/user-guide.md">User guide</a></li>
+        <li><a href="https://github.com/Jenish-Shobhit/margin/blob/main/docs/troubleshooting.md">Troubleshooting</a></li>
+        <li><a href="https://github.com/Jenish-Shobhit/margin/blob/main/LICENSE">MIT license</a></li>
+      </ul>
+    </nav>
+    <p class="copy">© 2026 Jenish Shobhit</p>
+  </div>
+</footer>
+
+<div class="shelf-card" id="shelf-card" aria-hidden="true">Screenshots that wait in the margin of your screen<span class="pill">⌘V</span></div>
 
 <script>
 (function () {
   "use strict";
   var api = "https://api.github.com/repos/Jenish-Shobhit/margin/releases/latest";
 
-  // The newest release: its version on the button, its zip as the link. Without an answer the button keeps pointing
-  // at the latest release's page on GitHub.
+  // The newest release: its version on the button, its zip as the link. Without an answer every download link keeps
+  // pointing at the latest release's page on GitHub.
   if (window.fetch) {
     fetch(api, { headers: { Accept: "application/vnd.github+json" } })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
@@ -311,8 +722,11 @@
         var zip = (release.assets || []).filter(function (a) { return a.name === name; })[0];
         // Only a finished upload: while one is on its way, its link isn't the whole zip yet.
         if (!zip || zip.state !== "uploaded" || !/^https:\/\/github\.com\//.test(zip.browser_download_url)) return;
-        document.getElementById("download").href = zip.browser_download_url;
+        var links = document.querySelectorAll("[data-download]");
+        for (var i = 0; i < links.length; i++) links[i].href = zip.browser_download_url;
         document.getElementById("download-label").textContent = "Download Margin " + version;
+        var labels = document.querySelectorAll("[data-download-label]");
+        for (var j = 0; j < labels.length; j++) labels[j].textContent = "Download Margin " + version;
         document.getElementById("zip-name").textContent = name;
         if (/^https:\/\/github\.com\//.test(release.html_url || "")) document.getElementById("notes").href = release.html_url;
         var meta = "Version " + version;
@@ -321,49 +735,114 @@
           if (!isNaN(date)) meta += ", released " + date.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
         }
         var mb = Number(zip.size) / 1048576;
-        meta += mb > 0 ? ". A " + (mb >= 10 ? Math.round(mb) : mb.toFixed(1)) + " MB zip" : ". A zip";
+        meta += mb > 0 ? ". A " + (mb >= 10 ? Math.round(mb) : mb.toFixed(1)) + "\u00a0MB zip" : ". A zip";
         meta += " for macOS 26 or later on Apple silicon.";
         document.getElementById("download-meta").textContent = meta;
       })
       .catch(function () {});
   }
 
-  // The one moment of motion: the headline is "captured" (the icon's corner brackets) and flies onto the shelf, as a
-  // shot does in Margin. Not with Reduce Motion, and not while the shelf is tucked.
   var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var shelf = document.querySelector(".shelf");
-  var card = document.getElementById("newest");
-  var headline = document.getElementById("headline");
-  if (reduce || !card.animate || getComputedStyle(shelf).display === "none") return;
 
-  card.style.visibility = "hidden";
+  // The navigation bar gets its hairline once the page scrolls under it.
+  var nav = document.getElementById("nav");
+  function onScroll() { nav.classList.toggle("scrolled", window.scrollY > 8); }
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+
+  // The demo: a GIF that can be paused (to a still of its first frame). With Reduce Motion it starts paused.
+  var picture = document.getElementById("demo-picture");
+  var demo = document.getElementById("demo");
+  var toggle = document.getElementById("motion-toggle");
+  var label = document.getElementById("motion-label");
+  var icon = document.getElementById("motion-icon");
+  var GIF = "images/demo.gif", STILL = "images/demo-poster.jpg";
+  var source = picture.querySelector("source");
+  var playing = !reduce;
+  function show(play) {
+    playing = play;
+    if (source) { source.remove(); source = null; }
+    demo.src = play ? GIF : STILL;
+    label.textContent = play ? "Pause" : "Play";
+    toggle.setAttribute("aria-label", play ? "Pause the demo" : "Play the demo");
+    toggle.setAttribute("aria-pressed", play ? "false" : "true");
+    icon.setAttribute("d", play ? "M2.5 1.5h2.2v9H2.5zM7.3 1.5h2.2v9H7.3z" : "M3 1.4v9.2a.5.5 0 0 0 .77.42l7-4.6a.5.5 0 0 0 0-.84l-7-4.6A.5.5 0 0 0 3 1.4z");
+  }
+  label.textContent = playing ? "Pause" : "Play";
+  toggle.setAttribute("aria-label", playing ? "Pause the demo" : "Play the demo");
+  toggle.setAttribute("aria-pressed", playing ? "false" : "true");
+  if (!playing) icon.setAttribute("d", "M3 1.4v9.2a.5.5 0 0 0 .77.42l7-4.6a.5.5 0 0 0 0-.84l-7-4.6A.5.5 0 0 0 3 1.4z");
+  toggle.hidden = false;
+  toggle.addEventListener("click", function () { show(!playing); });
+
+  // The one flourish: the headline is "captured" (the icon's corner brackets, a flash) and flies onto a shelf at the
+  // right edge, where it waits as a shot does in Margin; drag it away and it leaves. Only where the page leaves room
+  // beside it, and not with Reduce Motion.
+  var card = document.getElementById("shelf-card");
+  var headline = document.getElementById("headline");
+  var roomy = window.matchMedia("(min-width: 1400px) and (min-height: 700px)").matches;
+  if (reduce || !card.animate || !roomy) { card.remove(); return; }
+
   window.addEventListener("load", function () {
     setTimeout(function () {
+      if (window.scrollY > 40) { card.remove(); return; }
       var h = headline.getBoundingClientRect(), c = card.getBoundingClientRect();
-      var pad = 12;
+      var pad = 16;
       var sel = document.createElement("div");
       sel.className = "selection";
+      sel.setAttribute("aria-hidden", "true");
       sel.innerHTML = "<i></i><i></i><i></i><i></i>";
       sel.style.left = (h.left + window.scrollX - pad) + "px";
       sel.style.top = (h.top + window.scrollY - pad) + "px";
       sel.style.width = (h.width + pad * 2) + "px";
       sel.style.height = (h.height + pad * 2) + "px";
       document.body.appendChild(sel);
-      sel.animate([{ opacity: 0, transform: "scale(1.04)" }, { opacity: 1, transform: "scale(1)" }],
-                  { duration: 220, easing: "ease-out", fill: "forwards" });
+      sel.animate([{ opacity: 0, transform: "scale(1.05)" }, { opacity: 1, transform: "scale(1)" }],
+                  { duration: 240, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
       setTimeout(function () {
-        sel.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: "forwards" })
+        var flash = document.createElement("div");
+        flash.className = "flash";
+        document.body.appendChild(flash);
+        flash.animate([{ opacity: 0.0 }, { opacity: 0.18 }, { opacity: 0 }], { duration: 260, easing: "ease-out" })
+          .onfinish = function () { flash.remove(); };
+        sel.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: "forwards" })
           .onfinish = function () { sel.remove(); };
-        var scale = Math.min(3.2, (h.width + pad * 2) / c.width);
+        var scale = Math.min(4, (h.width + pad * 2) / c.width);
         var dx = (h.left + h.width / 2) - (c.left + c.width / 2), dy = (h.top + h.height / 2) - (c.top + c.height / 2);
         card.style.visibility = "visible";
         card.animate([
-          { transform: "translate(" + dx + "px," + dy + "px) scale(" + scale + ")", opacity: 0.35 },
+          { transform: "translate(" + dx + "px," + dy + "px) scale(" + scale + ")", opacity: 0.25 },
           { transform: "none", opacity: 1 }
-        ], { duration: 450, easing: "cubic-bezier(.2,.8,.2,1)" }).onfinish = function () { card.classList.add("ring"); };
-      }, 520);
-    }, 350);
+        ], { duration: 560, easing: "cubic-bezier(.2,.85,.25,1)" }).onfinish = function () { card.classList.add("ring"); };
+      }, 620);
+    }, 1100);
   });
+
+  // Dragging the card: far enough and it leaves the shelf (as a drop in another app does); otherwise it springs back.
+  var start = null;
+  card.addEventListener("pointerdown", function (e) {
+    start = { x: e.clientX, y: e.clientY };
+    card.setPointerCapture(e.pointerId);
+  });
+  card.addEventListener("pointermove", function (e) {
+    if (!start) return;
+    card.style.transform = "translate(" + (e.clientX - start.x) + "px," + (e.clientY - start.y) + "px) rotate(-2deg)";
+  });
+  function release(e) {
+    if (!start) return;
+    var dx = e.clientX - start.x, dy = e.clientY - start.y;
+    start = null;
+    var from = card.style.transform;
+    if (Math.sqrt(dx * dx + dy * dy) > 120) {
+      card.animate([{ transform: from, opacity: 1 }, { transform: from + " scale(0.6)", opacity: 0 }],
+                   { duration: 220, easing: "ease-in", fill: "forwards" }).onfinish = function () { card.remove(); };
+    } else {
+      card.style.transform = "";
+      card.animate([{ transform: from }, { transform: "none" }], { duration: 380, easing: "cubic-bezier(.3,1.4,.5,1)" });
+    }
+  }
+  card.addEventListener("pointerup", release);
+  card.addEventListener("pointercancel", release);
 })();
 </script>
 </body>
