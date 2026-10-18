@@ -5,7 +5,8 @@ import ScreenCaptureKit
 /// One display's frozen frame, or why it failed.
 private struct FrozenFrame: Sendable {
     let displayID: CGDirectDisplayID
-    let result: Result<SendableImage, any Error>
+    let result: Result<FrozenImage, any Error>
+    /// ScreenCaptureKit's time (`freezeCapture`), without the copy for the layers (`frozenCopy`).
     let ms: Double
 }
 
@@ -311,7 +312,7 @@ final class CaptureController: CaptureControlling {
             guard self.session === session else { return }
             switch frame.result {
             case let .success(image):
-                session.setFrozen(image.image, for: frame.displayID) {
+                session.setFrozen(image, for: frame.displayID) {
                     if first {
                         first = false
                         timings.record("hotkeyToFirstFrozen", clock.ms)
@@ -415,7 +416,8 @@ final class CaptureController: CaptureControlling {
                         let clock = Stopwatch()
                         do {
                             let image = try await grab(id, target)
-                            continuation.yield(FrozenFrame(displayID: id, result: .success(image), ms: clock.ms))
+                            let ms = clock.ms
+                            continuation.yield(FrozenFrame(displayID: id, result: .success(FrozenImage(image)), ms: ms))
                         } catch {
                             continuation.yield(FrozenFrame(displayID: id, result: .failure(error), ms: clock.ms))
                         }

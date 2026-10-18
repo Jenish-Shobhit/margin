@@ -8,6 +8,28 @@ struct SendableImage: @unchecked Sendable {
     let image: CGImage
 }
 
+/// A display's frozen frame: ScreenCaptureKit's image, whose pixels are the shot's (crops, the loupe, thumbnails, PNGs),
+/// and `shown`, the copy in an IOSurface that the overlay's layers show (`SurfaceImage`): Core Animation takes it
+/// without copying it on the main thread. The overlay discards the copy's pixels once it's down (`OverlayView.reset`).
+struct FrozenImage: @unchecked Sendable {
+    let image: CGImage
+    let shown: CGImage
+    /// Under `shown`; nil when it's `image` itself.
+    let surface: IOSurfaceRef?
+
+    /// Makes the copy (`frozenCopy`); off the main thread. Any layout but ScreenCaptureKit's is shown as it is.
+    init(_ frame: SendableImage) {
+        let state = CaptureLog.signposter.beginInterval("frozenCopy")
+        let clock = Stopwatch()
+        image = frame.image
+        let copy = SurfaceImage.copy(of: frame.image) { CaptureTimings.log("frozenCopy.\($0)", $1) }
+        shown = copy?.image ?? frame.image
+        surface = copy?.surface
+        CaptureTimings.log("frozenCopy", clock.ms)
+        CaptureLog.signposter.endInterval("frozenCopy", state)
+    }
+}
+
 /// Everything needed to capture one display, built ahead of time so the hotkey path only calls SCK.
 /// The SCK objects are never mutated after construction, so sharing them across tasks is safe.
 struct DisplayTarget: @unchecked Sendable {
