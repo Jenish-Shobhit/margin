@@ -93,6 +93,44 @@ enum ShelfFiles {
         }
     }
 
+    /// A Pasteboard shot Close Shelf kept (`keep`): where its file was, and the item pointing where it is now.
+    struct Kept: Sendable {
+        let old: URL
+        let item: ShelfItem
+        /// The save folder couldn't take it, so it went to Unsaved.
+        let inUnsaved: Bool
+    }
+
+    /// Moves the Pasteboard shots among `items` into `folder`, or into `fallback` (Unsaved) where that fails, off the main
+    /// thread (`PasteboardShots.keep`). The others, and files already gone, are left as they are.
+    static func keep(_ items: [ShelfItem], in folder: URL, fallback: URL) async -> [Kept] {
+        await Task.detached(priority: .userInitiated) {
+            items.compactMap { item -> Kept? in
+                let name = item.url.lastPathComponent
+                do {
+                    var moved: URL?
+                    var inUnsaved = false
+                    do {
+                        moved = try PasteboardShots.keep(item.path, in: folder)
+                    } catch {
+                        log.error("Couldn't move \(name, privacy: .public) into the save folder: \(error.localizedDescription, privacy: .public)")
+                        moved = try PasteboardShots.keep(item.path, in: fallback)
+                        inUnsaved = true
+                    }
+                    guard let moved else { return nil }
+                    var kept = item
+                    kept.path = moved.path
+                    kept.refreshBookmark()
+                    log.notice("Kept \(name, privacy: .public): the shelf was closed, so it moved out of the Pasteboard folder")
+                    return Kept(old: item.url, item: kept, inUnsaved: inUnsaved)
+                } catch {
+                    log.error("Couldn't keep \(name, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    return nil
+                }
+            }
+        }.value
+    }
+
     private static let log = Logger(subsystem: "io.github.jenish-shobhit.margin", category: "pasteboard")
 
     /// Statuses only (prune, existence checks).

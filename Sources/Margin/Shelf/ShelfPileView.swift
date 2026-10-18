@@ -2,7 +2,7 @@ import AppKit
 import QuartzCore
 
 /// `+N older`: two stacked Liquid Glass plates. Hover fans out a peek of the newest few pile shots
-/// (drawn by `fan`, which sits just below the pile in z-order). Drag sends them all; right-click clears.
+/// (drawn by `fan`, which sits just below the pile in z-order). Drag sends them all; right-click offers Close Shelf.
 @MainActor
 final class ShelfPileView: NSView {
     weak var controller: ShelfController?
@@ -117,11 +117,8 @@ final class ShelfPileView: NSView {
     override func menu(for event: NSEvent) -> NSMenu? {
         guard let controller else { return nil }
         let menu = controller.makeMenu()
-        // Counts as a click on the shelf (spec §5): the panel takes key, so ⌘Z brings everything back.
-        menu.addItem(ShelfMenuItem("Clear shelf") { [weak controller] in
-            controller?.focusShelf()
-            controller?.clear()
-        })
+        // The shelf goes away with its cards, and the keys go back to the user's app (spec §5).
+        menu.addItem(ShelfMenuItem("Close Shelf") { [weak controller] in controller?.close() })
         return menu
     }
 }

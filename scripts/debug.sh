@@ -4,7 +4,7 @@
 #   scripts/debug.sh capture-area <x> <y> <w> <h>   capture a rect (AppKit global points), no overlay
 #   scripts/debug.sh capture-screen                 capture the display under the pointer
 #   scripts/debug.sh toggle-shelf                   tuck / show the shelf
-#   scripts/debug.sh clear                          remove every item from the shelf (undoable)
+#   scripts/debug.sh clear                          Close Shelf: every card off the shelf, files kept (undoable)
 #   scripts/debug.sh dismiss [n]                    remove the n newest cards (undoable), keeping the keys where they are
 #   scripts/debug.sh restore-last                   Restore Last Removed (the shelf's ⌘Z)
 #   scripts/debug.sh dump-state                     print the app state (shelf, mark, recording, timings…) as JSON

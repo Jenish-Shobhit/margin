@@ -260,4 +260,38 @@ import Testing
         #expect(w.isFinished)
         #expect(w.changeCount != pb.changeCount)
     }
+    /// Close Shelf moved the shot into the save folder: the clipboard offers it there, whether or not the pasteboard
+    /// had been given the old file URL already, without a new change count.
+    @Test func aMovedFileIsOfferedWhereItIsNow() {
+        let moved = URL(fileURLWithPath: "/Users/me/Desktop/Screenshots/Screenshot 2026-10-17 at 10.00.00.png")
+        let pb = NSPasteboard.withUniqueName()
+        defer { pb.releaseGlobally() }
+        let w = watch(Keys())
+        w.write([.init(id: a, png: shot, fileURL: url)], to: pb)
+        w.relocate(from: url, to: moved)                  // still promised
+        #expect(pb.pasteboardItems?.first?.string(forType: .fileURL) == moved.absoluteString)
+
+        let pb2 = NSPasteboard.withUniqueName()
+        defer { pb2.releaseGlobally() }
+        let w2 = watch(Keys())
+        let count = w2.write([.init(id: a, png: shot, fileURL: url)], to: pb2)
+        #expect(pb2.pasteboardItems?.first?.string(forType: .fileURL) == url.absoluteString)   // given
+        w2.relocate(from: url, to: moved)
+        #expect(pb2.pasteboardItems?.first?.string(forType: .fileURL) == moved.absoluteString)
+        #expect(pb2.changeCount == count)
+    }
+
+    @Test func aMoveAfterAnotherCopyLeavesTheClipboardAlone() {
+        let moved = URL(fileURLWithPath: "/Users/me/Desktop/Screenshots/a.png")
+        let pb = NSPasteboard.withUniqueName()
+        defer { pb.releaseGlobally() }
+        let w = watch(Keys())
+        w.write([.init(id: a, png: shot, fileURL: url)], to: pb)
+        _ = pb.pasteboardItems?.first?.string(forType: .fileURL)
+        pb.clearContents()
+        pb.setString("something else", forType: .string)
+        w.relocate(from: url, to: moved)
+        #expect(pb.string(forType: .string) == "something else")
+        #expect(pb.pasteboardItems?.first?.string(forType: .fileURL) == nil)
+    }
 }

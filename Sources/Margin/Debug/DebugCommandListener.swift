@@ -12,7 +12,7 @@ import os
 ///   capture-area x y w h   capture a rect in AppKit global points, no overlay
 ///   capture-screen         the display under the pointer
 ///   toggle-shelf           tuck / show the shelf
-///   clear                  remove every item from the shelf (undoable)
+///   clear                  Close Shelf: every card off the shelf, files kept (undoable)
 ///   dismiss [n]            remove the n newest cards (default 1) as one undo step, as ✕ does but keeping the keys
 ///   restore-last           the menu's Restore Last Removed (the shelf's ⌘Z)
 ///   copy [n]               click the n-th newest card (default 1): the shelf's copy
@@ -71,7 +71,7 @@ final class DebugCommandListener: NSObject {
         case "toggle-shelf":
             coordinator.toggleShelf()
         case "clear":
-            coordinator.clearShelf()
+            coordinator.closeShelf()
         case "dismiss":
             let count = parts.count > 1 ? Int(parts[1]) ?? 1 : 1
             coordinator.shelf.dismiss(coordinator.store.items.suffix(max(count, 0)).map(\.id), exit: .collapse)

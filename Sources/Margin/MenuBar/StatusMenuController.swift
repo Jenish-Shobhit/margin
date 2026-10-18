@@ -264,6 +264,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         // An empty shelf has nothing to tuck (⇧⌘1 does nothing then either).
         toggle.isEnabled = coordinator?.shelf.canToggleTucked ?? false
         menu.addItem(toggle)
+        let close = item("Close Shelf", symbol: "xmark.circle", action: #selector(closeShelf))
+        close.isEnabled = coordinator?.canCloseShelf ?? false
+        menu.addItem(close)
         let restore = item("Restore Last Removed", symbol: "arrow.uturn.backward", action: #selector(restoreLastRemoved))
         restore.isEnabled = coordinator?.canRestoreLastRemoved ?? false
         menu.addItem(restore)
@@ -324,6 +327,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func recordScreen() { afterMenuCloses { [weak self] in self?.coordinator?.toggleRecording() } }
     @objc private func stopRecording() { coordinator?.stopRecording() }
     @objc private func toggleShelf() { coordinator?.toggleShelf() }
+    @objc private func closeShelf() { coordinator?.closeShelf() }
     @objc private func restoreLastRemoved() { coordinator?.restoreLastRemoved() }
     @objc private func openFolder() { coordinator?.openScreenshotsFolder() }
     @objc private func showUnsaved() { coordinator?.showUnsavedShots() }

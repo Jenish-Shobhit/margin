@@ -198,10 +198,9 @@ extension ShelfPileView {
     }
 
     override func accessibilityCustomActions() -> [NSAccessibilityCustomAction]? {
-        [NSAccessibilityCustomAction(name: "Clear shelf") { [weak self] in
+        [NSAccessibilityCustomAction(name: "Close shelf") { [weak self] in
             guard let self, let controller = self.controller else { return false }
-            controller.focusShelf()   // so ⌘Z brings everything back
-            controller.clear()
+            controller.close()
             return true
         }]
     }

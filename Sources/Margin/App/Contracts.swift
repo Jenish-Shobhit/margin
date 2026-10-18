@@ -70,7 +70,7 @@ protocol ShelfControlling: AnyObject {
     func setClipboardMark(_ itemID: UUID?)
     /// The shelf copied an item itself (click or ⌘C). Arguments: item id, new pasteboard changeCount.
     var onCopied: ((UUID, Int) -> Void)? { get set }
-    /// An item left the shelf (drag-out, dismiss, trash, clear). Used to clear the mark.
+    /// An item left the shelf (drag-out, dismiss, trash, Close Shelf). Used to clear the mark.
     var onRemoved: (([UUID]) -> Void)? { get set }
 
     // State for the DEBUG hook.
@@ -91,7 +91,8 @@ protocol ShelfControlling: AnyObject {
     func itemSaveFailed(_ id: UUID, message: String)
     /// A short message inside the shelf (e.g. "Restored").
     func showToast(_ text: String)
-    /// Remove every item (undoable with ⌘Z). Used by the pile's "Clear shelf" and the DEBUG `clear` command.
-    func clear()
+    /// Close Shelf: remove every item as one ⌘Z step, keeping their files, and give the keys back. Used by the shelf's
+    /// close button, the pile's menu, the menu bar and the DEBUG `clear` command.
+    func close()
 }
 

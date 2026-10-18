@@ -29,6 +29,9 @@ final class ShelfController: ShelfControlling {
     /// Not in the ShelfControlling contract: Pasteboard files the clipboard still offers, which the launch's cleanup keeps
     /// although no card holds them (spec §14.2). Set before `restore()`.
     var pasteboardFilesOnClipboard: Set<String> = []
+    /// Not in the ShelfControlling contract: Close Shelf took these off the shelf, with their files as they are now (after
+    /// any rename it saved). Pasteboard shots among them move into the save folder (spec §5).
+    var onClosed: (([ShelfItem]) -> Void)?
     private(set) var isTucked = false
     var markedItemID: UUID?
     var itemIDs: [UUID] { store.items.map(\.id) }
@@ -62,6 +65,8 @@ final class ShelfController: ShelfControlling {
     var awaitingSave: Set<UUID> = []
     /// A click-copy on a pending card, done when its file lands (unless another copy comes first).
     var queuedCopy: UUID?
+    /// Renames on their way to the disk (`finishRename`), which Close Shelf waits for before moving any file.
+    var renames: [UUID: Task<Void, Never>] = [:]
     /// Background file checks (`refreshFiles`): one at a time, rerun once if asked meanwhile.
     var fileRefreshRunning = false
     var fileRefreshQueued = false
