@@ -427,16 +427,25 @@ extension ShelfController {
         for card in cards.values where card.isRenaming { card.endRename(commit: true) }
         clearSelection()
         if root.isQuickLookOpen { closeQuickLook() } else { releaseKeys() }
-        let ids = store.items.map(\.id)
-        removeItems(ids, kind: .close, exit: .collapse)
+        // A shot still being saved moves once its save lands (`AppCoordinator.finishSave`), never from here: its file may
+        // be in place before the save is reported, which would then point the ⌘Z step and the clipboard back at the
+        // Pasteboard folder.
+        let saving = awaitingSave
+        let ids = store.items.map(\.id).filter { !saving.contains($0) }
+        removeItems(store.items.map(\.id), kind: .close, exit: .collapse)
         showToast(Self.closedToast, isError: false, duration: Self.closedToastDuration)
-        // Once the renames just saved are on disk, so a Pasteboard shot moves under its new name.
-        let renaming = Array(renames.values)
-        Task { [weak self] in
-            for rename in renaming { await rename.value }
+        // Not the cards ⌘Z has brought back meanwhile: they're on the shelf again, like any other.
+        let report = { [weak self] in
             guard let self else { return }
-            // Not the cards ⌘Z has brought back meanwhile: they're on the shelf again, like any other.
             self.onClosed?(ids.filter(self.wasClosed).compactMap { self.anyItem(for: $0) })
+        }
+        // Once the renames just saved are on disk, so a Pasteboard shot moves under its new name. Without any, at once:
+        // a quit straight after doesn't leave the files behind in the Pasteboard folder.
+        let renaming = Array(renames.values)
+        guard !renaming.isEmpty else { return report() }
+        Task {
+            for rename in renaming { await rename.value }
+            report()
         }
     }
 

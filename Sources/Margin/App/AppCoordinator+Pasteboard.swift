@@ -31,9 +31,14 @@ extension AppCoordinator {
         let shots = items.filter { PasteboardShots.isInFolder($0.path) }
         guard !shots.isEmpty else { return }
         let folder = prefs.saveFolder, fallback = Preferences.fallbackSaveFolder
+        // A quit waits for the moves as for a save: a shot left in the Pasteboard folder, with no card, would go at the
+        // next launch.
+        savesInFlight += 1
         Task { [weak self] in
             let kept = await ShelfFiles.keep(shots, in: folder, fallback: fallback)
-            guard let self, !kept.isEmpty else { return }
+            guard let self else { return }
+            defer { saveFinished() }
+            guard !kept.isEmpty else { return }
             for k in kept {
                 shelf.relocate(k.item.id, to: k.item)
                 pasteWatch?.relocate(from: k.old, to: k.item.url)
