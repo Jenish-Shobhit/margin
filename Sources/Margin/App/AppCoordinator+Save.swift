@@ -31,7 +31,11 @@ extension AppCoordinator {
         var failureMessage: String?
         var encodeMs: Double?
         var writeMs: Double?
+        /// The Finder bookmark of the final file, made after the rename (and after the clipboard).
+        var bookmarkMs: Double?
         var finishedAt: Date?
+        /// The clipboard was written as soon as the file was in place, before the bookmark (`copyAsSaved`).
+        var copied = false
     }
 
     static let saveFailedMessage = "Couldn't save the screenshot"
@@ -107,6 +111,9 @@ extension AppCoordinator {
         let sequence = captureSequence
         let fallbackFolder = Preferences.fallbackSaveFolder
         let metadata = Self.metadata(for: result)
+        // The clipboard goes as soon as the file is in place: it needs only the final path, not the bookmark. Not a
+        // shot for the Pasteboard folder: its paste watch stays where it was, in `finishSave` (spec §14.2).
+        let copiesAsSaved = prefs.copyEachCapture && !toPasteboard
         savesInFlight += 1 // `finishSave` always runs, on success and failure alike
         let store = store
 
@@ -133,12 +140,26 @@ extension AppCoordinator {
                 Self.write(data, item: item, date: result.date, fallbackFolder: fallbackFolder, metadata: metadata, into: &outcome)
                 outcome.writeMs = Self.milliseconds(since: writeStart)
                 outcome.finishedAt = Date()
+                if let url = outcome.saved?.url {
+                    if copiesAsSaved, let self {
+                        await self.copyAsSaved(data, fileURL: url, itemID: item.id, sequence: sequence, releaseDate: result.date)
+                        outcome.copied = true
+                    }
+                    let bookmarkStart = ContinuousClock.now
+                    outcome.saved?.refreshBookmark()
+                    outcome.bookmarkMs = Self.milliseconds(since: bookmarkStart)
+                }
             }
             Self.signposter.endInterval("save", saveSignpost)
             await self?.finishSave(
                 itemID: item.id, sequence: sequence, releaseDate: result.date, folder: folder,
                 toPasteboard: toPasteboard, timings: timings, outcome: outcome)
         }
+    }
+
+    /// The clipboard of a saved shot, as soon as its file is in place (before its bookmark and `finishSave`).
+    private func copyAsSaved(_ data: Data, fileURL: URL, itemID: UUID, sequence: Int, releaseDate: Date) {
+        copyCapture(data, fileURL: fileURL, itemID: itemID, sequence: sequence, releaseDate: releaseDate, toPasteboard: false)
     }
 
     /// 5. Clipboard + ⌘V mark, once the PNG is renamed into place: the PNG plus the file at its *final* URL
@@ -161,6 +182,7 @@ extension AppCoordinator {
         CaptureTimings.shared.record("finishSave.clipboard", clock.ms)
         if toPasteboard || clipboardFiles != nil { clipboardHolds(fileURL.map { [$0] } ?? [], changeCount: changeCount) }
         let releaseToClipboardMs = Date().timeIntervalSince(releaseDate) * 1000
+        CaptureTimings.shared.record("releaseToClipboard", releaseToClipboardMs)
         Self.timingLog.notice(
             "release→clipboard \(releaseToClipboardMs, format: .fixed(precision: 1)) ms (\(fileURL == nil ? "PNG only" : "PNG + file URL", privacy: .public))")
         if fileURL != nil, shelf.itemIDs.contains(itemID) {
@@ -185,9 +207,10 @@ extension AppCoordinator {
         }
         if let ms = outcome.encodeMs { t.record("encode", ms) }
         if let ms = outcome.writeMs { t.record("write", ms) }
+        if let ms = outcome.bookmarkMs { t.record("bookmark", ms) }
         if let data = outcome.data { t.recordSize("png", bytes: data.count) }
-        // First, so the clipboard isn't kept waiting by the store and the shelf.
-        if let data = outcome.data {
+        // First, so the clipboard isn't kept waiting by the store and the shelf (unless it went with the rename).
+        if let data = outcome.data, !outcome.copied {
             copyCapture(data, fileURL: outcome.saved?.url, itemID: itemID, sequence: sequence, releaseDate: releaseDate,
                         toPasteboard: toPasteboard)
         }
@@ -262,7 +285,7 @@ extension AppCoordinator {
 
     /// Writes to the predicted name (keeps names stable when several captures share a second), moving
     /// to the next free name if it's taken on disk, and falls back to the Unsaved folder when the save
-    /// folder can't be written. On success `outcome.saved` has the final path and a fresh bookmark.
+    /// folder can't be written. On success `outcome.saved` has the final path (and no bookmark yet).
     nonisolated static func write(
         _ data: Data, item: ShelfItem, date: Date, fallbackFolder: URL, metadata: ScreenshotMetadata? = nil,
         into outcome: inout SaveOutcome
@@ -300,10 +323,10 @@ extension AppCoordinator {
         return ScreenshotMetadata(kind: kind, globalRect: Geometry.flip(result.sourceRect, primaryHeight: Displays.primaryHeight))
     }
 
+    /// The item at its final path. Its bookmark comes after (`refreshBookmark`), once the clipboard has the file.
     private nonisolated static func savedItem(_ item: ShelfItem, at url: URL) -> ShelfItem {
         var saved = item
         saved.path = url.path
-        saved.refreshBookmark()
         return saved
     }
 

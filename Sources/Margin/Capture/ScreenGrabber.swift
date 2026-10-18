@@ -51,7 +51,8 @@ struct Shot: @unchecked Sendable {
     /// How long the thumbnail took.
     let thumbnailMs: Double
 
-    /// Starts the encode, then makes the thumbnail: never on the main thread (a full display takes about 19 ms).
+    /// Starts the encode, then makes the thumbnail: never on the main thread, and always on a user-interactive one
+    /// (`Interactive`, `make`), ahead of the encode's workers.
     init(_ image: CGImage, scale: CGFloat) {
         self.image = image
         self.scale = scale
@@ -66,6 +67,39 @@ struct Shot: @unchecked Sendable {
         let clock = Stopwatch()
         thumbnail = ScreenGrabber.thumbnail(of: image)
         thumbnailMs = clock.ms
+    }
+
+    /// A shot of `image`, made on a user-interactive thread (`Interactive`).
+    static func make(_ image: CGImage, scale: CGFloat) async -> Shot {
+        let source = SendableImage(image: image)
+        return await Interactive { Shot(source.image, scale: scale) }.value
+    }
+}
+
+/// Work on the way to the shelf's thumbnail, started at once on a user-interactive thread; `value` waits for it.
+///
+/// The thumbnail is most of the time from release to the card, and Swift's tasks run at user-initiated at most: the
+/// same QoS as the PNG encode, whose workers take every core from the same moment (`Shot`). Run there, the
+/// thumbnail's 3–4 ms of pixel work took about 15 ms. At user-interactive the scheduler puts it ahead of them, on a
+/// performance core; the encode stays where it was.
+struct Interactive<Value: Sendable>: Sendable {
+    private let stream: AsyncStream<Value>
+
+    init(_ body: @escaping @Sendable () -> Value) {
+        let (stream, continuation) = AsyncStream.makeStream(of: Value.self, bufferingPolicy: .bufferingNewest(1))
+        self.stream = stream
+        DispatchQueue.global(qos: .userInteractive).async {
+            continuation.yield(body())
+            continuation.finish()
+        }
+    }
+
+    /// Await it once.
+    var value: Value {
+        get async {
+            for await value in stream { return value }
+            preconditionFailure("Interactive finished without a value")
+        }
     }
 }
 

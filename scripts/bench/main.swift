@@ -43,6 +43,8 @@ options for run / ab / launch:
   --retake               when another app was left in front and nobody has used the Mac for --idle seconds, bring
                          the bench window back in front (as at the start) instead of waiting for a click
   --warmup <count>       untimed captures per suite after each launch (default 1)
+  --gap <s>              seconds between one capture's end and the next (default 0.8, about 1.5 s apart in all):
+                         longer gaps let the CPU go idle, as between a user's captures
   --shelf <file|empty>   launch: the shelf.json to launch with
   --scratch <dir>        where shots, backups and results go (default .build/bench-scratch)
   --out <file>           results file (default <scratch>/results-<time>.jsonl)
@@ -67,6 +69,7 @@ struct Options {
     var sound = false
     var block = 5
     var warmup = 1
+    var gap = 0.8
     var shelf: String?
     var scratch = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".build/bench-scratch")
     var out: URL?
@@ -104,6 +107,7 @@ struct Options {
             case "--sound": sound = true
             case "--block": block = Int(value(a)) ?? 5
             case "--warmup": warmup = Int(value(a)) ?? 1
+            case "--gap": gap = max(0.8, Double(value(a)) ?? 0.8)
             case "--shelf": shelf = value(a)
             case "--scratch": scratch = URL(fileURLWithPath: value(a)).standardizedFileURL
             case "--out": out = URL(fileURLWithPath: value(a)).standardizedFileURL
@@ -600,7 +604,7 @@ final class Bench {
                 let file = metrics.first { $0.0 == "releaseToFile" }.map { String(format: "%.1f", $0.1) } ?? "–"
                 say("\(label): thumbnail frame \(line) ms, file \(file) ms")
             }
-            await sleep(ms: 800) // the fly-in lands (0.45 s) before the next capture
+            await sleep(ms: options.gap * 1000) // the fly-in lands (0.45 s) before the next capture; --gap: idle longer
         }
         await clearShelf()
         if let pid = Margin.pid, let mb = Margin.footprintMB(pid) {

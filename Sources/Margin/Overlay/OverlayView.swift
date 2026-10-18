@@ -207,14 +207,20 @@ final class OverlayView: NSView {
     }
 
     /// Shows the frozen frame and commits it right away.
+    /// `frozenCommit` and `frozenFlush` time the two halves on the main thread (Core Animation may copy the image's
+    /// pixels for the render server in either).
     func setFrozen(_ image: CGImage) {
         self.image = image
+        let commit = Stopwatch()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         imageLayer.contents = image
         holeLayer.contents = image
         CATransaction.commit()
+        CaptureTimings.log("frozenCommit", commit.ms)
+        let flush = Stopwatch()
         CATransaction.flush()
+        CaptureTimings.log("frozenFlush", flush.ms)
     }
 
     // MARK: Rendering
