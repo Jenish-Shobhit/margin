@@ -68,9 +68,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 @MainActor
 final class SettingsTabViewController: NSTabViewController {
     private let panes: [SettingsPane]
+    private let model: SettingsModel
 
     init(model: SettingsModel, window: @escaping () -> NSWindow?) {
         panes = SettingsPane.allCases
+        self.model = model
         super.init(nibName: nil, bundle: nil)
         tabStyle = .toolbar
         transitionOptions = []
@@ -101,6 +103,9 @@ final class SettingsTabViewController: NSTabViewController {
 
     override func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
         super.tabView(tabView, didSelect: tabViewItem)
+        // A shortcut being recorded stops with its pane: out of sight, it would take the next ⌘ key pressed in another
+        // pane, and Margin's shortcuts stay off while it records.
+        if model.recording != nil { model.stopRecording() }
         fitWindow(animated: view.window?.isVisible ?? false)
     }
 
