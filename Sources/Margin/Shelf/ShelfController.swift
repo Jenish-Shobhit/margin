@@ -9,6 +9,10 @@ import MarginKit
 /// the tab and the stage is offset so nothing on screen moves.
 @MainActor
 final class ShelfController: ShelfControlling {
+    #if DEBUG || MARGIN_BENCH
+    /// The last toast's text, for the state dump.
+    private(set) var debugLastToast: String?
+    #endif
     // MARK: Contract
     var onCopied: ((UUID, Int) -> Void)?
     var onRemoved: (([UUID]) -> Void)?
@@ -726,6 +730,9 @@ final class ShelfController: ShelfControlling {
     /// "Copied", "Path copied", "Restored" and errors. Inside the shelf, above the top card, 1.2 s unless the
     /// message needs longer (up to three lines).
     func showToast(_ text: String, isError: Bool, duration: TimeInterval = ShelfToastView.defaultDuration) {
+        #if DEBUG || MARGIN_BENCH
+        debugLastToast = text
+        #endif
         toast.show(text, isError: isError, anchorRight: 0, bottom: 0, maxWidth: stageWidth - 12, duration: duration)
         announce(text)
         positionToast()

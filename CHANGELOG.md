@@ -26,7 +26,9 @@ All notable changes to Margin are listed here. Versions follow [Semantic Version
 - Recordings land on the shelf with their first frame and their length. A click copies the file; dragging, Quick Look, renaming and undo work as for screenshots.
 - A window recording carries on when the window is minimized or its app hidden, holding its last frame.
 - Settings: Record system audio and Record microphone (both off), and a Record Screen shortcut.
-- A recording stops by itself, keeping what was recorded and saying why, when its display goes or its window closes, the Mac sleeps, or the disk is almost full.
+- A recording stops by itself, keeping what was recorded and saying why, when its display goes or its window closes, the Mac sleeps, the disk is almost full (space macOS can free on its own counts as free), or it nears a FAT32 disk's 4 GB file limit.
+- Recordings are written a second at a time, so one that can't be finished (a full disk, a crash, a power cut) still plays up to its last full second, and one left by a crash gets its name the next time you record.
+- Rename or move the save folder while recording and the movie is saved in it; put it in the Trash or delete it and the movie goes to Unsaved.
 
 ### Changed
 

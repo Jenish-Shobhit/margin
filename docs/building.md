@@ -197,20 +197,22 @@ scripts/debug.sh record-area 100 100 800 500    # record a rect (AppKit global p
 scripts/debug.sh record-screen                  # record the display under the pointer
 scripts/debug.sh record-window 1234             # record that window (its window number)
 scripts/debug.sh stop-recording                 # stop and save, as ⇧⌘5 does
+scripts/debug.sh recording-fault fail           # the recording's writer fails now, as on a full disk
 scripts/debug.sh dump-state                     # print the state as JSON
 ```
 
 - AppKit global points have their origin at the bottom-left of the main display, with y going up.
 - `dump-state` makes the app write `/tmp/margin-state.json`, which the script prints. It includes:
-  - the shelf's items and paths, which have a live card (`cards`: in the pile or not, with a decoded thumbnail or not), the tuck state, the ⌘V mark and the pasteboard change count;
+  - the shelf's items and paths, which have a live card (`cards`: in the pile or not, with a decoded thumbnail or not), the tuck state, the last toast (`lastToast`), the ⌘V mark and the pasteboard change count;
   - the permission state and the login item;
   - each hotkey registration and its `OSStatus`;
   - the overlay's mode and purpose while a capture is up (`overlay.mode`, `overlay.purpose`: `capture` or `record`), and who has focus (`focus`: Margin's key window, whether it's active, the frontmost app);
   - the last capture's timings;
-  - the recording (`recording`: its state, target, encoded size, fps, bit rate, temp file, frames written and dropped, and the last one's duration), each item's kind (`itemKinds`) and the status item (`statusItem`: its title, whether it shows the recording glyph, the menu's items);
+  - the recording (`recording`: its state, target, encoded size, fps, bit rate, temp file, frames written and dropped, the recorders not yet freed, `recordersAlive`, and the last one's duration, how it ended, `finished`, `failed` or `timedOut`, and its error), each item's kind (`itemKinds`) and the status item (`statusItem`: its title, whether it shows the recording glyph, the menu's items);
   - Delete screenshots after pasting (`pasteboard`: the setting, the watched clipboard write and each read of it, with how long after the write, whether ⌘ and ⌃ were held and how long before it a key went down, the files waiting to be deleted, the clipboard's Pasteboard files and the undo steps).
 - To check visuals, take a `screencapture -x`: it sees the shelf, while Margin's own captures never do.
 - `scripts/bench.sh` also uses `hotkey <action>`, `capture-window`, `select x y w h`, `click x y [window=<id>]`, `key space|return|escape`, `cancel` and `mark <text>`, which drive a live overlay in-process (see `DebugCommandListener.swift`); `click … window=<id>` clicks only if that window is the one window mode would pick there, so a test never captures or records another app's window. `copy [n]` copies the n-th newest card as a click does, and `show settings [general|shortcuts|recording]|first-run|shortcuts|none` opens or closes Margin's windows (`show menu [seconds]` opens the menu bar menu for that long, for a screenshot of it).
+- Debug builds (not bench builds) also take `recording-fault fail|crash|hang-stream|hang-finish|limit <bytes>|limit off`, which make the recording under way go wrong as a full disk, a crash, a `stopCapture` or `finishWriting` that never answers, or a FAT32 disk's file size limit would (`RecordingDebugCommands.swift`); [QA › Screen recording](QA.md#screen-recording-144) uses them.
 
 **Any process running as your user can post that notification.** A debug build can therefore be made to capture the screen, clear the shelf or write its state to `/tmp`. That's why:
 

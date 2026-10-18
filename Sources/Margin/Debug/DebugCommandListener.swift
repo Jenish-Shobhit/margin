@@ -33,6 +33,7 @@ import os
 ///                          First run at its shortcuts step; or close them
 ///   show menu [seconds]    open the menu bar menu, and close it after that long (default 4)
 ///   mark <text>            log `mark: <text>` in the timing category (`scripts/bench.sh` tells captures apart by it)
+///   recording-fault …      DEBUG only: a fault in the recording under way (`RecordingDebugCommands`)
 /// The overlay commands call the session's mouse handlers in-process: no event reaches any other app.
 @MainActor
 final class DebugCommandListener: NSObject {
@@ -174,6 +175,9 @@ final class DebugCommandListener: NSObject {
             CaptureLog.timing.info("mark: \(text, privacy: .public)")
         default:
             if UpdateDebugCommands.run(parts) { return }
+            #if DEBUG
+            if RecordingDebugCommands.run(parts, coordinator: coordinator) { return }
+            #endif
             Self.log.error("unknown debug command: \(command, privacy: .public)")
         }
     }
@@ -243,9 +247,13 @@ final class DebugCommandListener: NSObject {
             out["audioSamples"] = stats.audioSamples
             out["microphoneSamples"] = stats.microphoneSamples
         }
+        #if DEBUG
+        out["recordersAlive"] = ScreenRecorder.alive.withLock { $0 }
+        #endif
         if let last = r.lastOutcome {
             out["last"] = ["duration": last.duration, "framesWritten": last.framesWritten,
-                           "framesDropped": last.framesDropped] as [String: Any]
+                           "framesDropped": last.framesDropped, "ending": last.ending.rawValue,
+                           "error": last.error ?? NSNull()] as [String: Any]
         }
         return out
     }
@@ -302,6 +310,7 @@ final class DebugCommandListener: NSObject {
                 "windowNumber": c.shelf.panel.windowNumber,
                 "closeButtonShown": c.shelf.closeButton.isShown,
             ] as [String: Any],
+            "lastToast": c.shelf.debugLastToast ?? NSNull(),
             "markedItemID": c.shelf.markedItemID?.uuidString ?? NSNull(),
             "clipboardMarkItemID": c.mark.itemID?.uuidString ?? NSNull(),
             "pasteboardChangeCount": NSPasteboard.general.changeCount,

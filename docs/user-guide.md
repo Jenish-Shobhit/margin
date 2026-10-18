@@ -155,7 +155,9 @@ The overlay closes, the app you were in gets the keyboard back, and recording st
 
 **Sound.** Off unless you turn it on in Settings › Recording: **Record system audio** records what the Mac plays (not Margin's own sounds), **Record microphone** your microphone (macOS asks for permission when you turn it on). With both on, the movie has two sound tracks, the Mac's first; QuickTime plays both, some players only the first.
 
-**When a recording stops by itself**, it keeps what was recorded and says why on the shelf: the display was disconnected, the window closed, the Mac went to sleep, another user took over, the disk is almost full (Margin stops while about 400 MB are still free, so the movie can be finished; it won't start on a disk with less), or macOS stopped it. Quitting Margin while recording stops and saves the recording first. While recording, the display doesn't go to sleep on its own.
+**When a recording stops by itself**, it keeps what was recorded and says why on the shelf: the display was disconnected, the window closed, the Mac went to sleep, another user took over, the disk is almost full (Margin stops while about 400 MB are still free, so the movie can be finished; it won't start on a disk with less), the file reached the 4 GB a FAT32 disk allows, macOS stopped it, or an error. Quitting Margin while recording stops and saves the recording first. While recording, the display doesn't go to sleep on its own.
+
+The movie is written a second at a time, so even one that can't be finished (the disk filled up anyway, Margin crashed or the Mac lost power) plays up to its last full second: the shelf says how much was saved, and one left by a crash gets its name the next time you record. If you rename or move the save folder while recording, the movie is saved in it where it is now; if you put it in the Trash or delete it, the movie goes to Unsaved. [Troubleshooting](troubleshooting.md#a-recording-stopped-by-itself) has what each message means.
 
 ## What happens when you capture
 

@@ -63,13 +63,8 @@ extension AppCoordinator {
             mark.didWrite(itemID: item.id, changeCount: changeCount)
             shelf.setClipboardMark(item.id)
         }
-        if finished.usedFallback {
-            didSaveToUnsaved()
-            shelf.showToast(UnsavedShots.fallbackToast(saveFolder: prefs.saveFolder), isError: true,
-                            duration: Self.fallbackToastDuration)
-        } else if let note = finished.note {
-            shelf.showToast(note, isError: true, duration: Self.fallbackToastDuration)
-        }
+        if finished.usedFallback { didSaveToUnsaved() }
+        if let note = finished.note { shelf.showToast(note, isError: true, duration: Self.fallbackToastDuration) }
         prefs.completedCaptures += 1
         FirstRunWindowController.shared.captureSucceeded()
     }
