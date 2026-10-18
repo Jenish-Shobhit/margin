@@ -325,9 +325,10 @@ final class AppCoordinator {
         hasUnsavedShots = true
     }
 
-    func showSettings() {
+    /// Settings, on `pane` when given (else where it was left).
+    func showSettings(_ pane: SettingsPane? = nil) {
         NSApp.activate()
-        SettingsWindowController.shared.show()
+        SettingsWindowController.shared.show(pane)
     }
 
     func showAbout() {

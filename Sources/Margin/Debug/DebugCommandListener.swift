@@ -28,7 +28,9 @@ import os
 ///                          with `window=`, only if that's the window it would pick there (otherwise the overlay closes)
 ///   cancel                 close the live overlay, as Esc does
 ///   key space|return|escape  that key in the live overlay (Space: window mode; ↩: capture, or record the whole display)
-///   show settings|first-run|shortcuts|none  open Settings, First run, or First run at its shortcuts step; or close them
+///   show settings [pane]|first-run|shortcuts|none  open Settings (on general, shortcuts or recording), First run, or
+///                          First run at its shortcuts step; or close them
+///   show menu [seconds]    open the menu bar menu, and close it after that long (default 4)
 ///   mark <text>            log `mark: <text>` in the timing category (`scripts/bench.sh` tells captures apart by it)
 /// The overlay commands call the session's mouse handlers in-process: no event reaches any other app.
 @MainActor
@@ -152,11 +154,12 @@ final class DebugCommandListener: NSObject {
             }
         case "show":
             switch parts.dropFirst().first {
-            case "settings": coordinator.showSettings()
+            case "settings": coordinator.showSettings(parts.count > 2 ? SettingsPane(rawValue: parts[2]) : nil)
             case "first-run": FirstRunWindowController.shared.show()
             case "shortcuts": coordinator.showShortcutsStep()
+            case "menu": coordinator.menuBar?.debugShowMenu(seconds: parts.count > 2 ? Double(parts[2]) ?? 4 : 4)
             case "none": for window in NSApp.windows where window.isVisible && window.level == .normal { window.close() }
-            default: Self.log.error("usage: show settings|first-run|shortcuts|none")
+            default: Self.log.error("usage: show settings [general|shortcuts|recording]|first-run|shortcuts|menu [seconds]|none")
             }
         case "mark":
             let text = parts.dropFirst().joined(separator: " ")

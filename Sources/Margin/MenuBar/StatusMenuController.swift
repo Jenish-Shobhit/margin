@@ -179,6 +179,18 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         warningDot.frame = NSRect(x: (cx - d / 2).rounded(), y: (cy - d / 2).rounded(), width: d, height: d)
     }
 
+    #if DEBUG || MARGIN_BENCH
+    /// DEBUG `show menu`: opens the menu as a click on the icon does, and closes it after `seconds` (the menu tracks
+    /// modally, so the timer runs in the run loop's common modes).
+    func debugShowMenu(seconds: Double) {
+        let timer = Timer(timeInterval: seconds, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.menu.cancelTracking() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        statusItem.button?.performClick(nil)
+    }
+    #endif
+
     // MARK: - NSMenuDelegate
 
     /// What gives the shelf's keys back once the menu has closed (`ShelfController.menuOpening`).
@@ -235,7 +247,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         }
         if let warning = Self.hotkeyWarning(coordinator?.hotkeyFailures ?? []) {
             menu.addItem(item("\(warning) — Change in Settings…", symbol: "exclamationmark.triangle",
-                              action: #selector(openSettings)))
+                              action: #selector(openShortcutSettings)))
             menu.addItem(.separator())
         }
         if showsWarning {
@@ -332,6 +344,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func openFolder() { coordinator?.openScreenshotsFolder() }
     @objc private func showUnsaved() { coordinator?.showUnsavedShots() }
     @objc private func openSettings() { coordinator?.showSettings() }
+    @objc private func openShortcutSettings() { coordinator?.showSettings(.shortcuts) }
     @objc private func fixShortcuts() { coordinator?.showShortcutsStep() }
     @objc private func about() { coordinator?.showAbout() }
     @objc private func checkForUpdates() { UpdateController.shared.checkForUpdates() }
