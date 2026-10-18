@@ -2,8 +2,8 @@ import Foundation
 
 /// A screen recording's temp file (spec §14.4), held open from when the writer creates it until it's in place. The
 /// writer writes on whatever happens to its folder meanwhile (renamed, moved, put in the Trash, deleted), so the file is
-/// found by this descriptor rather than by its old path, and while it's open its contents can still be copied out after
-/// it was deleted.
+/// found by this descriptor rather than by its old path, and while it's open its contents can still be copied (cloned,
+/// on APFS) out after it was deleted.
 public final class RecordingFile: Sendable {
     private let fd: Int32
 
@@ -38,8 +38,12 @@ public final class RecordingFile: Sendable {
     }
 
     /// Copies its contents into a new file at `url`, never replacing one, from the descriptor (so also once it's been
-    /// deleted). A copy that fails is removed. Blocking.
+    /// deleted). On the same APFS volume it's a clone (`fclonefileat`): instant, and taking no space, so a recording
+    /// whose folder was deleted on a nearly full disk (its blocks still in use while it's open) still gets out, however
+    /// big. Elsewhere, a copy; one that fails is removed. Blocking.
     public func copy(to url: URL) throws {
+        if fclonefileat(fd, AT_FDCWD, url.path, 0) == 0 { return }
+        if errno == EEXIST { throw Self.posixError(EEXIST) }
         let out = open(url.path, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0o644)
         guard out >= 0 else { throw Self.posixError(errno) }
         var failure: Int32 = 0
