@@ -163,7 +163,10 @@ final class DebugCommandListener: NSObject {
             case "first-run": FirstRunWindowController.shared.show()
             case "shortcuts": coordinator.showShortcutsStep()
             case "menu": coordinator.menuBar?.debugShowMenu(seconds: parts.count > 2 ? Double(parts[2]) ?? 4 : 4)
-            case "none": for window in NSApp.windows where window.isVisible && window.level == .normal { window.close() }
+            case "none":
+                for window in NSApp.windows where window.isVisible && window.level == .normal { window.close() }
+                // As when a window of Margin's closes by hand: the app that was in front gets the keys back.
+                if NSApp.isActive { NSApp.deactivate() }
             default: Self.log.error("usage: show settings [general|shortcuts|recording]|first-run|shortcuts|menu [seconds]|none")
             }
         case "mark":
