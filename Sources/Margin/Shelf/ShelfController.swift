@@ -700,6 +700,7 @@ final class ShelfController: ShelfControlling {
             pile.fan.setFanned(false, animated: true)
             holdPanelFull(for: 0.4)
             setContainerOffset(stageSize.width, animated: true, spring: false)
+            updateCloseButton(now: true)
         }
         retargetFlights()
     }
