@@ -99,30 +99,34 @@ enum ShelfFiles {
         let item: ShelfItem
         /// The save folder couldn't take it, so it went to Unsaved.
         let inUnsaved: Bool
+        /// Copied, not moved: the clipboard still offers the file at `old`, which goes once it moves on.
+        let copied: Bool
     }
 
     /// Moves the Pasteboard shots among `items` into `folder`, or into `fallback` (Unsaved) where that fails, off the main
-    /// thread (`PasteboardShots.keep`). The others, and files already gone, are left as they are.
-    static func keep(_ items: [ShelfItem], in folder: URL, fallback: URL) async -> [Kept] {
+    /// thread (`PasteboardShots.keep`); copies the ones at the paths in `copying`. The others, and files already gone,
+    /// are left as they are.
+    static func keep(_ items: [ShelfItem], in folder: URL, fallback: URL, copying: Set<String> = []) async -> [Kept] {
         await Task.detached(priority: .userInitiated) {
             items.compactMap { item -> Kept? in
                 let name = item.url.lastPathComponent
+                let copy = copying.contains(item.url.standardizedFileURL.path)
                 do {
                     var moved: URL?
                     var inUnsaved = false
                     do {
-                        moved = try PasteboardShots.keep(item.path, in: folder)
+                        moved = try PasteboardShots.keep(item.path, in: folder, copying: copy)
                     } catch {
                         log.error("Couldn't move \(name, privacy: .public) into the save folder: \(error.localizedDescription, privacy: .public)")
-                        moved = try PasteboardShots.keep(item.path, in: fallback)
+                        moved = try PasteboardShots.keep(item.path, in: fallback, copying: copy)
                         inUnsaved = true
                     }
                     guard let moved else { return nil }
                     var kept = item
                     kept.path = moved.path
                     kept.refreshBookmark()
-                    log.notice("Kept \(name, privacy: .public): the shelf was closed, so it moved out of the Pasteboard folder")
-                    return Kept(old: item.url, item: kept, inUnsaved: inUnsaved)
+                    log.notice("Kept \(name, privacy: .public): the shelf was closed, so it \(copy ? "was copied" : "moved", privacy: .public) out of the Pasteboard folder")
+                    return Kept(old: item.url, item: kept, inUnsaved: inUnsaved, copied: copy)
                 } catch {
                     log.error("Couldn't keep \(name, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     return nil

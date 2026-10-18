@@ -273,7 +273,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] Tucked: Close Shelf from the menu bar takes the tab away too; the next shot lands on the shelf, not in a tab
 - [ ] During a fly-in: the shot in the air fades and its card goes with the rest; a rename in progress is saved (the file has the new name, and Restore brings the card back with it); Quick Look closes
 - [ ] A recording's card leaves like the rest; its movie stays in the save folder
-- [ ] With Delete screenshots after pasting on: after Close Shelf, the shots' files are no longer in `~/Library/Application Support/Margin/Pasteboard/` but in the save folder, same names (" (2)" if taken), and stay there after twenty more removals and a relaunch; Restore Last Removed brings the cards back pointing at them (Quick Look, a drag work). With a shot on the clipboard, ⌘V in a terminal pastes its new path
+- [ ] With Delete screenshots after pasting on: after Close Shelf, the shots' files are no longer in `~/Library/Application Support/Margin/Pasteboard/` but in the save folder, same names (" (2)" if taken), and stay there after twenty more removals and a relaunch; Restore Last Removed brings the cards back pointing at them (Quick Look, a drag work). With a shot on the clipboard, ⌘V in a terminal pastes its new path; if its path had already been read (Edit › Paste, which doesn't take the card off), the old path still works until something else is copied
 - [ ] With the save folder unwritable, those shots go to Unsaved instead, with its toast
 - [ ] Reduce Motion: the button fades (no movement); Reduce Transparency: it's a solid plate
 - [ ] VoiceOver: "Close shelf" button first in the shelf, pressable whether or not the pointer is over it

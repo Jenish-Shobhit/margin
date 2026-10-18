@@ -85,7 +85,7 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
 
     private var entries: [ObjectIdentifier: Entry] = [:]
     private var items: [NSPasteboardItem] = []
-    /// Where it wrote, and the items whose file URL the pasteboard has been given (`relocate`).
+    /// Where it wrote, and the items whose file URL the pasteboard has been given (`canRelocate`).
     private var pasteboard: NSPasteboard?
     private var givenFileURLs: Set<ObjectIdentifier> = []
     private var reporting: Set<UUID> = []
@@ -212,19 +212,28 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { MainActor.assumeIsolated { work() } }
     }
 
-    /// A file on the clipboard has moved (Close Shelf keeps a Pasteboard shot in the save folder): the item offers it
-    /// where it is now. One the pasteboard was already given is set again, which it takes without a new change count
-    /// (checked on macOS 27.0.1); only while the pasteboard still holds this watch's items.
+    /// Whether the clipboard would offer `url`'s file wherever it moves (`relocate`): this watch's write is still what
+    /// the pasteboard has, and its file URL is still promised. Once the pasteboard has been given the URL (an app read
+    /// it), it keeps that one: setting the item's string again doesn't reach other apps (checked on macOS 27.0.1, read
+    /// from another process), so that file has to stay where it is while the clipboard holds it.
+    public func canRelocate(_ url: URL) -> Bool {
+        guard !isFinished, let pasteboard, pasteboard.changeCount == changeCount else { return false }
+        let key = url.standardizedFileURL
+        return items.contains { item in
+            let id = ObjectIdentifier(item)
+            return entries[id]?.fileURL?.standardizedFileURL == key && !givenFileURLs.contains(id)
+        }
+    }
+
+    /// A file on the clipboard has moved (Close Shelf keeps a Pasteboard shot in the save folder): an item whose file
+    /// URL is still promised offers it where it is now (`canRelocate`).
     public func relocate(from old: URL, to new: URL) {
         let key = old.standardizedFileURL
         for item in items {
             let id = ObjectIdentifier(item)
-            guard var entry = entries[id], entry.fileURL?.standardizedFileURL == key else { continue }
+            guard var entry = entries[id], entry.fileURL?.standardizedFileURL == key, !givenFileURLs.contains(id) else { continue }
             entry.fileURL = new
             entries[id] = entry
-            if givenFileURLs.contains(id), let pasteboard, pasteboard.changeCount == changeCount {
-                item.setString(new.absoluteURL.absoluteString, forType: .fileURL)
-            }
         }
     }
 

@@ -238,6 +238,25 @@ import Testing
         #expect(try Data(contentsOf: try #require(kept)) == Data("png".utf8))
     }
 
+    /// The clipboard still offers the Pasteboard file and can't be pointed elsewhere: it's copied, and stays.
+    @Test func aShotTheClipboardHoldsIsCopied() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let pasteboard = dir.url.appendingPathComponent("Pasteboard")
+        let save = dir.url.appendingPathComponent("Screenshots")
+        for folder in [pasteboard, save] { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
+        let name = "Screenshot 2026-10-18 at 10.00.00.png"
+        let shot = pasteboard.appendingPathComponent(name)
+        try Data("png".utf8).write(to: shot)
+        try Data("old".utf8).write(to: save.appendingPathComponent(name))
+
+        let kept = try PasteboardShots.keep(shot.path, in: save, copying: true, pasteboardFolder: pasteboard)
+        #expect(kept?.lastPathComponent == "Screenshot 2026-10-18 at 10.00.00 (2).png")
+        #expect(try Data(contentsOf: shot) == Data("png".utf8))
+        #expect(try Data(contentsOf: try #require(kept)) == Data("png".utf8))
+        #expect(try Data(contentsOf: save.appendingPathComponent(name)) == Data("old".utf8))
+    }
+
     @Test func aTakenNameGetsANumberAndNothingIsReplaced() throws {
         let dir = try TempDir()
         defer { dir.remove() }

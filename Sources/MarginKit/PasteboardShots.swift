@@ -95,10 +95,12 @@ extension PasteboardShots {
     /// Close Shelf takes every card off the shelf and keeps every file (spec §5), so a Pasteboard shot that wasn't pasted
     /// moves into `folder` (the save folder) under its own name, ` (2)`, ` (3)`… before the extension when that's taken,
     /// and is a normal file from then on: nothing deletes it. Never replaces a file, and creates `folder` if it's missing.
+    /// With `copying`, it's copied instead and stays where it is too: the clipboard offers it there and can't be pointed
+    /// elsewhere (`PasteWatch.canRelocate`), so that copy goes only once the clipboard moves on.
     /// Returns where it went, or nil when there's nothing to move: `path` isn't in `pasteboardFolder`, isn't there any
     /// more (moved already), or that folder is a link (whose files Margin never deletes). Throws when `folder` can't take
     /// it. Blocking.
-    public static func keep(_ path: String, in folder: URL,
+    public static func keep(_ path: String, in folder: URL, copying: Bool = false,
                             pasteboardFolder: URL = Preferences.pasteboardFolder) throws -> URL? {
         guard isInFolder(path, folder: pasteboardFolder), isRealFolder(pasteboardFolder) else { return nil }
         let fm = FileManager.default
@@ -110,7 +112,7 @@ extension PasteboardShots {
             let name = n == 1 ? source.lastPathComponent : "\(base) (\(n))" + (ext.isEmpty ? "" : ".\(ext)")
             let target = folder.appendingPathComponent(name)
             do {
-                try fm.moveItem(at: source, to: target)
+                if copying { try fm.copyItem(at: source, to: target) } else { try fm.moveItem(at: source, to: target) }
                 return target
             } catch CocoaError.fileWriteFileExists {
                 continue
