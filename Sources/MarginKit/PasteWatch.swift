@@ -85,6 +85,9 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
 
     private var entries: [ObjectIdentifier: Entry] = [:]
     private var items: [NSPasteboardItem] = []
+    /// Where it wrote, and the items whose file URL the pasteboard has been given (`canRelocate`).
+    private var pasteboard: NSPasteboard?
+    private var givenFileURLs: Set<ObjectIdentifier> = []
     private var reporting: Set<UUID> = []
     /// When the key of the reads being gathered went down (the earliest, if they disagree).
     private var reportingKeyDown = Date.distantFuture
@@ -130,6 +133,7 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
             return item
         }
         pasteboard.writeObjects(items)
+        self.pasteboard = pasteboard
         changeCount = pasteboard.changeCount
         writtenAt = Date()
         return changeCount
@@ -155,7 +159,9 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
         // The data first: the reading app is waiting for it.
         switch type {
         case .png: if let png = entry.png { item.setData(png, forType: .png) }
-        case .fileURL: if let url = entry.fileURL { item.setString(url.absoluteURL.absoluteString, forType: .fileURL) }
+        case .fileURL:
+            if let url = entry.fileURL { item.setString(url.absoluteURL.absoluteString, forType: .fileURL) }
+            givenFileURLs.insert(ObjectIdentifier(item))
         default: return
         }
         let held = keys(), after = Date().timeIntervalSince(writtenAt)
@@ -204,6 +210,31 @@ public final class PasteWatch: NSObject, NSPasteboardItemDataProvider {
 
     private func later(_ delay: TimeInterval, _ work: @escaping @MainActor () -> Void) {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { MainActor.assumeIsolated { work() } }
+    }
+
+    /// Whether the clipboard would offer `url`'s file wherever it moves (`relocate`): this watch's write is still what
+    /// the pasteboard has, and its file URL is still promised. Once the pasteboard has been given the URL (an app read
+    /// it), it keeps that one: setting the item's string again doesn't reach other apps (checked on macOS 27.0.1, read
+    /// from another process), so that file has to stay where it is while the clipboard holds it.
+    public func canRelocate(_ url: URL) -> Bool {
+        guard !isFinished, let pasteboard, pasteboard.changeCount == changeCount else { return false }
+        let key = url.standardizedFileURL
+        return items.contains { item in
+            let id = ObjectIdentifier(item)
+            return entries[id]?.fileURL?.standardizedFileURL == key && !givenFileURLs.contains(id)
+        }
+    }
+
+    /// A file on the clipboard has moved (Close Shelf keeps a Pasteboard shot in the save folder): an item whose file
+    /// URL is still promised offers it where it is now (`canRelocate`).
+    public func relocate(from old: URL, to new: URL) {
+        let key = old.standardizedFileURL
+        for item in items {
+            let id = ObjectIdentifier(item)
+            guard var entry = entries[id], entry.fileURL?.standardizedFileURL == key, !givenFileURLs.contains(id) else { continue }
+            entry.fileURL = new
+            entries[id] = entry
+        }
     }
 
     /// Gives the pasteboard everything still promised, so the clipboard keeps the shot once Margin has quit. Call

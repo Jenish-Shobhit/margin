@@ -159,8 +159,14 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
 - **Pile.** Show at most **4** cards, or fewer if they don't fit vertically. Older items fold into a pile above them labelled `+N older`.
   - Hovering the pile fans it out.
   - Dragging the pile sends all of its items.
-  - Right-clicking the pile offers "Clear shelf" (undoable).
-- **Material.** The pile, tuck tab and toasts use Liquid Glass (`NSGlassEffectView` or SwiftUI `.glassEffect()`). Cards are plain image cards.
+  - Right-clicking the pile offers Close Shelf (undoable; "Clear shelf" until 0.1.3).
+- **Close Shelf** (since 0.1.3). For a shelf of shots you're done with for now: every card leaves at once and the shelf goes away, its tab too while tucked; the files stay where they are. It's one ⌘Z step, so Restore Last Removed brings them all back, and the next capture shows the shelf as usual.
+  - A small glass pill, "✕ Close Shelf", just above the top card or the pile at the stack's left edge (the toasts sit at its right on the same line). It fades in while the pointer is on a card or on it, and out 0.3 s after the pointer leaves (so crossing a gap between cards doesn't blink it); not while the pile fans out where it sits, a drag is on, a toast covers it, or the shelf is tucked away or empty. Quiet (secondary label colour) until the pointer is on it. Tooltip: "Take every card off the shelf. The files stay in their folder."
+  - Also in the pile's right-click menu, and in the menu bar menu (§6). The DEBUG `clear` command is Close Shelf.
+  - As for a tuck: a rename in progress keeps what was typed, Quick Look closes, and the keys go back to the app you're in (the shelf is gone, so nothing on it needs them). Shots in the air fade away; a recording's card just leaves, its file stays.
+  - The toast: "Shelf closed · Restore Last Removed brings it back" (two lines, 2.4 s).
+  - A shot in the Pasteboard folder (Delete screenshots after pasting, §14.2) is kept too: see §14.2.
+- **Material.** The pile, tuck tab, toasts and the Close Shelf button use Liquid Glass (`NSGlassEffectView` or SwiftUI `.glassEffect()`). Cards are plain image cards.
 - **Fly-in.** On release, a temporary transparent panel animates the image from the selection rect to its slot (about 0.45 s, spring), then hands off to the real card.
   - The new card gets a 2 pt accent ring for 1.5 s.
   - If the shelf is tucked, the shot flies into the tab and the count goes up. The shelf stays tucked.
@@ -170,7 +176,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
   - A meta line at the bottom: `HH:mm · W × H`.
 - **Tuck.** ⌘⇧1 slides the shelf off the edge and leaves a 22 pt tab showing the count. Hovering the tab peeks the shelf; clicking it shows the shelf. Tucking (or the end of a peek) gives the keys back. Tucking keeps what a rename in progress has typed; a peek doesn't end while a rename is open.
 - **Toasts.** Inside the shelf, above the top card, never as notifications: "Copied", "Path copied", "Restored", and error messages. They last 1.2 s. A message too long for one line wraps (up to three lines); the Unsaved warning (§3) stays 4 s.
-- **VoiceOver.** The shelf window is "Margin Shelf". Its elements, top to bottom: the pile (button "12 older screenshots"; press = a click, which gives the shelf the keys; action Clear shelf), each visible card, and the tab while tucked (button "Show shelf, 5 screenshots"; only the tab while tucked and not peeking).
+- **VoiceOver.** The shelf window is "Margin Shelf". Its elements, top to bottom: the Close Shelf button (button "Close shelf", there whether or not the pointer is over the shelf), the pile (button "12 older screenshots"; press = a click, which gives the shelf the keys; action Close shelf), each visible card, and the tab while tucked (button "Show shelf, 5 screenshots"; only the tab while tucked and not peeking).
   - A card is a button labelled "Screenshot, 14:32, 3024 × 1964", plus "selected", "copied, ready to paste" (the ⌘V mark) and "saving" (pending) as they apply; its help is the file name. Press copies, as a click does; Show Menu opens the ••• menu.
   - Its actions: Copy, Open, Quick Look, Show in Finder, Copy Path, Rename, Remove from shelf, Move to Trash (only Copy and Remove from shelf while saving). Each does what its mouse twin does, keys included: only Quick Look, Rename, Remove from shelf and Move to Trash give the shelf the keys.
   - ✕ ("Remove from shelf") and ••• ("Options", a menu button) are buttons inside the card, there whether or not the pointer is over it.
@@ -186,7 +192,7 @@ Release starts three things in parallel. The in-memory image feeds the shelf thu
 
 ## 5. Shelf interactions
 
-The shelf never steals focus. A click (copy) or double-click (open) leaves the keyboard with the app you're in, so ⌘V right after a click pastes there. The shelf takes the keys (the panel becomes key without activating Margin) only when they're needed next: ⌘-click, ✕ (so ⌘Z brings the card back), Rename…, Move to Trash, Clear shelf, or a click on the pile. Esc, a copy (click, ⌘C, Copy Path), tucking, a rename that ends because a new shot pushed its card into the pile, or a click elsewhere gives them back, and so does a card's or the pile's menu closed without a choice (Esc, a click elsewhere), unless the shelf had them when it opened. So does the menu bar menu, however it closes (none of its items needs the shelf's keys), unless the shelf had them when it opened.
+The shelf never steals focus. A click (copy) or double-click (open) leaves the keyboard with the app you're in, so ⌘V right after a click pastes there. The shelf takes the keys (the panel becomes key without activating Margin) only when they're needed next: ⌘-click, ✕ (so ⌘Z brings the card back), Rename…, Move to Trash, or a click on the pile. Esc, a copy (click, ⌘C, Copy Path), tucking, Close Shelf, a rename that ends because a new shot pushed its card into the pile, or a click elsewhere gives them back, and so does a card's or the pile's menu closed without a choice (Esc, a click elsewhere), unless the shelf had them when it opened. So does the menu bar menu, however it closes (none of its items needs the shelf's keys), unless the shelf had them when it opened.
 
 | Input | Result |
 |---|---|
@@ -199,7 +205,7 @@ The shelf never steals focus. A click (copy) or double-click (open) leaves the k
 | Two-finger swipe right on a card | Dismiss |
 | Double-click | Open with the default app (its first click has already copied the shot) |
 | ••• / right-click | Copy path · Reveal in Finder · Rename… (inline; renames on disk) · Move to Trash |
-| ⌘Z | Restore the last removed card(s). Keeps up to 20 steps, covering drag-out, dismiss, clear and trash (trash restores the file from the Trash; a file already back through Finder's Put Back counts as restored). Steps restore one at a time, newest first: a ⌘Z pressed while a file is still coming back from the Trash waits for it. Files are checked first: a card whose file was deleted meanwhile stays off the shelf ("File not found"), and that step is used up |
+| ⌘Z | Restore the last removed card(s). Keeps up to 20 steps, covering drag-out, dismiss, Close Shelf and trash (trash restores the file from the Trash; a file already back through Finder's Put Back counts as restored). Steps restore one at a time, newest first: a ⌘Z pressed while a file is still coming back from the Trash waits for it. Files are checked first: a card whose file was deleted meanwhile stays off the shelf ("File not found"), and that step is used up |
 
 - **Drop success.** Never delete or move the file because of a drag. "Success" means only that the card leaves the shelf. (Since 0.1.2 a shot in the Pasteboard folder of Delete screenshots after pasting is deleted once its card is gone for good, at least 30 s after the drop, §14.2; it's never moved.)
   - If an app reports success wrongly, **Restore Last Removed** in the menu bar brings the card back. A drag never gives the shelf the keys (§5 intro), so ⌘Z right after a drop goes to the app it was dropped into; on the shelf, ⌘Z works after a ⌘-click or a click on the pile.
@@ -212,24 +218,30 @@ The shelf never steals focus. A click (copy) or double-click (open) leaves the k
 ## 6. Menu bar
 
 - Template icon: SF Symbol `rectangle.righthalf.inset.filled`, with `sidebar.right` as a fallback.
-- Menu items:
+- Menu items, in groups (since 0.1.3; Close Shelf is new, and Check for Updates… moved above About, Quit below a separator):
+  - Stop Recording ⇧⌘5, then —, while recording (since 0.1.0, §14.4)
+  - The warnings, then —, while there are any (below)
   - Capture Area ⌘⇧4
   - Capture Window
   - Capture Screen ⌘⇧3
   - Repeat Last Area ⌘⇧2
-  - Record Screen ⇧⌘5 (since 0.1.0; while recording, Stop Recording ⇧⌘5 is the first item instead, §14.4)
+  - Record Screen ⇧⌘5 (since 0.1.0; hidden while recording)
   - —
   - Tuck Shelf / Show Shelf ⌘⇧1 (disabled while the shelf is empty)
+  - Close Shelf (since 0.1.3, §4; disabled while the shelf is empty)
   - Restore Last Removed (disabled when there's nothing to restore)
+  - —
   - Open Screenshots Folder (creates it if missing; if it can't be opened, says so in a toast, and opens the Unsaved folder instead when that holds shots)
   - Show Unsaved Shots (only while `~/Library/Application Support/Margin/Unsaved/` holds shots; opens it in Finder. The menu is built synchronously, so it reads a flag that's checked off the main thread at launch and on each menu open, and set by a fallback save)
   - —
   - "macOS still uses ⇧⌘4 — Fix…" (only while a macOS shortcut takes one of Margin's keys)
-  - Settings…
-  - About Margin (current version)
+  - Settings… ⌘,
   - Check for Updates… (since 0.1.1, §14.3)
-  - Quit Margin
-- If Screen Recording permission is missing, the icon gets a warning dot and the first item becomes "Allow Screen Recording…", which opens First run step 1. While permission is revoked, "Relaunch Margin" is offered; a failed hotkey registration adds a warning item that opens Settings.
+  - About Margin (current version)
+  - —
+  - Quit Margin ⌘Q
+- No section headers (`NSMenuItem.sectionHeader`): the separators group it, and headers would make a short menu taller.
+- The warnings: a failed hotkey registration ("⇧⌘4 is used by another app — Change in Settings…", which opens Settings at Shortcuts), then, if Screen Recording permission is missing, "Allow Screen Recording…", which opens First run step 1 (the icon also gets a warning dot), and while permission is revoked, "Relaunch Margin". Until 0.1.2 "Allow Screen Recording…" took Capture Area's place; now every capture item stays, and each opens the permission step without permission.
 - The shortcuts shown are for when the menu is closed. While any menu of Margin's is open, AppKit holds hotkeys back and delivers them when it closes; a press made while it was open (its event time between the menu opening and closing) is dropped, so it does nothing instead of capturing late. Not one in the last 0.5 s before AppKit reports the close: the menu is fading out then (about 0.25 s after Esc, 0.35 s after a choice), so a shortcut pressed right after dismissing the menu still works.
 - Key order in all UI and docs follows macOS (⌃⌥⇧⌘, e.g. ⇧⌘4); older sections of this spec write ⌘⇧4, which means the same keys.
 - Opening Margin again while it runs opens Settings (or First run step 1 without permission). One copy runs at a time: a second copy (another path, `open -n`) asks the running one to do that and quits before registering a shortcut, restoring the shelf or touching ScreenCaptureKit. A copy that's still quitting (a relaunch, at most the 3 s quit wait) is waited for instead.
@@ -256,7 +268,9 @@ One window with three steps. It shows on first launch or whenever permission is 
 
 ## 8. Settings
 
-There are six settings, in one small SwiftUI window:
+Since 0.1.3 Settings is a native settings window with toolbar tabs, titled after the pane, each pane a grouped form as tall as its content (none taller than a small display; 0.1.2's single form was 853 pt): **General** (Saving & Clipboard: Save to, Copy each capture, Delete screenshots after pasting; Capturing: Shutter sound, Show key hints while capturing; Startup & Updates: Launch at login, Check for updates automatically), **Shortcuts** (Margin's recorders in the menu's order, with Capture window shown as "Space after ⇧⌘4"; then the macOS screenshot shortcuts' status with **Turn Off** or **Restore**) and **Recording** (Record system audio, Record microphone). Save to shows the folder by name, with its path as the tooltip. A toggle whose effect isn't obvious says it in a line under its title (Delete screenshots after pasting, Show key hints, Check for updates, the audio toggles). Section headers and buttons are title case, toggles sentence case. The Shortcuts footer: "Click a shortcut, then press the new keys. Each capture shortcut also works with ⌃ added (⌃⇧⌘4), since every shot is already copied." The window opens where it was left; the menu's shortcut warning opens it at Shortcuts.
+
+The settings, as first built (0.0.1 had six, in one small SwiftUI window):
 - **Save to** (folder picker).
 - **Copy each capture** (on).
 - **Shutter sound** (on).
@@ -382,6 +396,7 @@ The shelf shows up to 6 cards (was 4), fewer when they don't fit; see §4.
 - **While on**, a screenshot isn't saved to the Save to folder. Its PNG goes to `~/Library/Application Support/Margin/Pasteboard/` (same name, temp + rename, xattrs; Margin's own folder, so no privacy prompt), and it still goes on the shelf and, with Copy each capture, the clipboard. If that folder can't be written, the shot falls back to Unsaved as usual and is a normal file from then on.
 - **Pasted = read by another app as ⌘V or ⌃V is pressed.** The clipboard item is written with a data provider (`NSPasteboardItem.setDataProvider`) for `public.png` and `public.file-url`, kept on this Mac (`prepareForNewContents(with: .currentHostOnly)`), so Margin learns when another app reads it. A read of either type counts as a paste when ⌘ or ⌃ is held and a key went down at most 0.3 s before it and after the write, and the read is at least 0.15 s after the write (`CGEventSource`, combined session state, which needs no permission; `PasteKeys`): the card leaves the shelf (as after a drag-out, one ⌘Z step, with Restore Last Removed). A read with no paste keys held is someone looking (a clipboard manager, Spotlight's clipboard history, another device), not a paste, and the card stays. A shelf copy (click, ⌘C) of a Pasteboard shot re-arms it. A drag out of the shelf also counts, as for any card. A paste from the Edit menu doesn't count, nor one whose read comes after the keys are up or more than 0.3 s after the key (a slow ⌃V in a terminal); the card stays. Nor does a read while Margin itself has the keys (in front, or with a key window: ⌘V in Rename…), since the keys went to Margin, nor one followed by another app coming to the front once ⌘ is up (⌘Tab: a clipboard manager polling as Tab went down); so the card leaves only once ⌘ and ⌃ are let go.
 - **When a file goes.** A Pasteboard file is deleted only once nothing can reach it: its card has left the shelf, its ⌘Z step can no longer bring it back (pushed out by newer steps; quitting ends them all), at least 10 s have passed since a paste (30 s since a drop), so apps that read the file lazily still get it, and the clipboard no longer holds it (Margin's last write with it is no longer the pasteboard's, by change count). A dismissed card's file follows the same rule. A trashed card's file is in the Trash and is left there. Files of cards still on the shelf survive a relaunch; 30 s after a launch (so a paste or drop just before a quit still gets its 10 s or 30 s), files in that folder that no card holds (by path or bookmark), the clipboard doesn't offer and no set-aside `shelf.json.bad` names are deleted, and no others anywhere. Save to can't be the Pasteboard folder (it reads as the default).
+- **Close Shelf** (§4, since 0.1.3) keeps what wasn't pasted: each Pasteboard file of the cards it takes off moves into the Save to folder (Unsaved if that can't take it, with the usual toast) under its own name, ` (2)` when that's taken, and is a normal file from then on, whether or not the option is still on. Its ⌘Z step (or its card, if ⌘Z brought it back meanwhile) points at it there. A clipboard item watched for a paste offers the new file URL while it's still promised, without a new change count (`PasteWatch.relocate`). Once an app has read the file URL (or the write wasn't watched), the pasteboard keeps the one it has, so that shot is copied instead: the clipboard keeps offering the Pasteboard file, deleted once the clipboard moves on. A shot still being saved moves when its save lands, and a rename the close saved lands first. Never a file that's gone, nothing while the Pasteboard folder is a link, and nothing is ever replaced (`PasteboardShots.keep`).
 - **Turning it off** moves and deletes nothing: new shots go to Save to again, and copies are written as before (`setData`, no providers). Cards already holding Pasteboard files stay; a paste no longer takes them off the shelf, and their files go only once their cards are gone for good, by the rule above. Screen recordings are always saved.
 - **Off costs nothing:** the clipboard write, the save path and the shelf are as before, with no provider, observer or timer; retention runs on the ⌘V mark's existing one-second tick and does nothing while no file waits.
 - **Caveats (docs):** a clipboard manager that reads every copy (images included) gets the data first, after which a paste can't be told from it, so cards stay until dismissed. Pasteboard shots aren't offered to other devices through Universal Clipboard. Spotlight's clipboard history lists one only once it has been pasted, and keeps the entry after its file has gone.

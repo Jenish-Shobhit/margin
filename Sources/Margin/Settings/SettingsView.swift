@@ -2,35 +2,82 @@ import AppKit
 import MarginKit
 import SwiftUI
 
-/// The settings (spec §8) in a grouped form.
-struct SettingsView: View {
+/// The Settings window's panes (spec §8), as toolbar tabs: the window takes each one's height, so none is taller than a
+/// small display.
+enum SettingsPane: String, CaseIterable {
+    case general, shortcuts, recording
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .shortcuts: "Shortcuts"
+        case .recording: "Recording"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .general: "gearshape"
+        case .shortcuts: "keyboard"
+        case .recording: "record.circle"
+        }
+    }
+}
+
+/// One pane: a grouped form, as wide as every pane and as tall as its content.
+private struct SettingsPaneStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .formStyle(.grouped)
+            .scrollDisabled(true)
+            .frame(width: 480)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// General: where shots go and what happens to them, capturing, and the app itself. A toggle whose effect isn't obvious
+/// says it under its title.
+struct GeneralSettingsView: View {
     @Bindable var model: SettingsModel
     /// The hosting window, for the folder sheet.
     var window: () -> NSWindow?
 
     var body: some View {
         Form {
-            Section {
+            Section("Saving & Clipboard") {
+                // The folder by name, as Finder shows it in a path bar; where it is in the tooltip.
                 LabeledContent("Save to") {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 6) {
                         Image(nsImage: model.folderIcon)
                             .resizable()
                             .frame(width: 16, height: 16)
-                        Text(model.saveFolderDisplay)
+                            .accessibilityHidden(true)
+                        Text(model.saveFolder.lastPathComponent)
                             .lineLimit(1)
                             .truncationMode(.middle)
-                            .foregroundStyle(.secondary)
-                            .help(model.saveFolder.path)
+                            .help(model.saveFolderDisplay)
+                            .accessibilityLabel(model.saveFolderDisplay)
                         Button("Choose…") { model.chooseFolder(for: window()) }
+                            .accessibilityLabel("Choose a folder to save to")
                     }
                 }
                 Toggle("Copy each capture", isOn: Binding(get: { model.copyEachCapture }, set: model.setCopyEachCapture))
-                Toggle("Delete screenshots after pasting", isOn: Binding(get: { model.deletesAfterPasting }, set: model.setDeletesAfterPasting))
-                    .help("Screenshots aren’t saved to your folder. One you paste (⌘V) or drag into an app leaves the shelf. Its file is deleted once its card is off the shelf (pasted, dragged or dismissed) and Restore Last Removed can’t bring it back. Screen recordings are always saved.")
+                Toggle(isOn: Binding(get: { model.deletesAfterPasting }, set: model.setDeletesAfterPasting)) {
+                    Text("Delete screenshots after pasting")
+                    Text("Screenshots aren’t saved to your folder: one you paste or drag into an app is deleted once undo can’t bring it back.")
+                }
+                .help("Screenshots wait in Margin’s own folder. One you paste (⌘V) or drag into an app leaves the shelf, and its file is deleted once Restore Last Removed can’t bring it back. Close Shelf moves the ones you haven’t pasted into your folder. Screen recordings are always saved.")
+            }
+
+            Section("Capturing") {
                 Toggle("Shutter sound", isOn: Binding(get: { model.shutterSound }, set: model.setShutterSound))
-                Toggle("Show key hints while capturing", isOn: Binding(get: { model.showsCaptureHints }, set: model.setShowsCaptureHints))
-                Toggle("Check for updates automatically", isOn: Binding(get: { model.checksForUpdates }, set: model.setChecksForUpdates))
-                    .help("At launch and once a day, Margin asks GitHub for its latest release. Nothing about you is sent.")
+                Toggle(isOn: Binding(get: { model.showsCaptureHints }, set: model.setShowsCaptureHints)) {
+                    Text("Show key hints while capturing")
+                    Text("The bar of keys at the top of the screen.")
+                }
+            }
+
+            Section("Startup & Updates") {
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle("Launch at login", isOn: Binding(get: { model.launchAtLogin }, set: model.setLaunchAtLogin))
                     if model.loginNeedsApproval {
@@ -48,57 +95,99 @@ struct SettingsView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                Toggle(isOn: Binding(get: { model.checksForUpdates }, set: model.setChecksForUpdates)) {
+                    Text("Check for updates automatically")
+                    Text("At launch and once a day, from GitHub. Nothing about you is sent.")
+                }
             }
+        }
+        .modifier(SettingsPaneStyle())
+    }
+}
 
-            RecordingSection(model: model)
+/// Recording: screen recording's audio (spec §14.4), what the Mac plays and the microphone, both off until turned on
+/// here.
+struct RecordingSettingsView: View {
+    @Bindable var model: SettingsModel
 
+    var body: some View {
+        Form {
             Section {
-                ForEach(ShortcutAction.allCases, id: \.self) { action in
-                    ShortcutRow(model: model, action: action)
+                Toggle(isOn: Binding(get: { model.recordsSystemAudio }, set: model.setRecordsSystemAudio)) {
+                    Text("Record system audio")
+                    Text("What the Mac plays, without Margin’s own sounds.")
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(isOn: Binding(get: { model.recordsMicrophone }, set: model.setRecordsMicrophone)) {
+                        Text("Record microphone")
+                        // While macOS says no, why, in its place.
+                        Text(model.microphoneNote ?? "macOS asks for permission when you turn it on.")
+                    }
+                    if model.microphoneNote != nil {
+                        Button("Open Privacy Settings") { model.openMicrophoneSettings() }
+                            .buttonStyle(.link)
+                            .font(.caption)
+                    }
                 }
             } header: {
-                Text("Shortcuts")
+                Text("Audio")
             } footer: {
-                Text("Window capture: press Space after \(model.shortcut(for: .captureArea).displayString). \(model.shortcut(for: .recordScreen).displayString) again stops a recording. Adding ⌃ to any capture shortcut does the same thing.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .fixedSize(horizontal: false, vertical: true)
+                SettingsFooter("\(model.shortcut(for: .recordScreen).displayString) records an area, a window or the whole screen, and stops the recording. Recordings are saved as MP4 movies to your Save to folder.")
+            }
+        }
+        .modifier(SettingsPaneStyle())
+    }
+}
+
+/// Shortcuts: Margin's, each with its recorder, then the macOS screenshot shortcuts that take the same keys first.
+struct ShortcutsSettingsView: View {
+    @Bindable var model: SettingsModel
+
+    var body: some View {
+        Form {
+            Section {
+                ShortcutRow(model: model, action: .captureArea)
+                // Not a shortcut of its own: Space switches the area capture to windows.
+                LabeledContent("Capture window") {
+                    Text("Space after \(model.shortcut(for: .captureArea).displayString)")
+                        .foregroundStyle(.secondary)
+                }
+                ShortcutRow(model: model, action: .captureScreen)
+                ShortcutRow(model: model, action: .repeatArea)
+                ShortcutRow(model: model, action: .recordScreen, subtitle: "Press again to stop.")
+                ShortcutRow(model: model, action: .toggleShelf)
+            } header: {
+                Text("Margin")
+            } footer: {
+                SettingsFooter("Click a shortcut, then press the new keys. Each capture shortcut also works with ⌃ added (\(model.shortcut(for: .captureArea).withControl.displayString)), since every shot is already copied.")
             }
 
             Section {
                 SystemShortcutsRow(model: model)
+            } header: {
+                Text("macOS Screenshot Shortcuts")
+            } footer: {
+                SettingsFooter(model.anySystemShortcutOn
+                    ? "While these are on, macOS takes ⇧⌘3, ⇧⌘4 and ⇧⌘5 before Margin."
+                    : "Margin has ⇧⌘3, ⇧⌘4 and ⇧⌘5. Restore gives them back to macOS.")
             }
         }
-        .formStyle(.grouped)
-        .scrollDisabled(true)
-        .frame(width: 460)
-        .fixedSize(horizontal: false, vertical: true)
+        .modifier(SettingsPaneStyle())
     }
 }
 
-/// Screen recording's audio (spec §14.4): what the Mac plays, and the microphone, both off until turned on here. No
-/// header: the toggles say what they're for, and the window stays short enough for a small display.
-private struct RecordingSection: View {
-    let model: SettingsModel
+/// A section's footnote, wrapping under the section.
+private struct SettingsFooter: View {
+    let text: String
+
+    init(_ text: String) { self.text = text }
 
     var body: some View {
-        Section {
-            Toggle("Record system audio", isOn: Binding(get: { model.recordsSystemAudio }, set: model.setRecordsSystemAudio))
-            VStack(alignment: .leading, spacing: 4) {
-                Toggle("Record microphone", isOn: Binding(get: { model.recordsMicrophone }, set: model.setRecordsMicrophone))
-                if let note = model.microphoneNote {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(note)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Button("Open Privacy Settings") { model.openMicrophoneSettings() }
-                            .buttonStyle(.link)
-                    }
-                    .font(.caption)
-                }
-            }
-        }
+        Text(text)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -108,27 +197,21 @@ private struct SystemShortcutsRow: View {
     let model: SettingsModel
 
     var body: some View {
-        // Always two lines: the button title is too long to share a line with the status in a 460 pt window.
-        VStack(alignment: .leading, spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("macOS screenshot shortcuts")
+        VStack(alignment: .leading, spacing: 6) {
+            LabeledContent {
+                HStack(spacing: 8) {
+                    if model.systemShortcutsBusy {
+                        ProgressView()
+                            .controlSize(.small)
+                            .accessibilityLabel("Working")
+                    }
+                    Button(model.anySystemShortcutOn ? "Turn Off" : "Restore") { model.toggleSystemShortcuts() }
+                        .disabled(model.systemShortcutsBusy)
+                        .accessibilityLabel(model.anySystemShortcutOn ? "Turn off macOS screenshot shortcuts" : "Restore macOS screenshot shortcuts")
+                }
+            } label: {
                 Text(model.systemShortcutsStatus)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-            }
-            .accessibilityElement(children: .combine)
-            HStack(spacing: 8) {
-                Spacer(minLength: 0)
-                if model.systemShortcutsBusy {
-                    ProgressView()
-                        .controlSize(.small)
-                        .accessibilityLabel("Working")
-                }
-                Button(model.anySystemShortcutOn ? "Turn off macOS screenshot shortcuts" : "Restore macOS screenshot shortcuts") {
-                    model.toggleSystemShortcuts()
-                }
-                .disabled(model.systemShortcutsBusy)
             }
             if let error = model.systemShortcutsError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
@@ -145,11 +228,15 @@ private struct SystemShortcutsRow: View {
 private struct ShortcutRow: View {
     let model: SettingsModel
     let action: ShortcutAction
+    var subtitle: String?
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
-            LabeledContent(SettingsModel.title(for: action)) {
+            LabeledContent {
                 ShortcutRecorder(model: model, action: action)
+            } label: {
+                Text(SettingsModel.title(for: action))
+                if let subtitle { Text(subtitle) }
             }
             if let message = model.message, message.action == action {
                 Text(message.text)

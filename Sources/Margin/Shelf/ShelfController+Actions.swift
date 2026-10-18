@@ -3,8 +3,9 @@ import MarginKit
 
 /// One ⌘Z step: what left the shelf, and how to bring it back.
 struct ShelfUndoStep {
-    /// `paste`: pasted into another app while "Delete screenshots after pasting" is on (spec §14.2).
-    enum Kind { case dragOut, dismiss, clear, trash, paste }
+    /// `close`: Close Shelf, every card at once (spec §5). `paste`: pasted into another app while "Delete screenshots
+    /// after pasting" is on (spec §14.2).
+    enum Kind { case dragOut, dismiss, close, trash, paste }
     struct Trashed {
         let original: URL
         let trashed: URL
@@ -27,7 +28,7 @@ extension ShelfController {
     // MARK: - Focus and selection
 
     /// Makes the panel key without activating Margin, so the shelf keys work until the user clicks elsewhere.
-    /// Only for what needs those keys next (⌘-click, ✕, Rename…, Move to Trash, Clear shelf, the pile): a plain
+    /// Only for what needs those keys next (⌘-click, ✕, Rename…, Move to Trash, the pile): a plain
     /// click copies, and its ⌘V belongs to the app the user is in.
     func focusShelf() {
         keysWentElsewhere = false
@@ -109,6 +110,7 @@ extension ShelfController {
             if hoveredID == card.id { hoveredID = nil }
             card.setHovered(false)
         }
+        updateCloseButton()
     }
 
     func toggleSelection(_ id: UUID) {
@@ -373,21 +375,22 @@ extension ShelfController {
         }
     }
 
-    /// Renames the file on disk (off the main thread), then points the card at the new name.
+    /// Renames the file on disk (off the main thread), then points the card at the new name, or its ⌘Z step if it left
+    /// the shelf meanwhile (Close Shelf saves a rename in progress).
     func finishRename(_ id: UUID, _ text: String?) {
         guard let raw = text?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty,
               let item = item(for: id), !pending.contains(id) else { return }
         let name = raw.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
-        Task { [weak self] in
+        renames[id] = Task { [weak self] in
             let outcome = await Task.detached(priority: .userInitiated) { ShelfFiles.rename(item, to: name) }.value
             guard let self else { return }
+            self.renames[id] = nil
             switch outcome {
             case .renamed(let renamed):
-                guard var current = self.item(for: id) else { return }
-                current.path = renamed.path
-                current.bookmark = renamed.bookmark
-                self.store.update(current)
-                self.cards[id]?.update(item: current)
+                self.updateItem(id) {
+                    $0.path = renamed.path
+                    $0.bookmark = renamed.bookmark
+                }
             case .unchanged:
                 break
             case .exists(let taken):
@@ -414,9 +417,78 @@ extension ShelfController {
         removeItems(ids, kind: .dismiss, exit: exit)
     }
 
-    /// "Clear shelf" (pile menu and the DEBUG `clear` command). Undoable with ⌘Z.
-    func clear() {
-        removeItems(store.items.map(\.id), kind: .clear, exit: .collapse)
+    /// Close Shelf (the shelf's close button, the pile's menu, the menu bar, the DEBUG `clear` command): every card leaves
+    /// as one ⌘Z step and the shelf goes away, its tab too while tucked. The files stay where they are; a Pasteboard
+    /// shot's moves into the save folder (`onClosed`). As for a tuck, a rename in progress keeps what was typed, Quick
+    /// Look closes and the keys go back to the user's app: with the shelf gone, nothing on it needs them. Restore Last
+    /// Removed brings the cards back.
+    func close() {
+        guard !store.items.isEmpty else { return }
+        for card in cards.values where card.isRenaming { card.endRename(commit: true) }
+        clearSelection()
+        if root.isQuickLookOpen { closeQuickLook() } else { releaseKeys() }
+        // A shot still being saved moves once its save lands (`AppCoordinator.finishSave`), never from here: its file may
+        // be in place before the save is reported, which would then point the ⌘Z step and the clipboard back at the
+        // Pasteboard folder.
+        let saving = awaitingSave
+        let ids = store.items.map(\.id).filter { !saving.contains($0) }
+        removeItems(store.items.map(\.id), kind: .close, exit: .collapse)
+        showToast(Self.closedToast, isError: false, duration: Self.closedToastDuration)
+        // Not the cards ⌘Z has brought back meanwhile: they're on the shelf again, like any other.
+        let report = { [weak self] in
+            guard let self else { return }
+            self.onClosed?(ids.filter(self.wasClosed).compactMap { self.anyItem(for: $0) })
+        }
+        // Once the renames just saved are on disk, so a Pasteboard shot moves under its new name. Without any, at once:
+        // a quit straight after doesn't leave the files behind in the Pasteboard folder.
+        let renaming = Array(renames.values)
+        guard !renaming.isEmpty else { return report() }
+        Task {
+            for rename in renaming { await rename.value }
+            report()
+        }
+    }
+
+    static let closedToast = "Shelf closed · Restore Last Removed brings it back"
+    /// Two lines: a little longer than the usual toast.
+    static let closedToastDuration: TimeInterval = 2.4
+
+    /// Whether this card left with Close Shelf and hasn't come back: a Pasteboard shot of it still being saved moves into
+    /// the save folder once it lands.
+    func wasClosed(_ id: UUID) -> Bool {
+        guard item(for: id) == nil else { return false }
+        return undoStack.last { $0.removals.contains { $0.item.id == id } }?.kind == .close
+    }
+
+    /// The item as it is now, on the shelf or in the ⌘Z step that would bring it back.
+    func anyItem(for id: UUID) -> ShelfItem? {
+        item(for: id) ?? undoStack.lazy.reversed().compactMap { $0.removals.first { $0.item.id == id }?.item }.first
+    }
+
+    /// Changes an item wherever it is: on the shelf (its card too), or in the ⌘Z steps that would bring it back.
+    func updateItem(_ id: UUID, _ change: (inout ShelfItem) -> Void) {
+        if var current = item(for: id) {
+            change(&current)
+            store.update(current)
+            cards[id]?.update(item: current)
+            return
+        }
+        for i in undoStack.indices {
+            undoStack[i].removals = undoStack[i].removals.map { r in
+                guard r.item.id == id else { return r }
+                var item = r.item
+                change(&item)
+                return ShelfStore.Removal(index: r.index, item: item)
+            }
+        }
+    }
+
+    /// Not in the ShelfControlling contract: Close Shelf moved this item's file (`AppCoordinator.keepClosedShots`).
+    func relocate(_ id: UUID, to moved: ShelfItem) {
+        updateItem(id) {
+            $0.path = moved.path
+            $0.bookmark = moved.bookmark
+        }
     }
 
     /// Move to Trash (off the main thread), keeping where each file went so ⌘Z can put it back.

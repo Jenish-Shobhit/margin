@@ -179,6 +179,18 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         warningDot.frame = NSRect(x: (cx - d / 2).rounded(), y: (cy - d / 2).rounded(), width: d, height: d)
     }
 
+    #if DEBUG || MARGIN_BENCH
+    /// DEBUG `show menu`: opens the menu as a click on the icon does, and closes it after `seconds` (the menu tracks
+    /// modally, so the timer runs in the run loop's common modes).
+    func debugShowMenu(seconds: Double) {
+        let timer = Timer(timeInterval: seconds, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.menu.cancelTracking() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        statusItem.button?.performClick(nil)
+    }
+    #endif
+
     // MARK: - NSMenuDelegate
 
     /// What gives the shelf's keys back once the menu has closed (`ShelfController.menuOpening`).
@@ -222,6 +234,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     // MARK: - Building
 
+    /// In groups (spec §6): what needs attention first (Stop Recording, then the warnings), the captures, the shelf, the
+    /// files, and Margin itself, with Quit on its own.
     private func rebuild() {
         menu.removeAllItems()
         let prefs = Preferences.shared
@@ -233,21 +247,26 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
                               combo: prefs.shortcut(for: .recordScreen)))
             menu.addItem(.separator())
         }
+        var warnings: [NSMenuItem] = []
         if let warning = Self.hotkeyWarning(coordinator?.hotkeyFailures ?? []) {
-            menu.addItem(item("\(warning) — Change in Settings…", symbol: "exclamationmark.triangle",
-                              action: #selector(openSettings)))
-            menu.addItem(.separator())
+            warnings.append(item("\(warning) — Change in Settings…", symbol: "exclamationmark.triangle",
+                                 action: #selector(openShortcutSettings)))
         }
         if showsWarning {
-            menu.addItem(item("Allow Screen Recording…", symbol: "exclamationmark.triangle", action: #selector(allowScreenRecording)))
+            warnings.append(item("Allow Screen Recording…", symbol: "exclamationmark.triangle", action: #selector(allowScreenRecording)))
             // Revoked while running: macOS usually only hands the permission back to a fresh process.
             if RuntimeStatus.shared.screenRecordingRevoked {
-                menu.addItem(item("Relaunch Margin", symbol: "arrow.triangle.2.circlepath", action: #selector(relaunch)))
+                warnings.append(item("Relaunch Margin", symbol: "arrow.triangle.2.circlepath", action: #selector(relaunch)))
             }
-        } else {
-            menu.addItem(item("Capture Area", symbol: "rectangle.dashed", action: #selector(captureArea),
-                              combo: prefs.shortcut(for: .captureArea)))
         }
+        if !warnings.isEmpty {
+            warnings.forEach(menu.addItem)
+            menu.addItem(.separator())
+        }
+
+        // The captures. Without permission, each opens First run's permission step instead.
+        menu.addItem(item("Capture Area", symbol: "rectangle.dashed", action: #selector(captureArea),
+                          combo: prefs.shortcut(for: .captureArea)))
         menu.addItem(item("Capture Window", symbol: "macwindow", action: #selector(captureWindow)))
         menu.addItem(item("Capture Screen", symbol: "display", action: #selector(captureScreen),
                           combo: prefs.shortcut(for: .captureScreen)))
@@ -258,23 +277,31 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
                               combo: prefs.shortcut(for: .recordScreen)))
         }
         menu.addItem(.separator())
+
+        // The shelf. An empty one has nothing to tuck (⇧⌘1 does nothing then either) or close.
         let tucked = coordinator?.isShelfTucked ?? false
         let toggle = item(tucked ? "Show Shelf" : "Tuck Shelf", symbol: "sidebar.right", action: #selector(toggleShelf),
                           combo: prefs.shortcut(for: .toggleShelf))
-        // An empty shelf has nothing to tuck (⇧⌘1 does nothing then either).
         toggle.isEnabled = coordinator?.shelf.canToggleTucked ?? false
         menu.addItem(toggle)
+        let close = item("Close Shelf", symbol: "xmark.circle", action: #selector(closeShelf))
+        close.isEnabled = coordinator?.canCloseShelf ?? false
+        menu.addItem(close)
         let restore = item("Restore Last Removed", symbol: "arrow.uturn.backward", action: #selector(restoreLastRemoved))
         restore.isEnabled = coordinator?.canRestoreLastRemoved ?? false
         menu.addItem(restore)
+        menu.addItem(.separator())
+
+        // The files.
         menu.addItem(item("Open Screenshots Folder", symbol: "folder", action: #selector(openFolder)))
         // Only while shots are waiting there, because the save folder couldn't be written.
         if coordinator?.hasUnsavedShots == true {
             menu.addItem(item(UnsavedShots.menuItemTitle, symbol: "tray.full", action: #selector(showUnsaved)))
         }
         menu.addItem(.separator())
-        // Quiet: no warning symbol or dot. The welcome window closes after the first shot, so this is how
-        // someone who skipped step 2 finds it again.
+
+        // Margin itself. The shortcut item is quiet: no warning symbol or dot. The welcome window closes after the first
+        // shot, so this is how someone who skipped step 2 finds it again.
         if let title = Self.systemConflictTitle(systemConflicts) {
             menu.addItem(item(title, symbol: "keyboard", action: #selector(fixShortcuts)))
         }
@@ -282,8 +309,9 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         settings.keyEquivalent = ","
         settings.keyEquivalentModifierMask = .command
         menu.addItem(settings)
-        menu.addItem(item("About Margin \(Self.version)", symbol: "info.circle", action: #selector(about)))
         menu.addItem(item("Check for Updates…", symbol: "arrow.down.circle", action: #selector(checkForUpdates)))
+        menu.addItem(item("About Margin \(Self.version)", symbol: "info.circle", action: #selector(about)))
+        menu.addItem(.separator())
         let quit = item("Quit Margin", symbol: "power", action: #selector(quit))
         quit.keyEquivalent = "q"
         quit.keyEquivalentModifierMask = .command
@@ -324,10 +352,12 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func recordScreen() { afterMenuCloses { [weak self] in self?.coordinator?.toggleRecording() } }
     @objc private func stopRecording() { coordinator?.stopRecording() }
     @objc private func toggleShelf() { coordinator?.toggleShelf() }
+    @objc private func closeShelf() { coordinator?.closeShelf() }
     @objc private func restoreLastRemoved() { coordinator?.restoreLastRemoved() }
     @objc private func openFolder() { coordinator?.openScreenshotsFolder() }
     @objc private func showUnsaved() { coordinator?.showUnsavedShots() }
     @objc private func openSettings() { coordinator?.showSettings() }
+    @objc private func openShortcutSettings() { coordinator?.showSettings(.shortcuts) }
     @objc private func fixShortcuts() { coordinator?.showShortcutsStep() }
     @objc private func about() { coordinator?.showAbout() }
     @objc private func checkForUpdates() { UpdateController.shared.checkForUpdates() }

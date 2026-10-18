@@ -260,4 +260,47 @@ import Testing
         #expect(w.isFinished)
         #expect(w.changeCount != pb.changeCount)
     }
+    /// Close Shelf moved the shot into the save folder: while the file URL is still promised, the clipboard offers it
+    /// there, without a new change count. Once the pasteboard has it, it can't be pointed elsewhere (other apps keep
+    /// reading the old one), so Close Shelf copies that shot instead (`canRelocate`).
+    @Test func aMovedFileIsOfferedWhereItIsNow() {
+        let moved = URL(fileURLWithPath: "/Users/me/Desktop/Screenshots/Screenshot 2026-10-17 at 10.00.00.png")
+        let pb = NSPasteboard.withUniqueName()
+        defer { pb.releaseGlobally() }
+        let w = watch(Keys())
+        let count = w.write([.init(id: a, png: shot, fileURL: url)], to: pb)
+        #expect(w.canRelocate(url))
+        #expect(!w.canRelocate(moved))
+        w.relocate(from: url, to: moved)                  // still promised
+        #expect(pb.pasteboardItems?.first?.string(forType: .fileURL) == moved.absoluteString)
+        #expect(pb.changeCount == count)
+
+        let pb2 = NSPasteboard.withUniqueName()
+        defer { pb2.releaseGlobally() }
+        let w2 = watch(Keys())
+        w2.write([.init(id: a, png: shot, fileURL: url)], to: pb2)
+        #expect(pb2.pasteboardItems?.first?.string(forType: .fileURL) == url.absoluteString)   // given
+        #expect(!w2.canRelocate(url))
+
+        let pb3 = NSPasteboard.withUniqueName()
+        defer { pb3.releaseGlobally() }
+        let w3 = watch(Keys())
+        w3.write([.init(id: a, png: shot, fileURL: url)], to: pb3)
+        pb3.clearContents()                               // something else was copied
+        #expect(!w3.canRelocate(url))
+    }
+
+    @Test func aMoveAfterAnotherCopyLeavesTheClipboardAlone() {
+        let moved = URL(fileURLWithPath: "/Users/me/Desktop/Screenshots/a.png")
+        let pb = NSPasteboard.withUniqueName()
+        defer { pb.releaseGlobally() }
+        let w = watch(Keys())
+        w.write([.init(id: a, png: shot, fileURL: url)], to: pb)
+        _ = pb.pasteboardItems?.first?.string(forType: .fileURL)
+        pb.clearContents()
+        pb.setString("something else", forType: .string)
+        w.relocate(from: url, to: moved)
+        #expect(pb.string(forType: .string) == "something else")
+        #expect(pb.pasteboardItems?.first?.string(forType: .fileURL) == nil)
+    }
 }

@@ -12,9 +12,10 @@ import os
 ///   capture-area x y w h   capture a rect in AppKit global points, no overlay
 ///   capture-screen         the display under the pointer
 ///   toggle-shelf           tuck / show the shelf
-///   clear                  remove every item from the shelf (undoable)
+///   clear                  Close Shelf: every card off the shelf, files kept (undoable)
 ///   dismiss [n]            remove the n newest cards (default 1) as one undo step, as ✕ does but keeping the keys
 ///   restore-last           the menu's Restore Last Removed (the shelf's ⌘Z)
+///   hover-shelf [off]      as if the pointer were on the newest card, or had left it: its hover chrome and Close Shelf
 ///   copy [n]               click the n-th newest card (default 1): the shelf's copy
 ///   dump-state             write the state as JSON to /tmp/margin-state.json
 ///   record-area x y w h    record a rect in AppKit global points, no overlay
@@ -28,7 +29,9 @@ import os
 ///                          with `window=`, only if that's the window it would pick there (otherwise the overlay closes)
 ///   cancel                 close the live overlay, as Esc does
 ///   key space|return|escape  that key in the live overlay (Space: window mode; ↩: capture, or record the whole display)
-///   show settings|first-run|shortcuts|none  open Settings, First run, or First run at its shortcuts step; or close them
+///   show settings [pane]|first-run|shortcuts|none  open Settings (on general, shortcuts or recording), First run, or
+///                          First run at its shortcuts step; or close them
+///   show menu [seconds]    open the menu bar menu, and close it after that long (default 4)
 ///   mark <text>            log `mark: <text>` in the timing category (`scripts/bench.sh` tells captures apart by it)
 ///   recording-fault …      DEBUG only: a fault in the recording under way (`RecordingDebugCommands`)
 /// The overlay commands call the session's mouse handlers in-process: no event reaches any other app.
@@ -72,12 +75,16 @@ final class DebugCommandListener: NSObject {
         case "toggle-shelf":
             coordinator.toggleShelf()
         case "clear":
-            coordinator.clearShelf()
+            coordinator.closeShelf()
         case "dismiss":
             let count = parts.count > 1 ? Int(parts[1]) ?? 1 : 1
             coordinator.shelf.dismiss(coordinator.store.items.suffix(max(count, 0)).map(\.id), exit: .collapse)
         case "restore-last":
             coordinator.restoreLastRemoved()
+        case "hover-shelf":
+            // As if the pointer were on the newest card (or had left it): its hover chrome and the close button.
+            guard let id = coordinator.store.items.last?.id, let card = coordinator.shelf.cards[id] else { return }
+            coordinator.shelf.cardHover(card, inside: parts.count < 2 || parts[1] != "off")
         case "copy":
             let n = parts.count > 1 ? Int(parts[1]) ?? 1 : 1
             let items = coordinator.store.items
@@ -153,11 +160,15 @@ final class DebugCommandListener: NSObject {
             }
         case "show":
             switch parts.dropFirst().first {
-            case "settings": coordinator.showSettings()
+            case "settings": coordinator.showSettings(parts.count > 2 ? SettingsPane(rawValue: parts[2]) : nil)
             case "first-run": FirstRunWindowController.shared.show()
             case "shortcuts": coordinator.showShortcutsStep()
-            case "none": for window in NSApp.windows where window.isVisible && window.level == .normal { window.close() }
-            default: Self.log.error("usage: show settings|first-run|shortcuts|none")
+            case "menu": coordinator.menuBar?.debugShowMenu(seconds: parts.count > 2 ? Double(parts[2]) ?? 4 : 4)
+            case "none":
+                for window in NSApp.windows where window.isVisible && window.level == .normal { window.close() }
+                // As when a window of Margin's closes by hand: the app that was in front gets the keys back.
+                if NSApp.isActive { NSApp.deactivate() }
+            default: Self.log.error("usage: show settings [general|shortcuts|recording]|first-run|shortcuts|menu [seconds]|none")
             }
         case "mark":
             let text = parts.dropFirst().joined(separator: " ")
@@ -294,6 +305,11 @@ final class DebugCommandListener: NSObject {
                 return ["live": true, "inPile": card.isInPile, "thumbnail": card.thumbnail != nil]
             },
             "isTucked": c.shelf.isTucked,
+            "shelfPanel": [
+                "visible": c.shelf.panel.isVisible,
+                "windowNumber": c.shelf.panel.windowNumber,
+                "closeButtonShown": c.shelf.closeButton.isShown,
+            ] as [String: Any],
             "lastToast": c.shelf.debugLastToast ?? NSNull(),
             "markedItemID": c.shelf.markedItemID?.uuidString ?? NSNull(),
             "clipboardMarkItemID": c.mark.itemID?.uuidString ?? NSNull(),

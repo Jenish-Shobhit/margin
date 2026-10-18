@@ -189,9 +189,10 @@ scripts/build.sh --debug --install --run
 scripts/debug.sh capture-area 100 100 400 300   # x y w h in AppKit global points, no overlay
 scripts/debug.sh capture-screen                 # the display under the pointer
 scripts/debug.sh toggle-shelf                   # tuck / show
-scripts/debug.sh clear                          # empty the shelf (undoable)
+scripts/debug.sh clear                          # Close Shelf: every card off, files kept (undoable)
 scripts/debug.sh dismiss 4                      # the 4 newest cards off the shelf (undoable)
 scripts/debug.sh restore-last                   # Restore Last Removed
+scripts/debug.sh hover-shelf [off]              # as if the pointer were on the newest card: Close Shelf shows
 scripts/debug.sh record-area 100 100 800 500    # record a rect (AppKit global points), no overlay
 scripts/debug.sh record-screen                  # record the display under the pointer
 scripts/debug.sh record-window 1234             # record that window (its window number)
@@ -210,7 +211,7 @@ scripts/debug.sh dump-state                     # print the state as JSON
   - the recording (`recording`: its state, target, encoded size, fps, bit rate, temp file, frames written and dropped, the recorders not yet freed, `recordersAlive`, and the last one's duration, how it ended, `finished`, `failed` or `timedOut`, and its error), each item's kind (`itemKinds`) and the status item (`statusItem`: its title, whether it shows the recording glyph, the menu's items);
   - Delete screenshots after pasting (`pasteboard`: the setting, the watched clipboard write and each read of it, with how long after the write, whether ⌘ and ⌃ were held and how long before it a key went down, the files waiting to be deleted, the clipboard's Pasteboard files and the undo steps).
 - To check visuals, take a `screencapture -x`: it sees the shelf, while Margin's own captures never do.
-- `scripts/bench.sh` also uses `hotkey <action>`, `capture-window`, `select x y w h`, `click x y [window=<id>]`, `key space|return|escape`, `cancel` and `mark <text>`, which drive a live overlay in-process (see `DebugCommandListener.swift`); `click … window=<id>` clicks only if that window is the one window mode would pick there, so a test never captures or records another app's window. `copy [n]` copies the n-th newest card as a click does, and `show settings|first-run|shortcuts|none` opens or closes Margin's windows.
+- `scripts/bench.sh` also uses `hotkey <action>`, `capture-window`, `select x y w h`, `click x y [window=<id>]`, `key space|return|escape`, `cancel` and `mark <text>`, which drive a live overlay in-process (see `DebugCommandListener.swift`); `click … window=<id>` clicks only if that window is the one window mode would pick there, so a test never captures or records another app's window. `copy [n]` copies the n-th newest card as a click does, and `show settings [general|shortcuts|recording]|first-run|shortcuts|none` opens or closes Margin's windows (`show menu [seconds]` opens the menu bar menu for that long, for a screenshot of it).
 - Debug builds (not bench builds) also take `recording-fault fail|crash|hang-stream|hang-finish|limit <bytes>|limit off`, which make the recording under way go wrong as a full disk, a crash, a `stopCapture` or `finishWriting` that never answers, or a FAT32 disk's file size limit would (`RecordingDebugCommands.swift`); [QA › Screen recording](QA.md#screen-recording-144) uses them.
 
 **Any process running as your user can post that notification.** A debug build can therefore be made to capture the screen, clear the shelf or write its state to `/tmp`. That's why:

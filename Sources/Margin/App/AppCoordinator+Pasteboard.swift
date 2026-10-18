@@ -18,6 +18,54 @@ extension AppCoordinator {
         shelf.onUndoExpired = { [weak self] steps in self?.undoStepsExpired(steps) }
         shelf.onClipboardFiles = { [weak self] files, changeCount in self?.clipboardHolds(files, changeCount: changeCount) }
         shelf.writeWatchedCopy = { [weak self] copied in self?.writeWatchedCopy(copied) }
+        shelf.onClosed = { [weak self] items in self?.keepClosedShots(items) }
+    }
+
+    // MARK: - Closed
+
+    /// Close Shelf keeps every file it takes off the shelf (spec §5), so the Pasteboard shots among them, which would go
+    /// once undo can't bring their cards back, move into the save folder (Unsaved if it can't take them) and are normal
+    /// files from then on, whether or not the option is still on. Their ⌘Z step (or their cards, if ⌘Z has brought them
+    /// back meanwhile) and the clipboard follow. A shot still being saved follows when its save lands (`finishSave`).
+    /// One whose file URL the clipboard can't be pointed away from (an app has read it, or the write wasn't watched) is
+    /// copied instead: the clipboard keeps offering the Pasteboard file, which goes once the clipboard moves on.
+    func keepClosedShots(_ items: [ShelfItem]) {
+        let shots = items.filter { PasteboardShots.isInFolder($0.path) }
+        guard !shots.isEmpty else { return }
+        let folder = prefs.saveFolder, fallback = Preferences.fallbackSaveFolder
+        let onClipboard = clipboardFiles?.paths(at: NSPasteboard.general.changeCount) ?? []
+        let fixed = Set(onClipboard.map { URL(fileURLWithPath: $0) }
+            .filter { !(pasteWatch?.canRelocate($0) ?? false) }.map(\.standardizedFileURL.path))
+        // A quit waits for the moves as for a save: a shot left in the Pasteboard folder, with no card, would go at the
+        // next launch.
+        savesInFlight += 1
+        Task { [weak self] in
+            let kept = await ShelfFiles.keep(shots, in: folder, fallback: fallback, copying: fixed)
+            guard let self else { return }
+            defer { saveFinished() }
+            guard !kept.isEmpty else { return }
+            for k in kept {
+                shelf.relocate(k.item.id, to: k.item)
+                if k.copied {
+                    // Nothing holds the old file but the clipboard now.
+                    retention.add(k.old.path, notBefore: Date())
+                } else {
+                    pasteWatch?.relocate(from: k.old, to: k.item.url)
+                }
+            }
+            if kept.contains(where: \.copied) { deletePasteboardFilesDue() }
+            // The moved ones are no longer Pasteboard files: nothing to keep for the clipboard.
+            let moved = Set(kept.filter { !$0.copied }.map(\.old.path))
+            if let files = clipboardFiles, files.paths.contains(where: moved.contains) {
+                let rest = files.paths.filter { !moved.contains($0) }
+                clipboardFiles = rest.isEmpty ? nil : PasteboardShots.ClipboardFiles(changeCount: files.changeCount, paths: rest)
+                prefs.pasteboardClipboard = clipboardFiles
+            }
+            if kept.contains(where: \.inUnsaved) {
+                didSaveToUnsaved()
+                shelf.showToast(UnsavedShots.fallbackToast(saveFolder: folder), isError: true, duration: Self.fallbackToastDuration)
+            }
+        }
     }
 
     // MARK: - Pasted
@@ -90,7 +138,7 @@ extension AppCoordinator {
         switch kind {
         case .paste: .pasted
         case .dragOut: .dropped
-        case .dismiss, .clear, .trash: .removed
+        case .dismiss, .close, .trash: .removed
         }
     }
 

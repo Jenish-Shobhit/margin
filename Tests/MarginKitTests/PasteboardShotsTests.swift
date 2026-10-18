@@ -219,3 +219,98 @@ import Testing
         #expect(other.contents().count == 1)
     }
 }
+
+/// Close Shelf moves the Pasteboard shots it takes off the shelf into the save folder (spec §5).
+@Suite struct PasteboardKeepTests {
+    @Test func aShotMovesIntoTheSaveFolderUnderItsName() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let pasteboard = dir.url.appendingPathComponent("Pasteboard")
+        let save = dir.url.appendingPathComponent("Screenshots")   // missing: it's created
+        try FileManager.default.createDirectory(at: pasteboard, withIntermediateDirectories: true)
+        let shot = pasteboard.appendingPathComponent("Screenshot 2026-10-18 at 10.00.00.png")
+        try Data("png".utf8).write(to: shot)
+
+        let kept = try PasteboardShots.keep(shot.path, in: save, pasteboardFolder: pasteboard)
+        #expect(kept?.lastPathComponent == "Screenshot 2026-10-18 at 10.00.00.png")
+        #expect(kept?.deletingLastPathComponent().standardizedFileURL == save.standardizedFileURL)
+        #expect(!FileManager.default.fileExists(atPath: shot.path))
+        #expect(try Data(contentsOf: try #require(kept)) == Data("png".utf8))
+    }
+
+    /// The clipboard still offers the Pasteboard file and can't be pointed elsewhere: it's copied, and stays.
+    @Test func aShotTheClipboardHoldsIsCopied() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let pasteboard = dir.url.appendingPathComponent("Pasteboard")
+        let save = dir.url.appendingPathComponent("Screenshots")
+        for folder in [pasteboard, save] { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
+        let name = "Screenshot 2026-10-18 at 10.00.00.png"
+        let shot = pasteboard.appendingPathComponent(name)
+        try Data("png".utf8).write(to: shot)
+        try Data("old".utf8).write(to: save.appendingPathComponent(name))
+
+        let kept = try PasteboardShots.keep(shot.path, in: save, copying: true, pasteboardFolder: pasteboard)
+        #expect(kept?.lastPathComponent == "Screenshot 2026-10-18 at 10.00.00 (2).png")
+        #expect(try Data(contentsOf: shot) == Data("png".utf8))
+        #expect(try Data(contentsOf: try #require(kept)) == Data("png".utf8))
+        #expect(try Data(contentsOf: save.appendingPathComponent(name)) == Data("old".utf8))
+    }
+
+    @Test func aTakenNameGetsANumberAndNothingIsReplaced() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let pasteboard = dir.url.appendingPathComponent("Pasteboard")
+        let save = dir.url.appendingPathComponent("Screenshots")
+        for folder in [pasteboard, save] { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
+        let name = "Screenshot 2026-10-18 at 10.00.00.png"
+        try Data("old".utf8).write(to: save.appendingPathComponent(name))
+        try Data("old 2".utf8).write(to: save.appendingPathComponent("Screenshot 2026-10-18 at 10.00.00 (2).png"))
+        try Data("new".utf8).write(to: pasteboard.appendingPathComponent(name))
+
+        let kept = try PasteboardShots.keep(pasteboard.appendingPathComponent(name).path, in: save, pasteboardFolder: pasteboard)
+        #expect(kept?.lastPathComponent == "Screenshot 2026-10-18 at 10.00.00 (3).png")
+        #expect(try Data(contentsOf: save.appendingPathComponent(name)) == Data("old".utf8))
+        #expect(try Data(contentsOf: try #require(kept)) == Data("new".utf8))
+    }
+
+    @Test func onlyPasteboardFilesThatAreStillThereMove() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let pasteboard = dir.url.appendingPathComponent("Pasteboard")
+        let save = dir.url.appendingPathComponent("Screenshots")
+        for folder in [pasteboard, save] { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
+        // A normal file (in Save to, in Unsaved) stays where it is.
+        let normal = save.appendingPathComponent("a.png")
+        try Data("a".utf8).write(to: normal)
+        #expect(try PasteboardShots.keep(normal.path, in: save, pasteboardFolder: pasteboard) == nil)
+        #expect(FileManager.default.fileExists(atPath: normal.path))
+        // Gone already (moved by an earlier close): nothing to do.
+        #expect(try PasteboardShots.keep(pasteboard.appendingPathComponent("b.png").path, in: save, pasteboardFolder: pasteboard) == nil)
+    }
+
+    @Test func aLinkedPasteboardFolderIsLeftAlone() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let save = dir.url.appendingPathComponent("Screenshots")
+        try FileManager.default.createDirectory(at: save, withIntermediateDirectories: true)
+        let link = dir.url.appendingPathComponent("Pasteboard")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: save)
+        try Data("a".utf8).write(to: save.appendingPathComponent("a.png"))
+        #expect(try PasteboardShots.keep(link.appendingPathComponent("a.png").path, in: save, pasteboardFolder: link) == nil)
+        #expect(FileManager.default.fileExists(atPath: save.appendingPathComponent("a.png").path))
+    }
+
+    @Test func aFolderThatCantBeWrittenThrows() throws {
+        let dir = try TempDir()
+        defer { dir.remove() }
+        let pasteboard = dir.url.appendingPathComponent("Pasteboard")
+        try FileManager.default.createDirectory(at: pasteboard, withIntermediateDirectories: true)
+        let shot = pasteboard.appendingPathComponent("a.png")
+        try Data("a".utf8).write(to: shot)
+        // A file where the folder should be.
+        let blocked = try dir.file("Screenshots")
+        #expect(throws: (any Error).self) { try PasteboardShots.keep(shot.path, in: blocked, pasteboardFolder: pasteboard) }
+        #expect(FileManager.default.fileExists(atPath: shot.path))
+    }
+}

@@ -62,12 +62,13 @@ Every capture is saved to disk, copied to the clipboard and put on a shelf of th
 - Drag a card into Finder, Slack, Chrome, WhatsApp, Terminal or any other app. It leaves the shelf when the drop lands; the file is never moved or deleted.
 - Click to copy again, Space for Quick Look, double-click to open. Rename, Reveal in Finder, Copy Path and Move to Trash are in each card's menu.
 - ⌘Z (or **Restore Last Removed** in the menu bar) brings back the last 20 removals, including files you moved to the Trash.
+- Done with them for now? **✕ Close Shelf**, above the top card, takes every card off at once; the files stay in your folder, and Restore Last Removed brings them back.
 - ⇧⌘1 tucks the shelf into a small tab. It never takes focus from the app you're in, and it's there on every Space and over full-screen apps.
 - Follows files you rename or move in Finder.
 
 **The app**
 
-- Menu bar only, with no Dock icon. A three-step first-run guide, a short Settings window and launch at login.
+- Menu bar only, with no Dock icon. A three-step first-run guide, a Settings window with General, Shortcuts and Recording panes, and launch at login.
 - Supports light and dark mode, Reduce Motion and Reduce Transparency.
 
 ## Install
@@ -167,7 +168,7 @@ Each capture (with **Copy each capture** on) and each copy from the shelf puts o
 
 ## Settings
 
-Open **Settings…** from the menu bar icon.
+Open **Settings…** from the menu bar icon. It has three panes: **General** (the first seven below), **Recording** (the audio) and **Shortcuts**.
 
 ![Margin Settings](docs/images/settings.png)
 
@@ -184,7 +185,7 @@ Open **Settings…** from the menu bar icon.
 | Record microphone | Off | Recordings include the microphone; turning it on asks for permission |
 | Shortcuts | ⇧⌘4 · ⇧⌘3 · ⇧⌘2 · ⇧⌘1 · ⇧⌘5 | Capture area, Capture screen, Repeat last area, Show or tuck shelf, Record screen |
 
-Under the shortcuts, **macOS screenshot shortcuts** shows whether macOS still owns ⇧⌘3, ⇧⌘4 and ⇧⌘5. It has a button to turn them off, or to restore them once they're all off.
+Under the shortcuts, **macOS Screenshot Shortcuts** shows whether macOS still owns ⇧⌘3, ⇧⌘4 and ⇧⌘5, with **Turn Off**, or **Restore** once they're all off.
 
 ## Privacy
 
@@ -198,13 +199,13 @@ Margin works entirely on your Mac. It has no analytics, no telemetry and no acco
 | Diagnostics (timings, saved file names, errors) | The macOS unified log, subsystem `io.github.jenish-shobhit.margin`, like any app's logs |
 
 - Margin asks for Screen Recording. macOS also asks before it first writes to your Desktop folder, and for the microphone only if you turn on **Record microphone**. Recordings stay on your Mac like screenshots.
-- It changes the macOS screenshot shortcuts (`com.apple.symbolichotkeys`) only when you click **Turn off for me**, **Turn off macOS screenshot shortcuts** or **Restore macOS screenshot shortcuts**.
+- It changes the macOS screenshot shortcuts (`com.apple.symbolichotkeys`) only when you click **Turn off for me** (first run), or **Turn Off** or **Restore** in Settings › Shortcuts.
 - [SECURITY.md](SECURITY.md) lists everything the app touches.
 
 ## Uninstall
 
-1. **Restore the macOS screenshot shortcuts first.** Open Margin's Settings and click **Restore macOS screenshot shortcuts**. If the button reads "Turn off…" instead, some are already on; turn the others back on in System Settings › Keyboard › Keyboard Shortcuts… › Screenshots.
-2. In the same window, turn off **Launch at login**. That removes the login item.
+1. **Restore the macOS screenshot shortcuts first.** Open Margin's Settings, go to **Shortcuts** and click **Restore** under macOS Screenshot Shortcuts. If the button reads **Turn Off** instead, some are already on; turn the others back on in System Settings › Keyboard › Keyboard Shortcuts… › Screenshots.
+2. In **General**, turn off **Launch at login**. That removes the login item.
 3. Quit Margin from its menu bar icon (**Quit Margin**).
 4. Delete `/Applications/Margin.app`.
 5. Remove its data and preferences. Look in `Unsaved` for any screenshots you want to keep first.

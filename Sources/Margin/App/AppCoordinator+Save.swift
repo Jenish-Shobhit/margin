@@ -253,7 +253,7 @@ extension AppCoordinator {
             shelf.itemDidSave(current)
         } else {
             shelf.itemDidSave(saved)
-            savedWithoutCard(saved)
+            if shelf.wasClosed(itemID) { keepClosedShots([saved]) } else { savedWithoutCard(saved) }
         }
         if outcome.usedFallback {
             Self.log.error(

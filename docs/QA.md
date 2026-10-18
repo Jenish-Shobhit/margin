@@ -4,7 +4,7 @@ Manual checks for every release (spec §12), kept in step with Margin 0.1.2. Run
 
 Debug builds can drive captures and recordings without a mouse: `scripts/debug.sh capture-area x y w h`, `capture-screen`, `record-area x y w h`, `record-screen`, `record-window <id>`, `stop-recording`, `toggle-shelf`, `clear` and `dump-state`. See [building.md](building.md#the-debug-hook).
 
-Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off for me**, or Settings › **Turn off macOS screenshot shortcuts**) so it receives ⇧⌘3, ⇧⌘4 and ⇧⌘5.
+Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off for me**, or Settings › Shortcuts › **Turn Off**) so it receives ⇧⌘3, ⇧⌘4 and ⇧⌘5.
 
 ## Build and launch
 
@@ -192,7 +192,7 @@ Before starting, hand the screenshot shortcuts to Margin (first run's **Turn off
 
 **The setting**
 
-- [ ] Settings › Delete screenshots after pasting sits under Copy each capture, off by default, with a tooltip saying what it does
+- [ ] Settings › General › Delete screenshots after pasting sits under Copy each capture, off by default, with a line under it and a tooltip saying what it does
 - [ ] Off: captures land in Save to as before; `pasteboard.watch` stays `null`; the clipboard item has `public.png` and `public.file-url` with their data (not promised)
 
 **While on**
@@ -245,7 +245,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 
 - [ ] Cards are 176 pt wide, height follows the shot (64–176 pt), aspect-fill, newest at the bottom; older cards slide up
 - [ ] At most 6 cards (fewer if they don't fit); older ones fold into `+N older`
-- [ ] Hovering the pile fans it out; dragging the pile sends all its items; right-click › Clear shelf (undoable)
+- [ ] Hovering the pile fans it out; dragging the pile sends all its items; right-click › Close Shelf (undoable)
 
 **Fly-in and hover**
 
@@ -262,12 +262,28 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] Toasts appear above the top card for 1.2 s, never as notifications
 - [ ] Seven captures give 6 cards plus `+1 older`, and survive quit and relaunch
 
+**Close Shelf** (`scripts/debug.sh hover-shelf` shows the button without moving the pointer; `clear` is Close Shelf)
+
+- [ ] Pointer on a card: "✕ Close Shelf" fades in above the top card (or the pile), at the stack's left edge, quiet until the pointer is on it, with its tooltip; it stays while the pointer crosses between cards or moves up onto it, and fades 0.3 s after the pointer leaves the shelf
+- [ ] It's not there while the pile fans out, during a drag, while tucked (it is while peeking), or while a wide toast ("Shelf tucked · ⇧⌘1") would cover it; "Copied" sits beside it
+- [ ] Clicking it: every card collapses out, the shelf goes, the toast says "Shelf closed · Restore Last Removed brings it back", and typing still goes to the app you were in (no ⌘-click first)
+- [ ] The files are all still in the save folder (nothing in the Trash); `dump-state`'s `pasteboard.undo` has one `close` step with every card
+- [ ] Restore Last Removed brings every card back in one step, in order, with "Restored"; the next capture after a close shows the shelf as usual
+- [ ] Close Shelf in the menu bar menu does the same, and is dimmed while the shelf is empty; so does the pile's right-click menu
+- [ ] Tucked: Close Shelf from the menu bar takes the tab away too; the next shot lands on the shelf, not in a tab
+- [ ] During a fly-in: the shot in the air fades and its card goes with the rest; a rename in progress is saved (the file has the new name, and Restore brings the card back with it); Quick Look closes
+- [ ] A recording's card leaves like the rest; its movie stays in the save folder
+- [ ] With Delete screenshots after pasting on: after Close Shelf, the shots' files are no longer in `~/Library/Application Support/Margin/Pasteboard/` but in the save folder, same names (" (2)" if taken), and stay there after twenty more removals and a relaunch; Restore Last Removed brings the cards back pointing at them (Quick Look, a drag work). With a shot on the clipboard, ⌘V in a terminal pastes its new path; if its path had already been read (Edit › Paste, which doesn't take the card off), the old path still works until something else is copied
+- [ ] With the save folder unwritable, those shots go to Unsaved instead, with its toast
+- [ ] Reduce Motion: the button fades (no movement); Reduce Transparency: it's a solid plate
+- [ ] VoiceOver: "Close shelf" button first in the shelf, pressable whether or not the pointer is over it
+
 ## Shelf interactions (§5)
 
 **Focus**
 
 - [ ] The shelf never steals focus. In a terminal, click an older card and press ⌘V without clicking back: it pastes that shot (no beep), and ⌘Q, ⌘W and typing still go to the terminal
-- [ ] ⌘-click, ✕, the pile, Rename…, Move to Trash and Clear shelf give the shelf the keys (⌘Z, ⌫, Space, ⌘C, ⌘A work); Esc, a copy (click, ⌘C, Copy Path) or a click elsewhere gives them back
+- [ ] ⌘-click, ✕, the pile, Rename… and Move to Trash give the shelf the keys (⌘Z, ⌫, Space, ⌘C, ⌘A work); Esc, a copy (click, ⌘C, Copy Path), Close Shelf or a click elsewhere gives them back
 - [ ] Copy Path (from ••• or a right-click), then ⌘V in a terminal: pastes the path
 
 **Dragging**
@@ -382,9 +398,9 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 - [ ] Light mode
 - [ ] Dark mode
 - [ ] Reduce motion: no fly-in; cards appear in place
-- [ ] Reduce transparency: glass (pile, tab, toasts) falls back to solid
+- [ ] Reduce transparency: glass (pile, tab, toasts, Close Shelf) falls back to solid
 - [ ] VoiceOver (or Accessibility Inspector) on the shelf:
-  - [ ] window "Margin Shelf"; the pile, then the cards top to bottom; only the tab while tucked
+  - [ ] window "Margin Shelf"; the Close shelf button, the pile, then the cards top to bottom; only the tab while tucked
   - [ ] a card reads "Screenshot, HH:mm, W × H" ("Screen recording, HH:mm, 0:12, W × H") (+ "selected", "copied, ready to paste", "saving"), with the file name as help
   - [ ] its actions (Copy, Open, Quick Look, Show in Finder, Copy Path, Rename, Remove from shelf, Move to Trash) work; Press copies and leaves the keyboard with your app; ✕ and ••• are buttons inside it
   - [ ] toasts are announced; moving the VoiceOver cursor onto the shelf never takes the keyboard from your app
@@ -394,7 +410,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **The icon and its items**
 
 - [ ] The template icon follows the menu bar's appearance
-- [ ] Items: Capture Area, Capture Window, Capture Screen, Repeat Last Area, Record Screen (Stop Recording, first, while recording), Tuck Shelf (Show Shelf while tucked), Restore Last Removed, Open Screenshots Folder, Show Unsaved Shots (only while the Unsaved folder holds shots), Settings… (⌘,), About Margin <version>, Quit Margin (⌘Q)
+- [ ] Items, in groups set off by separators: Capture Area, Capture Window, Capture Screen, Repeat Last Area, Record Screen (Stop Recording, first, while recording) — Tuck Shelf (Show Shelf while tucked), Close Shelf, Restore Last Removed — Open Screenshots Folder, Show Unsaved Shots (only while the Unsaved folder holds shots) — Settings… (⌘,), Check for Updates…, About Margin <version> — Quit Margin (⌘Q). `scripts/debug.sh show menu 3` opens it for a screenshot
 - [ ] The shortcuts shown match Settings
 - [ ] With the menu open, ⇧⌘3 (or ⇧⌘4) does nothing, then or after the menu closes (Esc, or choosing Settings…); with a card's ••• menu open too. Pressed right after Esc or a choice (while the menu fades out), it works
 - [ ] After the shelf has had the keys once (⌘-click a card, then Esc), with TextEdit in front: open the menu bar menu and close it with Esc, or choose Restore Last Removed or Capture Screen: typing still goes to TextEdit (not the shelf; ⌫ removes no card). With the shelf holding the keys when the menu opens, it keeps them
@@ -414,9 +430,9 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 
 **Warnings**
 
-- [ ] Without Screen Recording permission: a warning dot on the icon, and the first item reads "Allow Screen Recording…" and opens First run step 1
+- [ ] Without Screen Recording permission: a warning dot on the icon, and the first item reads "Allow Screen Recording…" and opens First run step 1, set off above the capture items (which all stay, and open that step too)
 - [ ] A shortcut that fails to register:
-  - [ ] shows a warning dot, and the menu's top item names it and opens Settings, e.g. "⇧⌘4 and ⌃⇧⌘4 are set for two actions — Change in Settings…" (other failures read "… is used by another app" or "… isn't available")
+  - [ ] shows a warning dot, and the menu's top item names it and opens Settings at Shortcuts, e.g. "⇧⌘4 and ⌃⇧⌘4 are set for two actions — Change in Settings…" (other failures read "… is used by another app" or "… isn't available")
   - [ ] to force one: quit Margin, run `defaults write io.github.jenish-shobhit.margin shortcut.repeatArea -data 7b226b6579436f6465223a32312c226d6f64696669657273223a3736387d` (Repeat area = ⇧⌘4), and relaunch
   - [ ] fixing it in Settings removes the warning at once
   - [ ] `dump-state` lists each OSStatus under `hotkeys`
@@ -453,7 +469,10 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 
 **The settings**
 
-- [ ] The settings (Save to, Copy each capture, Delete screenshots after pasting, Shutter sound, Show key hints while capturing, Launch at login, Record system audio, Record microphone, Shortcuts), plus the macOS screenshot shortcuts row
+- [ ] Three toolbar tabs, the window titled after the one shown and as tall as it (no pane taller than a 13" display): General (Saving & Clipboard: Save to, Copy each capture, Delete screenshots after pasting; Capturing: Shutter sound, Show key hints while capturing; Startup & Updates: Launch at login, Check for updates automatically), Shortcuts (the recorders, Capture window as "Space after ⇧⌘4", the macOS Screenshot Shortcuts row) and Recording (Record system audio, Record microphone). Switching tabs keeps the window's top edge; it reopens on the last tab
+- [ ] Save to shows the folder's name, its path in the tooltip; lines under Delete screenshots after pasting, Show key hints, Check for updates and the audio toggles say what they do; the Shortcuts footer reads "Click a shortcut, then press the new keys. Each capture shortcut also works with ⌃ added (⌃⇧⌘4), since every shot is already copied."
+- [ ] A warning under a shortcut, the login approval line or a denied microphone grows the pane, and the window with it
+- [ ] Keyboard: Tab moves through the controls of the pane (with Keyboard navigation on); ⌘W closes; VoiceOver reads each toggle with its line, and each recorder as "<action> shortcut, ⇧⌘4"
 - [ ] Record system audio and Record microphone are off by default; turning the microphone on asks for permission once
 - [ ] Save to: the folder picker changes where the next capture lands
 
@@ -474,7 +493,7 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **macOS screenshot shortcuts row**
 
 - [ ] The status line is right ("All five are on, so macOS takes them before Margin.", "⇧⌘5 is on, so macOS takes it before Margin.", "All five are off.")
-- [ ] The button turns them off when any are on, and reads **Restore macOS screenshot shortcuts** once all five are off
+- [ ] The button reads **Turn Off** while any are on and **Restore** once all five are off (VoiceOver: "Turn off macOS screenshot shortcuts", "Restore macOS screenshot shortcuts"); the footer says what that means
 - [ ] Restore re-enables them at once
 
 ## Updates (§14.3)
@@ -483,8 +502,8 @@ Use a debug build and a local release ([building.md › Testing updates](buildin
 
 **Menu, Settings, website**
 
-- [ ] **Check for Updates…** sits right below About Margin, and opens the update window at once ("Checking for updates…")
-- [ ] Settings has **Check for updates automatically**, on by default; its tooltip says what it does
+- [ ] **Check for Updates…** sits right above About Margin, and opens the update window at once ("Checking for updates…")
+- [ ] Settings › General has **Check for updates automatically**, on by default; the line under it says what it does
 - [ ] With it off, quit and relaunch: `log stream --predicate 'subsystem == "io.github.jenish-shobhit.margin" && category == "updates"'` shows no automatic check, and `nettop -p Margin` (or Little Snitch) shows no connection. Check for Updates… still checks
 - [ ] With it on, a launch checks a few seconds after the first capture is ready (the log says "Checking for updates (automatic)"); a relaunch within the hour doesn't
 - [ ] `open margin://update` with Margin running shows the check and its result; `open "margin://update/install?now=1"` does the same and installs nothing; `open margin://capture` does nothing (the log says it's ignored)

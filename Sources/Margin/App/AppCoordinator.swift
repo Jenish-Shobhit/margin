@@ -263,8 +263,10 @@ final class AppCoordinator {
     func restoreLastRemoved() { shelf.undo(fromMenu: true) }
     var canRestoreLastRemoved: Bool { shelf.canUndo }
 
-    /// DEBUG `clear`: everything off the shelf (undoable).
-    func clearShelf() { shelf.clear() }
+    /// Close Shelf (the menu bar, the DEBUG `clear` command): every card off the shelf, files kept (undoable).
+    func closeShelf() { shelf.close() }
+    /// For the menu bar item: there's something on the shelf to close.
+    var canCloseShelf: Bool { !shelf.itemIDs.isEmpty }
 
     /// Creates the folder if it's missing, then opens it in Finder. The first touch of ~/Desktop can block
     /// on the Desktop-folder privacy prompt, so the file system is only touched off the main actor.
@@ -323,9 +325,10 @@ final class AppCoordinator {
         hasUnsavedShots = true
     }
 
-    func showSettings() {
+    /// Settings, on `pane` when given (else where it was left).
+    func showSettings(_ pane: SettingsPane? = nil) {
         NSApp.activate()
-        SettingsWindowController.shared.show()
+        SettingsWindowController.shared.show(pane)
     }
 
     func showAbout() {
