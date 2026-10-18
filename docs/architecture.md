@@ -167,6 +167,7 @@ After that, the cache refreshes on display, app and Space changes (debounced 150
 3. Each display's frame is drawn as it arrives. With the first one, the overlay becomes key (it's a non-activating panel, so keys reach it at once) and Margin activates, which the crosshair needs: only the frontmost app may set the cursor, and it's set again once the activation lands. Not before the first frame: taking key status from the frontmost window while ScreenCaptureKit is still grabbing would show that window unfocused in the frame (grey selection, no caret).
    - **Keys before that** (`OverlayHotkeys`): from the hotkey on, ⌤, Z and the arrows, alone or with ⇧ ⌥ ⌃, and Esc, Space and ↩, alone or with ⇧, are Carbon hotkeys (54 combos, 2–3 ms), handed to the session as key events, so they never reach the frontmost app. Plain Esc and Space are registered first, before anything else in `begin` (about 0.1 ms); the rest once the overlay is up. Registered after the captures have started, the first one can wait 5–7 ms on the window server, which is busy starting them. The Carbon handler is installed at prewarm. Esc, Space and ↩ with ⌥ or ⌃ aren't caught: those are other apps' global shortcuts (⌥Space opens launchers, ⌃Space switches input source), and a combo two apps register fires in both. A key pressed before Margin even gets ⇧⌘4 can't be caught: the window server hands the hotkey over 15–30 ms after the press, and a key it routes before that goes to the frontmost app. The first hotkey after launch is later still: 4–12 ms from its event's timestamp to Margin's handler (about 1 ms afterwards), and its first registration can take 2–7 ms, so on that capture an Esc 15 ms after ⇧⌘4 still reaches the app (20 ms is caught). Nothing Margin does at launch warms that (an unused plain hotkey registered at prewarm didn't), short of a real keystroke. The arrows go when the overlay is key (they need key repeat); the rest stay until the capture ends, because unregistering a hotkey drops a press of it still in the event queue. A key still down when it ends (the Esc or ↩ that ended it, a Space held to move the selection) keeps its hotkey until it's released, at most 0.5 s, and that release is swallowed: unregistered at once, the release alone would reach the app in front, which matters to apps that read releases (a terminal with the kitty keyboard protocol, games).
    - **Focus back**: when the capture ends, activation goes back to the app that had it (`yieldActivation`, then `activate`). If Margin's own activation hasn't landed yet, or landed under 60 ms ago (Esc pressed with the first frame), it waits for that first: handed back sooner, that app ends up active without its key window. A capture started during that wait takes the app over as the one to return to (Margin is frontmost by then), and gives focus back to it even if it ends before activating Margin itself (Esc before its first frame).
+   - Handing a frame to Core Animation (`OverlayView.setFrozen`) holds the main thread 3.6–3.8 ms, all of it in the commit (`frozenCommit`); the flush after it is under 0.1 ms (`frozenFlush`). That's probably the full-display image being copied for the render server; an IOSurface-backed frame could avoid it.
 4. A display that fails is dimmed ("Can't capture this display"). If no frame arrives within 3 s the overlay cancels itself with a "Couldn't capture the screen" toast, so it can never be left eating clicks. It also cancels when the frozen frame stops matching the screen: a display change, a Space switch (focus then goes to the app with the frontmost window on the new Space, not back across Spaces), sleep of the Mac or its displays, or a switch to another user. Showing the overlay and activating Margin don't switch Spaces, even over a full-screen app.
 5. As soon as the first display is frozen (not after the slowest one), the window list is refreshed for snapping and window mode: `SCShareableContent` with on-screen windows only, about 60 % of the full fetch, since Margin is listed through its overlay. Not earlier: a fetch started alongside the captures slows them by about 20 ms. When it lands, a selection being drawn re-snaps its start to it and window mode re-picks the window under the pointer; a window-mode click that came first is held until then. (The cold path's fetch already has fresh windows.)
 
@@ -196,7 +197,7 @@ The other kinds:
 
 ### The release (`AppCoordinator+Save`)
 
-By the time the coordinator gets the `CaptureResult`, `CaptureController` has made it in one step off the main thread (`Shot`), as soon as the image was ready (for an area, from mouse-up on, while the overlay comes down): the crop, which shares the frozen frame's pixels, then the PNG encode, started in a task of its own, and the thumbnail, made meanwhile.
+By the time the coordinator gets the `CaptureResult`, `CaptureController` has made it in one step off the main thread (`Shot`), as soon as the image was ready (for an area, from mouse-up on, while the overlay comes down): the crop, which shares the frozen frame's pixels, then the PNG encode, started in a task of its own, and the thumbnail, made meanwhile. The crop and the thumbnail run on a user-interactive dispatch thread (`Interactive`), above the encode's user-initiated workers (see [The PNG encode](#the-png-encode)).
 
 On the main actor, in this order:
 
@@ -211,11 +212,13 @@ Then, in a detached task:
 2. Once `shelf.json` has the card (`ShelfStore.waitForWrites`: written in the background, usually well before the encode is done), `writeAtomically` writes a hidden temp file (`.margin-<uuid>.tmp`) in the save folder, then `renamex_np(RENAME_EXCL)` moves it into place.
    - If the name is taken on disk, it moves on to the next free one.
    - If the folder can't be written, it falls back to `~/Library/Application Support/Margin/Unsaved/`.
-3. It makes a Finder bookmark for the final file. The target is **≤ 200 ms from release to the PNG renamed into place**.
+   The target is **≤ 200 ms from release to the PNG renamed into place**.
+3. With **Copy each capture** on, it hops to the main actor and writes the clipboard (below) right away: it needs only the final path. Not for a shot in the Pasteboard folder, whose paste watch stays in `finishSave`.
+4. It makes a Finder bookmark for the final file (0.4–0.5 ms). It used to come before the clipboard, and inside `releaseToFile`.
 
 Back on the main actor, `finishSave`:
 
-1. Writes the clipboard, if **Copy each capture** is on and this is still the newest capture (a copy from the shelf since then wins: a click, ⌘C or Copy Path). It writes one item per shot: `public.png`, plus `public.file-url` pointing at the *final* path (a shot in the Pasteboard folder: the same, promised through a `PasteWatch`). It records the pasteboard's `changeCount` and puts the ⌘V mark on the card.
+1. Writes the clipboard, unless that was done in step 3, if **Copy each capture** is on and this is still the newest capture (a copy from the shelf since then wins: a click, ⌘C or Copy Path). It writes one item per shot: `public.png`, plus `public.file-url` pointing at the *final* path (a shot in the Pasteboard folder: the same, promised through a `PasteWatch`). It records the pasteboard's `changeCount` and puts the ⌘V mark on the card.
 2. Stores the final path and bookmark, and calls `shelf.itemDidSave`.
 3. Shows the Unsaved toast if needed (and sets the flag behind the menu's **Show Unsaved Shots**), bumps the capture counter, and tells first run.
 
@@ -245,7 +248,19 @@ In the app (`scripts/bench.sh ab`, MacBook Air M2, 4 performance and 4 efficienc
 | Medium area (2400 × 1600), UI / photo | 81 / 154 ms | 20 / 42 ms | 83 / 158 ms | 22 / 48 ms |
 | Small area (800 × 600), UI / photo | 21 / 38 ms | 7 / 11 ms | 24 / 40 ms | 11 / 13 ms |
 
-The thumbnail is made while the encode runs, on another thread of the same QoS. With every core deflating, a medium photo-like area's thumbnail takes 16 ms instead of 14 (23.9 instead of 16.3 at p90), and is on screen about 1 ms later. Elsewhere the difference is within the noise. The main thread's share of a capture went down, not up. Offline, a 6016 × 3384 photo-like shot encodes in 105 ms instead of 566, and a 7680 × 4320 one in 174 ms instead of 925. Files decode as fast as ImageIO's.
+The thumbnail is made while the encode runs. On a thread of the encode's QoS (user-initiated, which is as high as a Swift task goes), with every core deflating, a medium photo-like area's thumbnail took 16 ms instead of 14 (23.9 instead of 16.3 at p90), and was on screen about 1 ms later. The main thread's share of a capture went down, not up. Offline, a 6016 × 3384 photo-like shot encodes in 105 ms instead of 566, and a 7680 × 4320 one in 174 ms instead of 925. Files decode as fast as ImageIO's.
+
+The thumbnail's pixel work alone is about 5 ms (a full display drawn down to the card with `.high` interpolation, warm, offline; `.medium` takes 2.4 ms but visibly changes the card: lighter text, and a dark menu bar washed out), so it now runs at user-interactive (`Interactive`), ahead of the encode's workers. `scripts/bench.sh ab`, 30 of each in blocks of 5, flat UI (median, p90 in brackets):
+
+| | Medium area | Full-display area | ⇧⌘3 |
+|---|---|---|---|
+| `thumbnail` | 14.1 (19.0) → 11.7 (12.8) ms | 16.8 (20.2) → 13.6 (15.0) | 15.3 (18.4) → 12.4 (14.7) |
+| Release → thumbnail committed | 16.5 → 14.4 ms (p 0.07) | 19.6 → 15.9 | 18.0 → 15.2 |
+| Release → thumbnail on screen | 22.5 → 24.5 ms (p 0.18) | 27.0 → 24.4 (p 0.07) | 21.7 → 21.6 |
+| Encode | 19.1 → 20.6 ms | 23.0 → 25.4 | 21.9 → 20.8 (p 0.3) |
+| Release → file | 21.0 → 22.2 ms (p 0.06) | 24.8 → 27.1 | 23.4 → 22.5 (p 0.3) |
+
+After 4 s of idle between captures (`--gap 4`, 15 of each), the thumbnail's gain is bigger: release → committed 20.2 → 15.3, 21.0 → 18.0 and 19.7 → 16.3 ms, and ⇧⌘3's release → on screen 27.7 → 20.6 ms (p 0.007). The cost is in the encode, which has one performance core fewer for the thumbnail's 12 ms: a full-display area's file is in place 1.5–2.3 ms later (p ≤ 0.004), a medium one's about 1 ms (not significant), ⇧⌘3's no later. The p-values not given are under 0.03.
 
 ### On the shelf
 
