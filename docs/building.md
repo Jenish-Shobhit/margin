@@ -302,7 +302,7 @@ The icon is drawn from vectors at every size and packed with `iconutil`.
 Releases are cut by the maintainer from a clean `main`:
 
 1. Add a section to the top of `CHANGELOG.md`, headed `## <version> — <YYYY-MM-DD>`, with Added / Changed / Fixed.
-2. Run `scripts/release.sh <version>`, for example `scripts/release.sh 0.0.8`.
+2. Run `scripts/release.sh <version>`, for example `scripts/release.sh 0.0.8`. Add `--no-install` to leave `/Applications/Margin.app` as it is, so you can update it to the new release with Check for Updates…, as users do.
 
 The script checks that:
 

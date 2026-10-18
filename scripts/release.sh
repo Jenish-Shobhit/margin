@@ -1,7 +1,10 @@
 #!/bin/bash
 # Publishes a Margin release from a clean main.
 #
-#   scripts/release.sh <version>      e.g. scripts/release.sh 0.0.2
+#   scripts/release.sh <version> [--no-install]      e.g. scripts/release.sh 0.0.2
+#
+# --no-install publishes without replacing /Applications/Margin.app, so the copy there can be updated to the
+# new release the way users get it (Check for Updates…).
 #
 # Expects a `## <version> — <date>` section at the top of CHANGELOG.md (written by hand). Then it:
 # bumps CFBundleShortVersionString and CFBundleVersion, builds, installs and zips the signed release app,
@@ -10,7 +13,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="${1:?usage: scripts/release.sh <version>}"
+VERSION="${1:?usage: scripts/release.sh <version> [--no-install]}"
+INSTALL_ARGS=(--install --run)
+case "${2:-}" in
+  "") ;;
+  --no-install) INSTALL_ARGS=() ;;
+  *) echo "usage: scripts/release.sh <version> [--no-install]" >&2; exit 1 ;;
+esac
 PLIST=Resources/Info.plist
 
 [[ "$(git branch --show-current)" == main ]] || { echo "error: not on main" >&2; exit 1; }
@@ -34,7 +43,7 @@ BUILD=$(( $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST") + 1 ))
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $BUILD" "$PLIST"
 
 scripts/test.sh >/dev/null
-scripts/build.sh --install --run --zip
+scripts/build.sh ${INSTALL_ARGS[@]+"${INSTALL_ARGS[@]}"} --zip
 ZIP="dist/Margin-$VERSION.zip"
 [[ -f "$ZIP" ]] || { echo "error: $ZIP missing" >&2; exit 1; }
 
