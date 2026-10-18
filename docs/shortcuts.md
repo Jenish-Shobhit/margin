@@ -4,7 +4,7 @@ Every shortcut in Margin 0.1.2. Modifiers are written in the macOS order ⌃⌥�
 
 ## Global
 
-These work from any app. The five marked *rebindable* can be changed in [Settings](user-guide.md#settings).
+These work from any app. The five marked *rebindable* can be changed in [Settings › Shortcuts](user-guide.md#settings).
 
 | Default | Action | |
 |---|---|---|
@@ -69,7 +69,7 @@ While recording, ⇧⌘5 (or **Stop Recording** in the menu bar menu) stops and 
 
 ## On the shelf
 
-A plain click copies a card and leaves the keyboard with your app, so ⌘V right after it pastes there. The keys below reach the shelf only after you ⌘-click a card, click ✕ or the pile, or choose Rename…, Move to Trash or Clear shelf; Esc, a copy, closing Quick Look, tucking the shelf or a click elsewhere gives them back; a card's menu closed without a choice, or Margin's menu bar menu, leaves them where they were. Keys act on the selection if there is one, otherwise on the card under the pointer, otherwise on the last card you clicked.
+A plain click copies a card and leaves the keyboard with your app, so ⌘V right after it pastes there. The keys below reach the shelf only after you ⌘-click a card, click ✕ or the pile, or choose Rename… or Move to Trash; Esc, a copy, closing Quick Look, tucking or closing the shelf, or a click elsewhere gives them back; a card's menu closed without a choice, or Margin's menu bar menu, leaves them where they were. Keys act on the selection if there is one, otherwise on the card under the pointer, otherwise on the last card you clicked.
 
 | Keys | Action |
 |---|---|
@@ -86,13 +86,16 @@ A plain click copies a card and leaves the keyboard with your app, so ⌘V right
 | Esc | Close Quick Look, or else clear the selection; either way the keys go back to your app |
 | ⌘Z | Bring back the card(s) last removed (up to 20 steps) |
 | Right-click or ⌃-click | The card's menu: Copy Path, Reveal in Finder, Rename…, Move to Trash |
-| Right-click the pile | Clear shelf |
+| Right-click the pile | Close Shelf |
+| ✕ Close Shelf (above the top card, while the pointer is on the shelf) | Take every card off the shelf; the files stay. Restore Last Removed brings them back |
 
 **Renaming** (Rename… in the card's menu): ↩ saves, Esc cancels and clicking elsewhere keeps the new name (so does tucking the shelf, or a new shot pushing the card into the pile). ⌘X, ⌘C, ⌘V, ⌘A, ⌘Z and ⇧⌘Z edit the text; none of them reach the shelf.
 
 **⌘Q and ⌘W** only act while one of Margin's windows (Settings, Welcome) is in front. While the shelf has the keys (after a ⌘-click or ✕, say), ⌘Q doesn't quit Margin and ⌘W doesn't close anything; press Esc or click back into your app to use them there. After a plain click on a card they go to your app as usual.
 
 ## In Settings
+
+The Shortcuts pane has the recorders.
 
 | Keys | Action |
 |---|---|
@@ -103,4 +106,4 @@ A plain click copies a card and leaves the keyboard with your app, so ⌘V right
 
 ## In the menu bar menu
 
-With the menu open, **⌘,** opens Settings and **⌘Q** quits. The capture items show their current shortcuts. While recording, the first item is **Stop Recording** with the record shortcut; quitting then stops and saves the recording first.
+With the menu open, **⌘,** opens Settings and **⌘Q** quits. The capture items and Tuck Shelf show their current shortcuts; Close Shelf and Restore Last Removed have none. While recording, the first item is **Stop Recording** with the record shortcut; quitting then stops and saves the recording first.

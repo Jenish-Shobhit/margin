@@ -66,7 +66,7 @@ If macOS keeps asking after you've allowed it:
 
 macOS's own screenshot shortcuts are still on, and macOS gets the keys before any app. The menu bar menu shows this as **macOS still uses ⇧⌘4 — Fix…**.
 
-- Click that item, or open Settings, and choose **Turn off for me** (in the Welcome window) or **Turn off macOS screenshot shortcuts** (in Settings). Margin switches off the five macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4, ⌃⇧⌘4, and ⇧⌘5 for "Screenshot and recording options"), and the change applies at once.
+- Click that item, or open Settings, and choose **Turn off for me** (in the Welcome window) or **Turn Off** under macOS Screenshot Shortcuts (in Settings › Shortcuts). Margin switches off the five macOS screenshot shortcuts (⇧⌘3, ⌃⇧⌘3, ⇧⌘4, ⌃⇧⌘4, and ⇧⌘5 for "Screenshot and recording options"), and the change applies at once.
 - To do it by hand: **System Settings › Keyboard › Keyboard Shortcuts… › Screenshots**, and untick those five.
 
 If turning them off reports a problem:
@@ -98,7 +98,7 @@ Other causes:
 If you clicked **Don't Allow**, captures go to `~/Library/Application Support/Margin/Unsaved/` instead, with the shelf toast "Can't write to “Screenshots”. Saved to Unsaved: menu bar › Show Unsaved Shots". To fix it, do one of these:
 
 - Turn on **Desktop Folder** for Margin in **System Settings › Privacy & Security › Files & Folders**.
-- Choose a different folder in **Settings › Save to**. A folder outside Desktop, Documents and Downloads, such as `~/Pictures/Screenshots`, doesn't ask.
+- Choose a different folder in **Settings › General › Save to**. A folder outside Desktop, Documents and Downloads, such as `~/Pictures/Screenshots`, doesn't ask.
 
 To find those shots, choose **Show Unsaved Shots** in the menu bar (it's there while the Unsaved folder holds any) and move them where you want them. **Open Screenshots Folder** opens the Unsaved folder too when it can't open the save folder.
 
@@ -188,7 +188,7 @@ Press **Esc** or right-click. If the frozen picture never appeared, the overlay 
 
 ## ⇧⌘5 opens the macOS screenshot toolbar
 
-macOS's own "Screenshot and recording options" shortcut is still on. If you turned off the screenshot shortcuts with an older Margin, that one was left on: the menu bar shows **macOS still uses ⇧⌘5 — Fix…** and the Record screen row in Settings says "macOS uses ⇧⌘5 first". Choose **Turn off for me** (or **Turn off macOS screenshot shortcuts** in Settings), or untick "Screenshot and recording options" in **System Settings › Keyboard › Keyboard Shortcuts… › Screenshots**. **Record Screen** in the menu bar works either way.
+macOS's own "Screenshot and recording options" shortcut is still on. If you turned off the screenshot shortcuts with an older Margin, that one was left on: the menu bar shows **macOS still uses ⇧⌘5 — Fix…** and the Record screen row in Settings › Shortcuts says "macOS uses ⇧⌘5 first". Choose **Turn off for me** (or **Turn Off** in Settings › Shortcuts), or untick "Screenshot and recording options" in **System Settings › Keyboard › Keyboard Shortcuts… › Screenshots**. **Record Screen** in the menu bar works either way.
 
 ## A recording stopped by itself
 
@@ -205,7 +205,7 @@ Margin keeps what was recorded and says why on the shelf:
 ## A recording has no sound, or no microphone
 
 - Sound is **off by default**. Turn on **Record system audio** and/or **Record microphone** in Settings; they apply to the next recording.
-- **No microphone**: macOS asks for permission when you turn Record microphone on. If you said no, Settings shows "Margin isn't allowed to use the microphone": allow Margin in **System Settings › Privacy & Security › Microphone** (**Open Privacy Settings** goes there). A recording started without permission says "Recording without the microphone" and records the rest.
+- **No microphone**: macOS asks for permission when you turn Record microphone on. If you said no, Settings › Recording shows "Margin isn't allowed to use the microphone": allow Margin in **System Settings › Privacy & Security › Microphone** (**Open Privacy Settings** goes there). A recording started without permission says "Recording without the microphone" and records the rest.
 - **Only one of the two plays**: with both on, the movie has two sound tracks (the Mac's first, the microphone's second). QuickTime Player plays both; some players and web pages play only the first.
 - System audio never includes Margin's own sounds (the start tick, the shutter of a screenshot taken meanwhile).
 

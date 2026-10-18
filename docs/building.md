@@ -189,9 +189,10 @@ scripts/build.sh --debug --install --run
 scripts/debug.sh capture-area 100 100 400 300   # x y w h in AppKit global points, no overlay
 scripts/debug.sh capture-screen                 # the display under the pointer
 scripts/debug.sh toggle-shelf                   # tuck / show
-scripts/debug.sh clear                          # empty the shelf (undoable)
+scripts/debug.sh clear                          # Close Shelf: every card off, files kept (undoable)
 scripts/debug.sh dismiss 4                      # the 4 newest cards off the shelf (undoable)
 scripts/debug.sh restore-last                   # Restore Last Removed
+scripts/debug.sh hover-shelf [off]              # as if the pointer were on the newest card: Close Shelf shows
 scripts/debug.sh record-area 100 100 800 500    # record a rect (AppKit global points), no overlay
 scripts/debug.sh record-screen                  # record the display under the pointer
 scripts/debug.sh record-window 1234             # record that window (its window number)
