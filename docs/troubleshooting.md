@@ -36,6 +36,12 @@ macOS says **"Margin" Not Opened** ("Apple could not verify…"), because Margin
 
 You need to do this once per download.
 
+To skip this altogether, install from Terminal instead. A copy installed this way opens straight away, and the script checks the download itself (GitHub's size and checksum, and Margin's signing certificate):
+
+```sh
+curl -fsSL https://jenish-shobhit.github.io/margin/install.sh | bash
+```
+
 If macOS says the app **is damaged**, the download or the unzip went wrong. Download the zip again from [Releases](https://github.com/Jenish-Shobhit/margin/releases/latest) and unzip it with Finder.
 
 As an alternative to Open Anyway, you can clear the quarantine flag yourself. Do this only for a copy you downloaded from this repository's Releases:

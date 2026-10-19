@@ -71,6 +71,16 @@ Every capture is saved to disk, copied to the clipboard and put on a shelf of th
 
 ## Install
 
+**One line in Terminal** (quickest, and no security prompts):
+
+```sh
+curl -fsSL https://jenish-shobhit.github.io/margin/install.sh | bash
+```
+
+It downloads the latest release from GitHub, checks its size and SHA-256 against GitHub's and that it's signed with Margin's certificate, moves **Margin.app** to `/Applications` and opens it. Run it again any time to update. Read it first if you like: [docs/install.sh](docs/install.sh).
+
+**Or download it:**
+
 1. Download `Margin-<version>.zip` from [Margin's website](https://jenish-shobhit.github.io/margin/) or the [latest release](https://github.com/Jenish-Shobhit/margin/releases/latest).
 2. Unzip it and move **Margin.app** to `/Applications`. Keep it there: the Screen Recording permission belongs to that copy, and launch at login only registers from `/Applications`.
 3. Open Margin. It isn't notarized yet, so macOS blocks the first launch:
