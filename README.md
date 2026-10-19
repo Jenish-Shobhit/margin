@@ -66,7 +66,7 @@ Every capture is saved to disk, copied to the clipboard and put on a shelf of th
 
 **The app**
 
-- Menu bar only, with no Dock icon. A three-step first-run guide, a Settings window with General, Shortcuts and Recording panes, and launch at login.
+- Menu bar only, with no Dock icon. A three-step first-run guide, a Settings window with a sidebar of panes (General, Shortcuts, Recording, Updates, About), launch at login, and Hide from Menu Bar when you'd rather not see the icon.
 - Supports light and dark mode, Reduce Motion and Reduce Transparency.
 
 ## Install
@@ -176,7 +176,7 @@ Each capture (with **Copy each capture** on) and each copy from the shelf puts o
 
 ## Settings
 
-Open **Settings…** from the menu bar icon. It has three panes: **General** (the first seven below), **Recording** (the audio) and **Shortcuts**.
+Open **Settings…** from the menu bar icon. Its sidebar has **General** (where shots go, capturing, launch at login and the menu bar icon), **Shortcuts**, **Recording** (the audio), **Updates** and **About**.
 
 | Setting | Default | |
 |---|---|---|
@@ -187,6 +187,7 @@ Open **Settings…** from the menu bar icon. It has three panes: **General** (th
 | Show key hints while capturing | On | The bar of keys at the top of the screen while you select |
 | Check for updates automatically | On | At launch and once a day, asks GitHub for the latest release |
 | Launch at login | On | Shows what macOS really has, including "waiting for approval" |
+| Show menu bar icon | On | Off hides the icon while Margin keeps running; open Margin again to bring it back |
 | Record system audio | Off | Recordings include what the Mac plays (not Margin's own sounds) |
 | Record microphone | Off | Recordings include the microphone; turning it on asks for permission |
 | Shortcuts | ⇧⌘4 · ⇧⌘3 · ⇧⌘2 · ⇧⌘1 · ⇧⌘5 | Capture area, Capture screen, Repeat last area, Show or tuck shelf, Record screen |

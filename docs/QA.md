@@ -410,11 +410,21 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **The icon and its items**
 
 - [ ] The template icon follows the menu bar's appearance
-- [ ] Items, in groups set off by separators: Capture Area, Capture Window, Capture Screen, Repeat Last Area, Record Screen (Stop Recording, first, while recording) — Tuck Shelf (Show Shelf while tucked), Close Shelf, Restore Last Removed — Open Screenshots Folder, Show Unsaved Shots (only while the Unsaved folder holds shots) — Settings… (⌘,), Check for Updates…, About Margin <version> — Quit Margin (⌘Q). `scripts/debug.sh show menu 3` opens it for a screenshot
+- [ ] Items, in groups set off by separators: the status line (green dot, "Ready to capture"; orange "Screen Recording needed" or "A shortcut isn't working"; red "Recording"), not clickable — Capture Area, Capture Window, Capture Screen, Repeat Last Area, Record Screen (Stop Recording, first, while recording) — Tuck Shelf (Show Shelf while tucked), Close Shelf, Restore Last Removed — Open Screenshots Folder, Show Unsaved Shots (only while the Unsaved folder holds shots) — Settings… (⌘,), Check for Updates…, About Margin, Hide from Menu Bar — Quit Margin (⌘Q). `scripts/debug.sh show menu 3` opens it for a screenshot
 - [ ] The shortcuts shown match Settings
 - [ ] With the menu open, ⇧⌘3 (or ⇧⌘4) does nothing, then or after the menu closes (Esc, or choosing Settings…); with a card's ••• menu open too. Pressed right after Esc or a choice (while the menu fades out), it works
 - [ ] After the shelf has had the keys once (⌘-click a card, then Esc), with TextEdit in front: open the menu bar menu and close it with Esc, or choose Restore Last Removed or Capture Screen: typing still goes to TextEdit (not the shelf; ⌫ removes no card). With the shelf holding the keys when the menu opens, it keeps them
-- [ ] About shows the icon, the current version and build (e.g. 0.0.15 (15)) and "© 2026 Jenish Shobhit · MIT License", in front of the app you were in (as Settings… does)
+- [ ] About Margin opens Settings › About: the icon, the current version and build (e.g. 1.0.0 (26)), Website, Source Code and Report an Issue (each opens its page), and the MIT licence line, in front of the app you were in
+
+**Hide from Menu Bar**
+
+- [ ] Hide from Menu Bar asks "Hide Margin from the menu bar?" (an alert; a sheet when Settings is open). Cancel keeps the icon; Hide hides it, and Settings › General › Show menu bar icon turns off. `scripts/debug.sh menu-icon hide`, then `menu-icon answer hide|cancel [dont-ask]`, drive it with Settings open
+- [ ] With the icon hidden, ⇧⌘4 and the shelf work as before; after a relaunch it stays hidden
+- [ ] Opening Margin again (Spotlight, or `open -a Margin`) brings the icon back and opens Settings › General with "Menu bar icon restored." under the switch
+- [ ] Don't ask again: the next Hide from Menu Bar (or the switch) hides without asking
+- [ ] Turning Show menu bar icon back on shows the icon at once, without asking
+- [ ] While Screen Recording is missing or a shortcut didn't register, the menu has no Hide from Menu Bar, and the switch leaves the icon up with a line saying why; an icon hidden earlier comes back by itself, with its dot, and Settings says so
+- [ ] With the icon hidden, ⇧⌘5 records: the red stop button and the time show while it records, and the icon hides again once the recording is saved
 - [ ] Opening Margin again while it runs (Finder, Spotlight) opens Settings, or First run step 1 without permission
 - [ ] `open -n /Applications/Margin.app` while it runs: Settings opens in the running copy within a second, the second copy quits within about 5 s without a menu bar icon, and ⇧⌘3 still saves one file
 - [ ] `scripts/build.sh --install --run` and Relaunch Margin end with exactly one Margin running
@@ -469,9 +479,10 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 
 **The settings**
 
-- [ ] Three toolbar tabs, the window titled after the one shown and as tall as it (no pane taller than a 13" display): General (Saving & Clipboard: Save to, Copy each capture, Delete screenshots after pasting; Capturing: Shutter sound, Show key hints while capturing; Startup & Updates: Launch at login, Check for updates automatically), Shortcuts (the recorders, Capture window as "Space after ⇧⌘4", the macOS Screenshot Shortcuts row) and Recording (Record system audio, Record microphone). Switching tabs keeps the window's top edge; it reopens on the last tab
+- [ ] A sidebar of tiles: General, Shortcuts, Recording, then Updates, About; each pane starts with its tile, title and one sentence. General (Saving & Clipboard: Save to, Copy each capture, Delete screenshots after pasting; Capturing: Shutter sound, Show key hints while capturing; Startup: Launch at login; Menu Bar: Show menu bar icon), Shortcuts (the recorders, Capture window as "Space after ⇧⌘4", the macOS Screenshot Shortcuts row), Recording (Record system audio, Record microphone), Updates (Version, Check for updates automatically, the last check with Check Now) and About. No sidebar toggle in the toolbar. It reopens on the last pane; switching panes while a recorder listens stops it
+- [ ] The foot of the sidebar matches the menu's status line, with Allow Screen Recording… (opens First run step 1) or Change Shortcuts… when that fixes it; the window resizes (at least 640 × 440), and a pane taller than the window scrolls
 - [ ] Save to shows the folder's name, its path in the tooltip; lines under Delete screenshots after pasting, Show key hints, Check for updates and the audio toggles say what they do; the Shortcuts footer reads "Click a shortcut, then press the new keys. Each capture shortcut also works with ⌃ added (⌃⇧⌘4), since every shot is already copied."
-- [ ] A warning under a shortcut, the login approval line or a denied microphone grows the pane, and the window with it
+- [ ] A warning under a shortcut, the login approval line or a denied microphone grows the pane
 - [ ] Keyboard: Tab moves through the controls of the pane (with Keyboard navigation on); ⌘W closes; VoiceOver reads each toggle with its line, and each recorder as "<action> shortcut, ⇧⌘4"
 - [ ] Record system audio and Record microphone are off by default; turning the microphone on asks for permission once
 - [ ] Save to: the folder picker changes where the next capture lands

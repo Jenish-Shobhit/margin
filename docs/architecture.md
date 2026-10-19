@@ -91,7 +91,7 @@ flowchart LR
 | `Hotkeys/` | `HotkeyCenter`: Carbon registration. `OverlayHotkeys`: the overlay's keys as hotkeys while a capture is up, before the overlay can be key |
 | `MenuBar/` | `StatusMenuController` (icon, warning dot, menu rebuilt on open, in groups: warnings, captures, shelf, files, Margin, Quit) and `MenuKeyEquivalent` |
 | `Onboarding/` | The first-run window: `FirstRunModel` (polled state), `FirstRunView` (SwiftUI) and its window controller |
-| `Settings/` | `SettingsModel` (`@Observable`, shortcut recording), `SettingsView` (a grouped SwiftUI form per pane: General, Shortcuts, Recording) and `SettingsWindowController` (the window, and `SettingsTabViewController`: toolbar tabs, the window sized to the selected pane) |
+| `Settings/` | `SettingsModel` (`@Observable`, shortcut recording, the selected pane), `SettingsView` (the `NavigationSplitView`: a sidebar of icon tiles with the status line at its foot, and `PaneForm`, a pane's header over its grouped form), `SettingsPanes` (General, Shortcuts, Recording, Updates, About) and `SettingsWindowController` (the window, and the façade the app talks to: the status and the menu bar icon's state are kept there from launch, while the model and window are made on first use; Hide from Menu Bar's confirmation) |
 | `Updates/` | `UpdateController` (checks, their schedule, the window's state, installing), `UpdateWindow` (the window and its SwiftUI view), `UpdateNetwork` (the two requests) and `UpdateVerifier` (unzipping and the signature checks) |
 | `Debug/` | `DebugCommandListener`, compiled only under `#if DEBUG || MARGIN_BENCH` (debug and bench builds), and `UpdateDebugCommands` (its `update-*` commands) |
 

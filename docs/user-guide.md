@@ -24,7 +24,7 @@ This guide covers Margin 0.1.3. Shortcuts are shown with their defaults; you can
 
 ## The menu bar icon
 
-Margin has no Dock icon. Everything is in its menu bar icon, a small rectangle with a filled right half. Its menu is in groups: the captures, the shelf, the files, then Margin itself.
+Margin has no Dock icon. Everything is in its menu bar icon, a small rectangle with a filled right half. Its menu starts with a status line (a green dot and **Ready to capture** when all is well), then groups: the captures, the shelf, the files, then Margin itself.
 
 | Item | What it does |
 |---|---|
@@ -40,8 +40,17 @@ Margin has no Dock icon. Everything is in its menu bar icon, a small rectangle w
 | Show Unsaved Shots | Open the Unsaved folder, where shots go when the save folder can't be written. Only there while it holds shots |
 | Settings… ⌘, | Open Settings |
 | Check for Updates… | Ask GitHub whether there's a newer Margin, and offer to install it ([Updates](#updates)) |
-| About Margin | Version and copyright |
+| About Margin | Settings › About: the version, the website and the source |
+| Hide from Menu Bar | Hide the icon while Margin keeps running ([Hiding the menu bar icon](#hiding-the-menu-bar-icon)) |
 | Quit Margin ⌘Q | Quit |
+
+### Hiding the menu bar icon
+
+Choose **Hide from Menu Bar**, or turn off **Show menu bar icon** in Settings › General. Margin keeps running: your shortcuts and the shelf work as before. The first time, Margin asks; tick **Don't ask again** to skip that next time.
+
+To bring the icon back, open Margin again from Spotlight, Launchpad or Applications. Settings opens and says **Menu bar icon restored.** You can also turn **Show menu bar icon** back on there.
+
+The icon can't be hidden while Margin needs your attention (Screen Recording isn't allowed, or a shortcut isn't working), and it comes back by itself if that happens. While you record, it shows the time and Stop, then hides again.
 
 Captures started from the menu wait for the menu to close, so the menu is never in the shot. The shortcuts next to the items work while the menu is closed: pressed with a Margin menu open, they do nothing (rather than firing as it closes).
 
@@ -275,7 +284,7 @@ What counts as a paste: an app reading the shot just as you press **⌘V** or **
 
 ![Margin Settings](images/settings.png)
 
-Choose **Settings…** from the menu bar icon (or press ⌘, with the menu open). It has three panes, **General**, **Shortcuts** and **Recording**, in its toolbar; it opens on the one you used last. Where a setting's effect isn't obvious, a line under it says what it does.
+Choose **Settings…** from the menu bar icon (or press ⌘, with the menu open, or open Margin again from Spotlight). Its sidebar has **General**, **Shortcuts** and **Recording**, then **Updates** and **About**; it opens on the one you used last. Where a setting's effect isn't obvious, a line under it says what it does. The foot of the sidebar says whether Margin is ready, with a button when something needs fixing.
 
 **General**
 
@@ -287,7 +296,7 @@ Choose **Settings…** from the menu bar icon (or press ⌘, with the menu open)
 | Shutter sound | Play the capture sound (on by default) |
 | Show key hints while capturing | Show the bar of keys at the top of the screen while you capture (on by default) |
 | Launch at login | Open Margin when you log in (on by default). If macOS wants your approval, a line with **Open Login Items** appears |
-| Check for updates automatically | Look for a newer Margin at launch and once a day (on by default; see [Updates](#updates)) |
+| Show menu bar icon | Off hides the icon while Margin keeps running (on by default; see [Hiding the menu bar icon](#hiding-the-menu-bar-icon)) |
 
 **Shortcuts**
 
@@ -302,6 +311,16 @@ Choose **Settings…** from the menu bar icon (or press ⌘, with the menu open)
 |---|---|
 | Record system audio | Recordings include what the Mac plays (off by default) |
 | Record microphone | Recordings include your microphone (off by default). Turning it on asks macOS for permission; if it's refused, the line under it says so, with **Open Privacy Settings** |
+
+**Updates**
+
+| Setting | What it does |
+|---|---|
+| Version | The version and build you have |
+| Check for updates automatically | Look for a newer Margin at launch and once a day (on by default; see [Updates](#updates)) |
+| Check Now | Check right away. The line beside it says when Margin last checked |
+
+**About** has Margin's version, and buttons for the website, the source code and reporting an issue.
 
 **Changing a shortcut.** Click its button, then press the new keys.
 

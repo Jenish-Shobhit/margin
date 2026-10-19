@@ -54,7 +54,7 @@ xattr -dr com.apple.quarantine /Applications/Margin.app
 
 ## Margin asks for Screen Recording, or lost it
 
-Margin needs Screen Recording to see the screen. Without it, its menu bar icon shows an orange dot, the menu's first item reads **Allow Screen Recording…**, and pressing a capture shortcut opens the Welcome window at step 1 instead of capturing.
+Margin needs Screen Recording to see the screen. Without it, its menu bar icon shows an orange dot, the menu starts with **Screen Recording needed** and **Allow Screen Recording…**, and pressing a capture shortcut opens the Welcome window at step 1 instead of capturing.
 
 1. Open **System Settings › Privacy & Security › Screen & System Audio Recording** (**Open Privacy Settings** in the Welcome window goes there).
 2. Turn **Margin** on.
@@ -149,7 +149,7 @@ The same goes for any app that wrongly reports a drop as successful. If an app w
 - **You pasted the shots**, with **Delete screenshots after pasting** on: each one leaves the shelf when it's pasted. See [below](#a-screenshot-left-the-shelf-when-i-pasted-it).
 - **The files were deleted or moved to the Trash.** Cards drop off when their file is gone.
 - **Its list was damaged.** The shelf is kept in `~/Library/Application Support/Margin/shelf.json`. If part of that file can't be read, the cards that can still be read come back, and the original file is kept beside it as `shelf.json.bad` (attach it to a bug report).
-- **Margin isn't running.** If there's no menu bar icon, open Margin from Applications. If the icon is hidden by your menu bar settings, opening Margin again opens its Settings.
+- **Margin isn't running.** If there's no menu bar icon, open Margin from Applications. If you hid the icon (**Hide from Menu Bar**), or your menu bar settings hide it, opening Margin again opens its Settings; a hidden icon comes back then too.
 
 ## Launch at login needs approval
 

@@ -2,6 +2,21 @@
 
 All notable changes to Margin are listed here. Versions follow [Semantic Versioning](https://semver.org).
 
+## 1.0.0 — 2026-10-19
+
+Margin 1.0: everything from 0.0.1 to 0.1.4, now with a Settings window and menu bar menu laid out like Paneflo's.
+
+### Added
+
+- Hide from Menu Bar, in the menu bar menu and as **Show menu bar icon** in Settings › General. Margin keeps running, with its shortcuts and the shelf. It asks the first time (with Don't ask again). Open Margin again from Spotlight, Launchpad or Applications to bring the icon back. While Margin needs your attention (Screen Recording, a shortcut that isn't working) the icon stays, or comes back by itself; while you record, it shows the time and Stop.
+- The menu bar menu opens with a status line: a green dot and "Ready to capture", or what needs attention.
+- Settings › Updates: the version, Check for updates automatically, and Check Now with the time of the last check.
+- Settings › About: the version, and buttons for the website, the source code and reporting an issue. About Margin in the menu opens it.
+
+### Changed
+
+- Settings has a sidebar of panes like System Settings (General, Shortcuts, Recording, then Updates and About), each starting with its icon, title and a sentence about it, and Margin's status at the foot of the sidebar with a button when something needs fixing. The window can be resized.
+
 ## 0.1.4 — 2026-10-18
 
 ### Changed

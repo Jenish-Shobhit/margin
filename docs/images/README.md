@@ -1,6 +1,6 @@
 # README images
 
-Every image here except `settings.png` is rendered from Margin's real views, offscreen. `settings.png` is Margin's own Settings window (General pane, default settings), captured with `screencapture -l` of that window alone. None of them is a screenshot of anyone's screen.
+Every image here except `settings.png` is rendered from Margin's real views, offscreen. `settings.png` is Margin's own Settings window (General pane, default settings, 1.0.0), captured with `screencapture -l` of that window alone. None of them is a screenshot of anyone's screen.
 
 - **Views.** A scratch harness compiles the app's own sources and uses its real views: `ShelfCardView`, `ShelfPileView` (Liquid Glass), `ShelfTabView`, `ShelfToastView`, `ShelfDragImage`, `OverlayView` with its pills, hint bar and magnifier and `FirstRunView`.
   - The views live in windows that are never ordered on screen.
