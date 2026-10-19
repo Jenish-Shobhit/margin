@@ -147,7 +147,6 @@ private struct SettingsDetail: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .navigationTitle(model.pane.title)
     }
 }
 

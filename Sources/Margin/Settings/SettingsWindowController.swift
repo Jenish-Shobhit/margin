@@ -17,6 +17,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var madeModel: SettingsModel?
     private var appStatus = MarginStatus.ready
     private var menuBarIconShown = true
+    /// A note set before the model was made: it shows the next time the window opens.
+    private var menuBarNote: String?
 
     /// Show menu bar icon turned on (showing never asks).
     var onShowMenuBarIcon: (() -> Void)?
@@ -30,6 +32,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let model = SettingsModel()
         model.appStatus = appStatus
         model.menuBarIconShown = menuBarIconShown
+        model.menuBarNote = menuBarNote
         model.onSetMenuBarIcon = { [weak self] on in
             if on { self?.onShowMenuBarIcon?() } else { self?.onRequestHideMenuBarIcon?() }
         }
@@ -52,8 +55,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         if let madeModel, madeModel.menuBarIconShown != shown { madeModel.menuBarIconShown = shown }
     }
 
-    /// A one-line note under Settings › General › Menu Bar; nil clears it.
-    func showMenuBarNote(_ note: String?) { model.menuBarNote = note }
+    /// A one-line note under Settings › General › Menu Bar; nil clears it. It stays until the window closes, so one set
+    /// while it's closed shows the next time it opens. Never makes the model (that waits for the window).
+    func showMenuBarNote(_ note: String?) {
+        menuBarNote = note
+        madeModel?.menuBarNote = note
+    }
 
     // MARK: Window
 
@@ -64,7 +71,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let window = self.window ?? makeWindow()
         self.window = window
         model.reload()
-        model.menuBarNote = nil
         model.refreshFolderInfo(force: true) // the folder may have been created or removed since
         model.refreshLoginItem()
         model.refreshSystemShortcuts()
@@ -113,6 +119,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         model.stopRecording()
+        showMenuBarNote(nil)
     }
 
     // MARK: Hide from Menu Bar
@@ -138,6 +145,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             reply(alert.runModal())
             return
         }
+        // Settings may be behind another app, or on another Space: it comes forward with the question. One at a time.
+        NSApp.activate()
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
+        guard window.attachedSheet == nil else { return }
         alert.beginSheetModal(for: window) { response in MainActor.assumeIsolated { reply(response) } }
     }
 }

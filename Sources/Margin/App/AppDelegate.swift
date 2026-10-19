@@ -5,8 +5,15 @@ import MarginKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: AppCoordinator?
     private var launchGuard: LaunchGuard?
+    /// Read before the launch's Apple event is gone (`LaunchGuard` can wait).
+    private var launchedAtLogin = false
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        launchedAtLogin = Self.isLoginLaunch
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        launchedAtLogin = launchedAtLogin || Self.isLoginLaunch
         // Before anything else: a second copy of Margin gives way to the one running.
         let launchGuard = LaunchGuard()
         self.launchGuard = launchGuard
@@ -18,7 +25,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainMenu.install()
         let coordinator = AppCoordinator()
         self.coordinator = coordinator
-        coordinator.start()
+        coordinator.start(launchedAtLogin: launchedAtLogin)
+    }
+
+    /// macOS opened Margin as a login item: the launch event says so, or (in case a login item's launch doesn't say)
+    /// the Mac started in the last three minutes.
+    private static var isLoginLaunch: Bool {
+        let event = NSAppleEventManager.shared().currentAppleEvent
+        let loginItem = event?.eventID == kAEOpenApplication
+            && event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
+        return loginItem || ProcessInfo.processInfo.systemUptime < 180
     }
 
     /// `margin://update` (spec §14.3), from the website's Update Margin button: a check, and its result in the update

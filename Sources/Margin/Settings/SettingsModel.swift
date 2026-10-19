@@ -15,7 +15,7 @@ final class SettingsModel {
     var appStatus = MarginStatus.ready
     /// "Show menu bar icon": the user's choice (`MenuBarIconPolicy`), which a recording doesn't change.
     var menuBarIconShown = true
-    /// One line under Settings › General › Menu Bar ("Menu bar icon restored."); cleared when the window opens.
+    /// One line under Settings › General › Menu Bar ("Menu bar icon restored."); cleared when the window closes.
     var menuBarNote: String?
     /// When the last update check got an answer.
     private(set) var lastUpdateCheck: Date?
@@ -154,12 +154,11 @@ final class SettingsModel {
         UserDefaults.standard.set(pane.rawValue, forKey: Self.lastPaneKey)
     }
 
-    /// "Show menu bar icon": showing never asks; hiding goes through the confirmation, and the switch follows the icon.
+    /// "Show menu bar icon": showing never asks; hiding goes through the confirmation.
     func setMenuBarIcon(_ on: Bool) {
-        if on {
-            menuBarIconShown = true
-            menuBarNote = nil
-        }
+        // Follows the switch at once; a cancelled or refused hide puts it back (`setMenuBarIconShown`), so it's redrawn.
+        menuBarIconShown = on
+        if on { menuBarNote = nil }
         onSetMenuBarIcon(on)
     }
 

@@ -87,7 +87,8 @@ final class AppCoordinator {
 
     // MARK: - Lifecycle
 
-    func start() {
+    /// `launchedAtLogin`: macOS opened Margin as a login item (or the Mac only just started), rather than the user.
+    func start(launchedAtLogin: Bool = false) {
         // Before anything names a shortcut: the keys are named as the user's keyboard layout labels them.
         KeyboardLayout.current.startObserving()
         Preferences.shared.removeObsoleteKeys()
@@ -115,6 +116,11 @@ final class AppCoordinator {
         let menuBar = StatusMenuController(coordinator: self)
         self.menuBar = menuBar
         wireMenuBarIcon(menuBar)
+        // A hidden icon comes back when the user opens Margin, as when it's opened again while running (spec §6): not
+        // at login, and not when Margin relaunched itself (Relaunch Margin, Install and Relaunch).
+        let relaunched = UserDefaults.standard.bool(forKey: Self.relaunchingKey) || prefs.pendingUpdate != nil
+        UserDefaults.standard.removeObject(forKey: Self.relaunchingKey)
+        let restoredIcon = !launchedAtLogin && !relaunched && menuBar.reopened()
 
         let hotkeys = HotkeyCenter { [weak self] action in
             self?.lastHotkeyAction = action
@@ -130,6 +136,9 @@ final class AppCoordinator {
         // (macOS shortcuts still enabled after that are offered from the menu: "macOS still uses ⇧⌘4 — Fix…".)
         if !prefs.firstRunDone || !permissionGranted {
             FirstRunWindowController.shared.show()
+        } else if restoredIcon {
+            showSettings(.general)
+            SettingsWindowController.shared.showMenuBarNote("Menu bar icon restored.")
         }
         // The automatic update check waits for this, so it never competes with getting captures ready.
         let prewarm = permissionGranted ? Task { await capture.prewarm() } : nil
@@ -252,12 +261,18 @@ final class AppCoordinator {
             if menuBar.status.needsAttention {
                 settings.showMenuBarNote("The icon stays while Margin needs your attention: \(menuBar.status.title).")
             }
+            // The switch was turned off on its way here: it goes back to the icon.
+            settings.setMenuBarIconShown(menuBar.isIconChosen)
         case .hide:
             menuBar.hide(dontAskAgain: false)
         case .confirm:
             settings.confirmHideIcon { [weak self] confirmed, dontAskAgain in
-                guard confirmed, let menuBar = self?.menuBar, menuBar.hideStep != .refuse else { return }
-                menuBar.hide(dontAskAgain: dontAskAgain)
+                guard let menuBar = self?.menuBar else { return }
+                if confirmed, menuBar.hideStep != .refuse {
+                    menuBar.hide(dontAskAgain: dontAskAgain)
+                } else {
+                    settings.setMenuBarIconShown(menuBar.isIconChosen)
+                }
             }
         }
     }
@@ -482,6 +497,9 @@ final class AppCoordinator {
 
     /// "Relaunch Margin" (First run, and the menu while permission is revoked): start a fresh copy once
     /// this one has quit, then quit.
+    /// Set just before Margin relaunches itself, so the next launch knows the user didn't open it.
+    static let relaunchingKey = "relaunching"
+
     func relaunch() {
         let bundlePath = Bundle.main.bundlePath
         guard bundlePath.hasSuffix(".app") else {
@@ -501,8 +519,10 @@ final class AppCoordinator {
         shell.executableURL = URL(fileURLWithPath: "/bin/sh")
         shell.arguments = ["-c", script, "margin-relaunch", bundlePath, String(ProcessInfo.processInfo.processIdentifier)]
         do {
+            UserDefaults.standard.set(true, forKey: Self.relaunchingKey)
             try shell.run()
         } catch {
+            UserDefaults.standard.removeObject(forKey: Self.relaunchingKey)
             Self.log.error("Relaunch failed: \(error.localizedDescription, privacy: .public)")
         }
         NSApp.terminate(nil)

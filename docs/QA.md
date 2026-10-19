@@ -419,7 +419,9 @@ Check `log stream --level info --predicate 'subsystem == "io.github.jenish-shobh
 **Hide from Menu Bar**
 
 - [ ] Hide from Menu Bar asks "Hide Margin from the menu bar?" (an alert; a sheet when Settings is open). Cancel keeps the icon; Hide hides it, and Settings › General › Show menu bar icon turns off. `scripts/debug.sh menu-icon hide`, then `menu-icon answer hide|cancel [dont-ask]`, drive it with Settings open
-- [ ] With the icon hidden, ⇧⌘4 and the shelf work as before; after a relaunch it stays hidden
+- [ ] With the icon hidden, ⇧⌘4 and the shelf work as before; at login, after Relaunch Margin and after Install and Relaunch it stays hidden
+- [ ] With the icon hidden and Margin quit, opening Margin from Spotlight brings the icon back and opens Settings › General with "Menu bar icon restored."
+- [ ] Turning Show menu bar icon off, then Cancel: the switch is on again, and so is the icon. The question comes with Settings to the front, even from behind another app
 - [ ] Opening Margin again (Spotlight, or `open -a Margin`) brings the icon back and opens Settings › General with "Menu bar icon restored." under the switch
 - [ ] Don't ask again: the next Hide from Menu Bar (or the switch) hides without asking
 - [ ] Turning Show menu bar icon back on shows the icon at once, without asking
