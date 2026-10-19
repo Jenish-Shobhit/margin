@@ -2,30 +2,75 @@ import AppKit
 import MarginKit
 import SwiftUI
 
-/// The Settings window: a pane per toolbar tab (`SettingsPane`), titled after it, as tall as that pane.
+/// The Settings window (spec §8): a sidebar of panes and a grouped form per pane, in an AppKit window hosting SwiftUI.
+/// The app talks to this façade only. What the menu bar knows (the status, the icon's visibility) is kept here from
+/// launch, while the model and the window are made on first use.
 @MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     static let shared = SettingsWindowController()
 
-    private var window: NSWindow?
-    private var tabs: SettingsTabViewController?
-    private(set) lazy var model = SettingsModel()
+    static let size = NSSize(width: 700, height: 720)
+    static let minSize = NSSize(width: 640, height: 440)
+    static let sidebarWidth: CGFloat = 190
 
-    /// Shows the window, on `pane` when given (the menu's shortcut warning opens Shortcuts), else where it was left.
+    private var window: NSWindow?
+    private var madeModel: SettingsModel?
+    private var appStatus = MarginStatus.ready
+    private var menuBarIconShown = true
+
+    /// Show menu bar icon turned on (showing never asks).
+    var onShowMenuBarIcon: (() -> Void)?
+    /// Show menu bar icon turned off: the app runs Hide from Menu Bar (the confirmation, the attention rule).
+    var onRequestHideMenuBarIcon: (() -> Void)?
+    /// The sidebar's status line has a button: Allow… or Change….
+    var onFixStatus: ((MarginStatus) -> Void)?
+
+    var model: SettingsModel {
+        if let madeModel { return madeModel }
+        let model = SettingsModel()
+        model.appStatus = appStatus
+        model.menuBarIconShown = menuBarIconShown
+        model.onSetMenuBarIcon = { [weak self] on in
+            if on { self?.onShowMenuBarIcon?() } else { self?.onRequestHideMenuBarIcon?() }
+        }
+        model.onCheckForUpdates = { UpdateController.shared.checkForUpdates() }
+        model.onFixStatus = { [weak self] in self?.onFixStatus?($0) }
+        model.window = { [weak self] in self?.window }
+        madeModel = model
+        return model
+    }
+
+    // MARK: State from the app
+
+    func setStatus(_ status: MarginStatus) {
+        appStatus = status
+        if let madeModel, madeModel.appStatus != status { madeModel.appStatus = status }
+    }
+
+    func setMenuBarIconShown(_ shown: Bool) {
+        menuBarIconShown = shown
+        if let madeModel, madeModel.menuBarIconShown != shown { madeModel.menuBarIconShown = shown }
+    }
+
+    /// A one-line note under Settings › General › Menu Bar; nil clears it.
+    func showMenuBarNote(_ note: String?) { model.menuBarNote = note }
+
+    // MARK: Window
+
+    /// Shows the window, on `pane` when given (the menu's shortcut warning opens Shortcuts, About opens About), else
+    /// where it was left.
     func show(_ pane: SettingsPane? = nil) {
+        let model = self.model
         let window = self.window ?? makeWindow()
         self.window = window
         model.reload()
+        model.menuBarNote = nil
         model.refreshFolderInfo(force: true) // the folder may have been created or removed since
         model.refreshLoginItem()
         model.refreshSystemShortcuts()
         model.refreshMicrophoneAccess()
-        if let pane { tabs?.select(pane) }
-        if !window.isVisible {
-            // The hosting controllers size lazily; size it now so centering uses the real size.
-            tabs?.fitWindow(animated: false)
-            window.center()
-        }
+        if let pane { model.select(pane) }
+        if !window.isVisible { window.center() }
         NSApp.activate()
         window.makeKeyAndOrderFront(nil)
         // A menu bar app launched in the background can be refused activation (macOS 14+ cooperative
@@ -34,13 +79,21 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     private func makeWindow() -> NSWindow {
-        let tabs = SettingsTabViewController(model: model) { [weak self] in self?.window }
-        self.tabs = tabs
-        let window = NSWindow(contentViewController: tabs)
-        window.styleMask = [.titled, .closable]
-        window.toolbarStyle = .preference
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: Self.size),
+                              styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+                              backing: .buffered, defer: false)
+        window.title = "Margin Settings"
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.toolbarStyle = .unified
         window.isReleasedWhenClosed = false
         window.collectionBehavior.insert(.moveToActiveSpace)
+        let hosting = NSHostingController(rootView: SettingsView(model: model))
+        hosting.sizingOptions = []
+        window.contentViewController = hosting
+        window.setContentSize(Self.size)
+        window.contentMinSize = Self.minSize
+        window.contentMaxSize = NSSize(width: 980, height: 1400)
         window.delegate = self
         return window
     }
@@ -61,72 +114,30 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         model.stopRecording()
     }
-}
 
-/// The toolbar tabs. The window takes the selected pane's height (keeping its top edge where it is), when a tab is
-/// chosen and when the pane grows or shrinks (a warning under a shortcut, the login item's approval line).
-@MainActor
-final class SettingsTabViewController: NSTabViewController {
-    private let panes: [SettingsPane]
-    private let model: SettingsModel
+    // MARK: Hide from Menu Bar
 
-    init(model: SettingsModel, window: @escaping () -> NSWindow?) {
-        panes = SettingsPane.allCases
-        self.model = model
-        super.init(nibName: nil, bundle: nil)
-        tabStyle = .toolbar
-        transitionOptions = []
-        canPropagateSelectedChildViewControllerTitle = true
-        for pane in panes {
-            let content: AnyView = switch pane {
-            case .general: AnyView(GeneralSettingsView(model: model, window: window))
-            case .shortcuts: AnyView(ShortcutsSettingsView(model: model))
-            case .recording: AnyView(RecordingSettingsView(model: model))
-            }
-            let hosting = NSHostingController(rootView: content)
-            hosting.sizingOptions = [.preferredContentSize]
-            hosting.title = pane.title
-            let item = NSTabViewItem(viewController: hosting)
-            item.label = pane.title
-            item.image = NSImage(systemSymbolName: pane.symbol, accessibilityDescription: pane.title)
-            item.identifier = pane.rawValue
-            addTabViewItem(item)
+    static let hideMessage = "Hide Margin from the menu bar?"
+    static let hideDetail = "Margin keeps running: your shortcuts and the shelf keep working. To bring the icon back, open Margin again from Spotlight, Launchpad or Applications."
+
+    /// Asks before hiding the menu bar icon, and answers (confirmed, don't ask again): a sheet on Settings when it's
+    /// open, otherwise an alert.
+    func confirmHideIcon(_ answer: @escaping @MainActor (Bool, Bool) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = Self.hideMessage
+        alert.informativeText = Self.hideDetail
+        alert.addButton(withTitle: "Hide")
+        alert.addButton(withTitle: "Cancel")
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = "Don’t ask again"
+        let reply: @MainActor (NSApplication.ModalResponse) -> Void = { response in
+            answer(response == .alertFirstButtonReturn, alert.suppressionButton?.state == .on)
         }
+        guard let window, window.isVisible else {
+            NSApp.activate()
+            reply(alert.runModal())
+            return
+        }
+        alert.beginSheetModal(for: window) { response in MainActor.assumeIsolated { reply(response) } }
     }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
-
-    func select(_ pane: SettingsPane) {
-        guard let index = panes.firstIndex(of: pane), selectedTabViewItemIndex != index else { return }
-        selectedTabViewItemIndex = index
-    }
-
-    override func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
-        super.tabView(tabView, didSelect: tabViewItem)
-        // A shortcut being recorded stops with its pane: out of sight, it would take the next ⌘ key pressed in another
-        // pane, and Margin's shortcuts stay off while it records.
-        if model.recording != nil { model.stopRecording() }
-        fitWindow(animated: view.window?.isVisible ?? false)
-    }
-
-    override func preferredContentSizeDidChange(for viewController: NSViewController) {
-        super.preferredContentSizeDidChange(for: viewController)
-        guard viewController === tabViewItems[safe: selectedTabViewItemIndex]?.viewController else { return }
-        fitWindow(animated: view.window?.isVisible ?? false)
-    }
-
-    /// Sizes the window to the selected pane, its top-left corner staying put.
-    func fitWindow(animated: Bool) {
-        guard let window = view.window, let pane = tabViewItems[safe: selectedTabViewItemIndex]?.viewController else { return }
-        let size = pane.view.fittingSize
-        guard size.width > 0, size.height > 0 else { return }
-        var frame = window.frameRect(forContentRect: CGRect(origin: .zero, size: size))
-        frame.origin = CGPoint(x: window.frame.minX, y: window.frame.maxY - frame.height)
-        guard frame != window.frame else { return }
-        window.setFrame(frame, display: true, animate: animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
-    }
-}
-
-private extension Array {
-    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
 }

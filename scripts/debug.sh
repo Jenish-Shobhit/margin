@@ -8,7 +8,10 @@
 #   scripts/debug.sh dismiss [n]                    remove the n newest cards (undoable), keeping the keys where they are
 #   scripts/debug.sh restore-last                   Restore Last Removed (the shelf's ⌘Z)
 #   scripts/debug.sh hover-shelf [off]              as if the pointer were on the newest card (its chrome, Close Shelf)
-#   scripts/debug.sh show settings [pane]|menu [s]  open Settings (general, shortcuts, recording), or the menu bar menu for s seconds
+#   scripts/debug.sh show settings [pane]|menu [s]  open Settings (general, shortcuts, recording, updates, about), or the menu bar menu for s seconds
+#   scripts/debug.sh menu-icon hide                 Hide from Menu Bar, as the menu item does (asks first, unless told not to)
+#   scripts/debug.sh menu-icon answer hide|cancel [dont-ask]   answer that question's sheet on Settings
+#   scripts/debug.sh menu-icon reopen               as opening Margin again from Finder or Spotlight
 #   scripts/debug.sh dump-state                     print the app state (shelf, mark, recording, timings…) as JSON
 #   scripts/debug.sh record-area <x> <y> <w> <h>    record a rect (AppKit global points), no overlay
 #   scripts/debug.sh record-screen                  record the display under the pointer

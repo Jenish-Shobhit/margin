@@ -200,6 +200,19 @@ public final class Preferences {
         set { set(newValue, "checksForUpdates") }
     }
 
+    /// The menu bar icon: whether the user hid it (Hide from Menu Bar), and whether hiding still asks first. Shown unless
+    /// hidden from the menu or Settings.
+    public var menuBarIcon: MenuBarIconPolicy {
+        get {
+            MenuBarIconPolicy(hidden: defaults.bool(forKey: "menuBarIconHidden"),
+                              skipsConfirmation: defaults.bool(forKey: "menuBarIconHideSkipsConfirmation"))
+        }
+        set {
+            defaults.set(newValue.hidden ? true : nil, forKey: "menuBarIconHidden")
+            set(newValue.skipsConfirmation ? true : nil, "menuBarIconHideSkipsConfirmation")
+        }
+    }
+
     /// The version Skip This Version was chosen for: automatic checks don't offer it again (a later one they do).
     public var skippedUpdateVersion: String? {
         get { defaults.string(forKey: "skippedUpdateVersion") }

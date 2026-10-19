@@ -77,8 +77,6 @@ final class AppCoordinator {
     private(set) var hasUnsavedShots = false
     /// Bumped by every check and fallback save: only the latest one sets `hasUnsavedShots`.
     private var unsavedShotsGeneration = 0
-    /// AppKit's About panel, once it has made one.
-    private weak var aboutPanel: NSWindow?
 
     init() {
         store = ShelfStore(fileURL: ShelfStore.defaultFileURL, writesInBackground: true)
@@ -116,6 +114,7 @@ final class AppCoordinator {
 
         let menuBar = StatusMenuController(coordinator: self)
         self.menuBar = menuBar
+        wireMenuBarIcon(menuBar)
 
         let hotkeys = HotkeyCenter { [weak self] action in
             self?.lastHotkeyAction = action
@@ -209,11 +208,57 @@ final class AppCoordinator {
 
     /// Margin was opened again while running: show whatever needs attention, otherwise Settings.
     func handleReopen() {
+        // The way back to a hidden menu bar icon (spec §6): Settings says so, on General where its switch is.
+        let restored = menuBar?.reopened() ?? false
         refreshPermission()
         if needsPermission {
             showPermissionStep()
         } else {
-            showSettings()
+            showSettings(restored ? .general : nil)
+            if restored { SettingsWindowController.shared.showMenuBarNote("Menu bar icon restored.") }
+        }
+    }
+
+    // MARK: - Menu bar icon
+
+    private func wireMenuBarIcon(_ menuBar: StatusMenuController) {
+        let settings = SettingsWindowController.shared
+        menuBar.onStatusChange = { settings.setStatus($0) }
+        menuBar.onIconVisibilityChange = { settings.setMenuBarIconShown($0) }
+        menuBar.onRestoredForAttention = {
+            settings.showMenuBarNote("The menu bar icon is back because Margin needs your attention.")
+        }
+        menuBar.onHideRequested = { [weak self] in self?.requestHideMenuBarIcon() }
+        settings.onShowMenuBarIcon = { [weak self] in self?.menuBar?.showIcon() }
+        settings.onRequestHideMenuBarIcon = { [weak self] in self?.requestHideMenuBarIcon() }
+        settings.onFixStatus = { [weak self] status in
+            switch status {
+            case .needsPermission: self?.showPermissionStep()
+            case .shortcutProblem: self?.showSettings(.shortcuts)
+            case .recording, .ready: break
+            }
+        }
+        settings.setStatus(menuBar.status)
+        settings.setMenuBarIconShown(menuBar.isIconChosen)
+    }
+
+    /// Hide from Menu Bar (the menu item or Settings' switch): refused while something needs attention, and asks once
+    /// unless the user chose "Don't show this again".
+    func requestHideMenuBarIcon() {
+        guard let menuBar else { return }
+        let settings = SettingsWindowController.shared
+        switch menuBar.hideStep {
+        case .refuse:
+            if menuBar.status.needsAttention {
+                settings.showMenuBarNote("The icon stays while Margin needs your attention: \(menuBar.status.title).")
+            }
+        case .hide:
+            menuBar.hide(dontAskAgain: false)
+        case .confirm:
+            settings.confirmHideIcon { [weak self] confirmed, dontAskAgain in
+                guard confirmed, let menuBar = self?.menuBar, menuBar.hideStep != .refuse else { return }
+                menuBar.hide(dontAskAgain: dontAskAgain)
+            }
         }
     }
 
@@ -329,16 +374,6 @@ final class AppCoordinator {
     func showSettings(_ pane: SettingsPane? = nil) {
         NSApp.activate()
         SettingsWindowController.shared.show(pane)
-    }
-
-    func showAbout() {
-        NSApp.activate()
-        let before = Set(NSApp.windows.map(ObjectIdentifier.init))
-        NSApp.orderFrontStandardAboutPanel(nil)
-        // As in Settings and First run: macOS can refuse a menu bar app activation (cooperative activation), which
-        // would leave the panel behind the frontmost app. It's the window that call made, now or the last time.
-        if let panel = NSApp.windows.first(where: { !before.contains(ObjectIdentifier($0)) }) { aboutPanel = panel }
-        aboutPanel?.orderFrontRegardless()
     }
 
     func showPermissionStep() {

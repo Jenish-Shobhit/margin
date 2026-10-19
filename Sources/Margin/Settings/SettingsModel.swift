@@ -9,6 +9,26 @@ import Observation
 final class SettingsModel {
     @ObservationIgnored let prefs: Preferences
 
+    /// The pane in the sidebar, where it was left last time.
+    private(set) var pane: SettingsPane
+    /// The menu's first line, for the foot of the sidebar.
+    var appStatus = MarginStatus.ready
+    /// "Show menu bar icon": the user's choice (`MenuBarIconPolicy`), which a recording doesn't change.
+    var menuBarIconShown = true
+    /// One line under Settings › General › Menu Bar ("Menu bar icon restored."); cleared when the window opens.
+    var menuBarNote: String?
+    /// When the last update check got an answer.
+    private(set) var lastUpdateCheck: Date?
+    // What the window controller does for the panes.
+    @ObservationIgnored var onSetMenuBarIcon: (Bool) -> Void = { _ in }
+    @ObservationIgnored var onCheckForUpdates: () -> Void = {}
+    @ObservationIgnored var onFixStatus: (MarginStatus) -> Void = { _ in }
+    @ObservationIgnored var onOpenURL: (URL) -> Void = { NSWorkspace.shared.open($0) }
+    /// The Settings window, for the folder sheet.
+    @ObservationIgnored var window: () -> NSWindow? = { nil }
+
+    static let lastPaneKey = "settings.lastPane"
+
     private(set) var saveFolder: URL
     /// The save folder's Finder icon; the generic folder icon until it's been read, or if the folder is missing.
     private(set) var folderIcon: NSImage = SettingsModel.genericFolderIcon
@@ -71,6 +91,7 @@ final class SettingsModel {
     init(prefs: Preferences = .shared, status: RuntimeStatus = .shared) {
         self.prefs = prefs
         self.status = status
+        pane = UserDefaults.standard.string(forKey: Self.lastPaneKey).flatMap(SettingsPane.init(rawValue:)) ?? .general
         saveFolder = prefs.saveFolder
         copyEachCapture = prefs.copyEachCapture
         deletesAfterPasting = prefs.deletesAfterPasting
@@ -119,6 +140,47 @@ final class SettingsModel {
         shortcuts = Dictionary(uniqueKeysWithValues: ShortcutAction.allCases.map { ($0, prefs.shortcut(for: $0)) })
         refreshFolderInfo()
         checksForUpdates = prefs.checksForUpdates
+        lastUpdateCheck = prefs.lastUpdateCheck
+    }
+
+    // MARK: Window
+
+    func select(_ pane: SettingsPane) {
+        guard pane != self.pane else { return }
+        // A shortcut being recorded stops with its pane: out of sight, it would take the next ⌘ key pressed in another
+        // pane, and Margin's shortcuts stay off while it records.
+        if recording != nil { stopRecording() }
+        self.pane = pane
+        UserDefaults.standard.set(pane.rawValue, forKey: Self.lastPaneKey)
+    }
+
+    /// "Show menu bar icon": showing never asks; hiding goes through the confirmation, and the switch follows the icon.
+    func setMenuBarIcon(_ on: Bool) {
+        if on {
+            menuBarIconShown = true
+            menuBarNote = nil
+        }
+        onSetMenuBarIcon(on)
+    }
+
+    var versionText: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String
+        let build = info?["CFBundleVersion"] as? String
+        switch (short, build) {
+        case let (short?, build?): return "\(short) (\(build))"
+        case let (short?, nil): return short
+        default: return "Development build"
+        }
+    }
+
+    var lastUpdateCheckText: String {
+        guard let lastUpdateCheck else { return "Not checked yet" }
+        let calendar = Calendar.current
+        let time = lastUpdateCheck.formatted(date: .omitted, time: .shortened)
+        if calendar.isDateInToday(lastUpdateCheck) { return "Last checked today at \(time)" }
+        if calendar.isDateInYesterday(lastUpdateCheck) { return "Last checked yesterday at \(time)" }
+        return "Last checked \(lastUpdateCheck.formatted(date: .abbreviated, time: .shortened))"
     }
 
     // MARK: Save folder

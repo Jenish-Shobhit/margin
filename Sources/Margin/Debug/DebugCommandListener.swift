@@ -168,7 +168,22 @@ final class DebugCommandListener: NSObject {
                 for window in NSApp.windows where window.isVisible && window.level == .normal { window.close() }
                 // As when a window of Margin's closes by hand: the app that was in front gets the keys back.
                 if NSApp.isActive { NSApp.deactivate() }
-            default: Self.log.error("usage: show settings [general|shortcuts|recording]|first-run|shortcuts|menu [seconds]|none")
+            default: Self.log.error("usage: show settings [general|shortcuts|recording|updates|about]|first-run|shortcuts|menu [seconds]|none")
+            }
+        case "menu-icon":
+            // Hide from Menu Bar as the menu item does; answering its sheet on Settings; opening Margin again.
+            switch parts.dropFirst().first {
+            case "hide": coordinator.requestHideMenuBarIcon()
+            case "answer":
+                let hide = parts.count > 2 && parts[2] == "hide", dontAsk = parts.contains("dont-ask")
+                guard let window = NSApp.windows.first(where: { $0.attachedSheet != nil }), let sheet = window.attachedSheet else {
+                    Self.log.error("menu-icon answer: no sheet")
+                    return
+                }
+                if dontAsk, let box = Self.checkbox(in: sheet.contentView) { box.state = .on }
+                window.endSheet(sheet, returnCode: hide ? .alertFirstButtonReturn : .alertSecondButtonReturn)
+            case "reopen": coordinator.handleReopen()
+            default: Self.log.error("usage: menu-icon hide|answer hide|cancel [dont-ask]|reopen")
             }
         case "mark":
             let text = parts.dropFirst().joined(separator: " ")
@@ -180,6 +195,14 @@ final class DebugCommandListener: NSObject {
             #endif
             Self.log.error("unknown debug command: \(command, privacy: .public)")
         }
+    }
+
+    /// The alert's "Don't ask again" box.
+    private static func checkbox(in view: NSView?) -> NSButton? {
+        guard let view else { return nil }
+        if let button = view as? NSButton, button.title.contains("ask again") { return button }
+        for sub in view.subviews { if let found = checkbox(in: sub) { return found } }
+        return nil
     }
 
     /// A drag across the live overlay, like a user's: down, a few moves a frame apart, a short pause, release.

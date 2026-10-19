@@ -3,8 +3,21 @@ import MarginKit
 
 /// The menu bar icon and its menu (spec §6). Rebuilt each time it opens, so shortcuts, the shelf's
 /// tuck state and the warnings are always current.
+///
+/// The icon can be hidden (Hide from Menu Bar, or Settings › General) while Margin keeps running: opening Margin again
+/// from Spotlight or Finder brings it back (`reopened`). It comes back on its own while something needs attention, and
+/// shows for as long as a recording runs (`MenuBarIconPolicy`).
 @MainActor
 final class StatusMenuController: NSObject, NSMenuDelegate {
+    /// The menu's first line changed (Settings' sidebar says the same).
+    var onStatusChange: ((MarginStatus) -> Void)?
+    /// The user's choice changed: Settings' "Show menu bar icon" follows it.
+    var onIconVisibilityChange: ((Bool) -> Void)?
+    /// A hidden icon came back on its own because something needs attention.
+    var onRestoredForAttention: (() -> Void)?
+    /// Hide from Menu Bar was chosen: the coordinator asks first (`hideStep`), then calls `hide(dontAskAgain:)`.
+    var onHideRequested: (() -> Void)?
+    private(set) var status = MarginStatus.ready
     private let statusItem: NSStatusItem
     private let menu = NSMenu()
     private weak var coordinator: AppCoordinator?
@@ -22,6 +35,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             "title": statusItem.button?.title ?? "",
             "recordingGlyph": statusItem.button?.image === recordingGlyph,
             "variableLength": statusItem.length == NSStatusItem.variableLength,
+            "visible": statusItem.isVisible,
+            "status": status.title,
             "menu": menu.items.map { $0.isSeparatorItem ? "—" : $0.title + ($0.keyEquivalent.isEmpty ? "" : " [\($0.keyEquivalent)]") },
         ]
     }
@@ -111,9 +126,71 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         return true
     }
 
+    // MARK: - Hiding
+
+    /// Shows a hidden icon, or keeps one up that is meant to be hidden, while a recording runs.
+    var isIconShown: Bool { Preferences.shared.menuBarIcon.isShown(recording: recordingElapsed != nil) }
+    /// The user's choice, as Settings shows it.
+    var isIconChosen: Bool { !Preferences.shared.menuBarIcon.hidden }
+    /// What Hide from Menu Bar does right now.
+    var hideStep: MenuBarIconPolicy.HideStep { Preferences.shared.menuBarIcon.hideStep(needsAttention: status.needsAttention) }
+
+    /// Hides the icon after the user confirmed (or chose not to be asked again).
+    func hide(dontAskAgain: Bool) {
+        var policy = Preferences.shared.menuBarIcon
+        policy.hide(dontAskAgain: dontAskAgain)
+        setPolicy(policy)
+    }
+
+    /// Settings' switch turned it back on.
+    func showIcon() {
+        var policy = Preferences.shared.menuBarIcon
+        if policy.show() { setPolicy(policy) }
+    }
+
+    /// Margin was opened again while running: a hidden icon comes back. Returns true when it did.
+    func reopened() -> Bool {
+        var policy = Preferences.shared.menuBarIcon
+        guard policy.show() else { return false }
+        setPolicy(policy)
+        return true
+    }
+
+    private func setPolicy(_ policy: MenuBarIconPolicy) {
+        Preferences.shared.menuBarIcon = policy
+        applyVisibility()
+        rebuild()
+        onIconVisibilityChange?(isIconChosen)
+    }
+
+    private func applyVisibility() {
+        let shown = isIconShown
+        if statusItem.isVisible != shown { statusItem.isVisible = shown }
+    }
+
+    /// The first line, and the icon back if it's needed. Before the button is drawn.
+    private func updateStatus() {
+        let hotkeyWarning = Self.hotkeyWarning(coordinator?.hotkeyFailures ?? [])
+        let new: MarginStatus = recordingElapsed != nil ? .recording
+            : showsWarning ? .needsPermission
+            : hotkeyWarning != nil ? .shortcutProblem
+            : .ready
+        var policy = Preferences.shared.menuBarIcon
+        if policy.attentionChanged(new.needsAttention) {
+            Preferences.shared.menuBarIcon = policy
+            onIconVisibilityChange?(true)
+            onRestoredForAttention?()
+        }
+        applyVisibility()
+        guard new != status else { return }
+        status = new
+        onStatusChange?(new)
+    }
+
     /// Redraws the icon (a dot when something needs attention) and rebuilds the menu.
     private func refresh() {
         defer { rebuild() }
+        updateStatus()
         if updateRecordingButton() { return }
         statusItem.length = NSStatusItem.squareLength
         statusItem.button?.title = ""
@@ -234,11 +311,20 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
 
     // MARK: - Building
 
-    /// In groups (spec §6): what needs attention first (Stop Recording, then the warnings), the captures, the shelf, the
-    /// files, and Margin itself, with Quit on its own.
+    /// In groups (spec §6): the status line, what needs attention (Stop Recording, then the warnings), the captures, the
+    /// shelf, the files, and Margin itself, with Quit on its own.
     private func rebuild() {
         menu.removeAllItems()
         let prefs = Preferences.shared
+
+        let header = NSMenuItem(title: status.title, action: nil, keyEquivalent: "")
+        header.attributedTitle = NSAttributedString(string: status.title, attributes: [
+            .font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize), .foregroundColor: NSColor.secondaryLabelColor])
+        header.image = status.dot
+        header.isEnabled = false
+        header.setAccessibilityLabel("Status: \(status.title)")
+        menu.addItem(header)
+        menu.addItem(.separator())
 
         // From the overlay closing until the recording is being saved.
         let recording = recordingElapsed != nil
@@ -310,10 +396,15 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         settings.keyEquivalentModifierMask = .command
         menu.addItem(settings)
         menu.addItem(item("Check for Updates…", symbol: "arrow.down.circle", action: #selector(checkForUpdates)))
-        menu.addItem(item("About Margin \(Self.version)", symbol: "info.circle", action: #selector(about)))
+        menu.addItem(item("About Margin", symbol: "info.circle", action: #selector(about)))
+        // Never offered while the icon is what tells the user something needs attention, nor while it only shows for a
+        // recording.
+        if !status.needsAttention, isIconChosen {
+            menu.addItem(item("Hide from Menu Bar", symbol: "eye.slash", action: #selector(hideFromMenuBar)))
+        }
         menu.addItem(.separator())
-        let quit = item("Quit Margin", symbol: "power", action: #selector(quit))
-        quit.keyEquivalent = "q"
+        let quit = NSMenuItem(title: "Quit Margin", action: #selector(quit), keyEquivalent: "q")
+        quit.target = self
         quit.keyEquivalentModifierMask = .command
         menu.addItem(quit)
     }
@@ -327,10 +418,6 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
             item.keyEquivalentModifierMask = equivalent.modifiers
         }
         return item
-    }
-
-    private static var version: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.1"
     }
 
     // MARK: - Actions
@@ -359,7 +446,8 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func openSettings() { coordinator?.showSettings() }
     @objc private func openShortcutSettings() { coordinator?.showSettings(.shortcuts) }
     @objc private func fixShortcuts() { coordinator?.showShortcutsStep() }
-    @objc private func about() { coordinator?.showAbout() }
+    @objc private func about() { coordinator?.showSettings(.about) }
+    @objc private func hideFromMenuBar() { onHideRequested?() }
     @objc private func checkForUpdates() { UpdateController.shared.checkForUpdates() }
     @objc private func quit() { coordinator?.quit() }
 }
