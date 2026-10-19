@@ -55,7 +55,10 @@ public enum SurfaceImage {
             return nil
         }
         lap("surface")
-        let destination = UnsafeMutableRawPointer(base), stride = CVPixelBufferGetBytesPerRow(buffer)
+        // Each band writes its own rows of `destination`, and only reads `input`: shared across the bands on purpose.
+        nonisolated(unsafe) let destination = UnsafeMutableRawPointer(base)
+        nonisolated(unsafe) let input = source
+        let stride = CVPixelBufferGetBytesPerRow(buffer)
         let count = max(1, min(bands, height)), rowsPerBand = (height + count - 1) / count
         withExtendedLifetime(data) {
             // Reading ScreenCaptureKit's surface and touching the new one's pages is most of the time: a few cores share it.
@@ -63,10 +66,10 @@ public enum SurfaceImage {
                 let rows = (k * rowsPerBand)..<min(height, (k + 1) * rowsPerBand)
                 guard !rows.isEmpty else { return }
                 if stride == sourceStride {
-                    memcpy(destination + rows.lowerBound * stride, source + rows.lowerBound * stride,
+                    memcpy(destination + rows.lowerBound * stride, input + rows.lowerBound * stride,
                            (rows.count - 1) * stride + rowBytes)
                 } else {
-                    for y in rows { memcpy(destination + y * stride, source + y * sourceStride, rowBytes) }
+                    for y in rows { memcpy(destination + y * stride, input + y * sourceStride, rowBytes) }
                 }
             }
         }
