@@ -10,7 +10,7 @@
 <link rel="icon" type="image/png" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0e0d16" media="(prefers-color-scheme: dark)">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Margin">
 <meta property="og:url" content="https://jenish-shobhit.github.io/margin/">
@@ -62,6 +62,9 @@
     --bezel-edge: rgba(255, 255, 255, 0.08);
     --deck-top: #e3e4e6;
     --deck-bottom: #b6b7bb;
+    /* The light of Margin's wallpaper, spilling out behind the Mac in the hero. */
+    --glow-1: rgba(112, 88, 255, 0.16);
+    --glow-2: rgba(240, 140, 90, 0.13);
     --radius: 20px;
     --radius-sm: 12px;
     --gutter: max(24px, env(safe-area-inset-left));
@@ -76,60 +79,63 @@
     --t-body: 17px;
     --t-lead: 21px;
     --t-h2: clamp(34px, 4.2vw, 48px);
-    --t-h1: clamp(42px, 4.6vw, 64px);
+    --t-h1: clamp(42px, 6vw, 80px);
   }
   /* Dark: with the Mac's appearance on Auto, or chosen on the page. */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
-      --bg: #000000;
-      --surface: #1c1c1e;
-      --ink: #f5f5f7;
-      --ink-2: #d2d2d7;
-      --muted: #98989d;
-      --line: #48484a;
-      --line-soft: #2c2c2e;
+      --bg: #0e0d16;
+      --surface: #1a1824;
+      --ink: #f5f4f9;
+      --ink-2: #d6d4df;
+      --muted: #9d9aab;
+      --line: #3d3a4b;
+      --line-soft: #2a2736;
       --accent-ink: #2997ff;
       --fill: rgba(255, 255, 255, 0.08);
       --fill-strong: rgba(255, 255, 255, 0.14);
-      --segment-on: #5a5a5e;
-      --key-top: #3a3a3c;
-      --key-bottom: #2c2c2e;
-      --key-edge: #000000;
-      --nav-bg: rgba(0, 0, 0, 0.72);
+      --segment-on: #4b4759;
+      --key-top: #34303f;
+      --key-bottom: #292533;
+      --key-edge: #07060c;
+      --nav-bg: rgba(14, 13, 22, 0.72);
       --nav-line: rgba(255, 255, 255, 0.14);
       --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.5), 0 30px 70px -24px rgba(0, 0, 0, 0.9);
       --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.5);
       --bezel-edge: rgba(255, 255, 255, 0.16);
       --deck-top: #4a4b50;
       --deck-bottom: #232327;
+      --glow-1: rgba(112, 88, 255, 0.34);
+      --glow-2: rgba(226, 112, 62, 0.2);
     }
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --bg: #000000;
-    --surface: #1c1c1e;
-    --ink: #f5f5f7;
-    --ink-2: #d2d2d7;
-    --muted: #98989d;
-    --line: #48484a;
-    --line-soft: #2c2c2e;
+    --bg: #0e0d16;
+    --surface: #1a1824;
+    --ink: #f5f4f9;
+    --ink-2: #d6d4df;
+    --muted: #9d9aab;
+    --line: #3d3a4b;
+    --line-soft: #2a2736;
     --accent-ink: #2997ff;
     --fill: rgba(255, 255, 255, 0.08);
     --fill-strong: rgba(255, 255, 255, 0.14);
-    --segment-on: #5a5a5e;
-    --key-top: #3a3a3c;
-    --key-bottom: #2c2c2e;
-    --key-edge: #000000;
-    --nav-bg: rgba(0, 0, 0, 0.72);
+    --segment-on: #4b4759;
+    --key-top: #34303f;
+    --key-bottom: #292533;
+    --key-edge: #07060c;
+    --nav-bg: rgba(14, 13, 22, 0.72);
     --nav-line: rgba(255, 255, 255, 0.14);
     --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.5), 0 30px 70px -24px rgba(0, 0, 0, 0.9);
     --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.5);
     --bezel-edge: rgba(255, 255, 255, 0.16);
     --deck-top: #4a4b50;
     --deck-bottom: #232327;
+    --glow-1: rgba(112, 88, 255, 0.34);
+    --glow-2: rgba(226, 112, 62, 0.2);
   }
-
 
   *, *::before, *::after { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 64px; overflow-x: clip; }
@@ -215,13 +221,30 @@
   .theme-switch button:focus-visible { outline-offset: 1px; border-radius: 7px; }
   .nav .theme-switch button { padding: 0 6px; }
 
-  /* Hero: a short promise on the left, the Mac on the right, where Margin's shelf lives. */
-  .hero {
-    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 56px; align-items: center;
-    padding-top: clamp(48px, 10vh, 112px);
+  /* Hero: one promise and one command, centred, with the Mac below in the light of its own wallpaper. */
+  .hero { position: relative; isolation: isolate; text-align: center; padding-top: clamp(56px, 10vh, 112px); }
+  .hero::before {
+    content: ""; position: absolute; z-index: -1; left: 50%; top: 340px; width: min(1500px, 160vw); height: 1100px;
+    transform: translateX(-50%); pointer-events: none;
+    background:
+      radial-gradient(38% 42% at 38% 52%, var(--glow-1), transparent 72%),
+      radial-gradient(32% 36% at 66% 64%, var(--glow-2), transparent 72%);
   }
-  .hero h1 { font-size: var(--t-h1); line-height: 1.04; letter-spacing: -0.035em; }
-  .hero .lead { margin-top: 22px; max-width: 22em; }
+  .hero h1 { font-size: var(--t-h1); line-height: 1.02; letter-spacing: -0.04em; max-width: 11em; margin-inline: auto; }
+  .hero .lead { margin: 22px auto 0; max-width: 28em; }
+  .get { margin: 40px auto 0; max-width: 700px; }
+  .get-label { font-size: var(--t-caption); color: var(--ink-2); margin-bottom: 12px; }
+  .hero-cmd {
+    background: var(--surface); border-radius: 16px; padding: 8px 8px 8px 20px; text-align: left;
+    box-shadow: 0 0 0 1px var(--line-soft), var(--shadow-sm);
+  }
+  .hero-cmd code { font-size: 14.5px; }
+  .hero-cmd .copy-button { min-height: 40px; padding: 0 18px; font-size: var(--t-caption); }
+  .trust { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 24px; font-size: var(--t-small); letter-spacing: 0; color: var(--ink-2); }
+  .trust li { display: inline-flex; align-items: center; gap: 7px; }
+  .trust svg { width: 15px; height: 15px; flex: none; color: #30d158; }
+  .hero .meta { margin-top: 14px; }
+  .hero .stage { margin: 72px auto 0; max-width: calc(940px + 2 * var(--gutter)); }
   .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; margin-top: 36px; }
   .button {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -270,17 +293,16 @@
     content: ""; position: absolute; left: 50%; top: 0; width: 15%; height: 5px; transform: translateX(-50%);
     border-radius: 0 0 8px 8px; background: linear-gradient(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.06));
   }
-  .stage figcaption {
-    display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px 16px;
-    margin-top: 28px; color: var(--muted); font-size: var(--t-small); letter-spacing: 0; text-align: center;
-  }
-  .motion-toggle {
+  .screen .motion-toggle {
+    position: absolute; right: 12px; bottom: 12px;
     display: inline-flex; align-items: center; gap: 7px;
-    font: 400 var(--t-small)/1 var(--font); color: var(--ink-2);
-    background: var(--fill); border: 0; border-radius: 980px;
-    height: 28px; padding: 0 12px; cursor: pointer;
+    font: 400 var(--t-small)/1 var(--font); letter-spacing: 0; color: #fff;
+    background: rgba(0, 0, 0, 0.55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+    border: 0; border-radius: 980px; height: 28px; padding: 0 12px; cursor: pointer;
+    opacity: 0; transition: opacity 0.2s ease;
   }
-  .motion-toggle:hover { background: var(--fill-strong); color: var(--ink); }
+  .screen:hover .motion-toggle, .screen .motion-toggle:focus-visible, .screen .motion-toggle[aria-pressed="true"] { opacity: 1; }
+  .screen .motion-toggle:hover { background: rgba(0, 0, 0, 0.75); }
   .motion-toggle svg { width: 11px; height: 11px; }
 
   /* Sections: one rhythm, one left edge. */
@@ -505,32 +527,6 @@
   footer .appearance { margin-left: auto; display: flex; align-items: center; gap: 10px; }
   footer .copy { margin: 0; }
 
-  /* The page's own shelf: the headline is captured on load and waits at the right edge, as a shot does in Margin.
-     Decorative; only where there's room beside the page, and never with Reduce Motion. */
-  .selection { position: absolute; pointer-events: none; z-index: 30; opacity: 0; }
-  .selection i { position: absolute; width: 22px; height: 22px; border: 0 solid var(--accent); }
-  .selection i:nth-child(1) { left: 0; top: 0; border-left-width: 3px; border-top-width: 3px; border-top-left-radius: 4px; }
-  .selection i:nth-child(2) { right: 0; top: 0; border-right-width: 3px; border-top-width: 3px; border-top-right-radius: 4px; }
-  .selection i:nth-child(3) { left: 0; bottom: 0; border-left-width: 3px; border-bottom-width: 3px; border-bottom-left-radius: 4px; }
-  .selection i:nth-child(4) { right: 0; bottom: 0; border-right-width: 3px; border-bottom-width: 3px; border-bottom-right-radius: 4px; }
-  .flash { position: fixed; inset: 0; z-index: 29; background: #fff; opacity: 0; pointer-events: none; }
-  .shelf-card {
-    position: fixed; right: 16px; bottom: 24px; z-index: 25;
-    width: 148px; height: 92px; border-radius: 11px; overflow: hidden;
-    background: var(--bg); box-shadow: var(--shadow-sm), 0 0 0 1px var(--line);
-    padding: 12px 12px 0; text-align: left;
-    font: 600 13px/1.06 var(--display); letter-spacing: -0.02em; color: var(--ink);
-    cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
-    visibility: hidden;
-  }
-  .shelf-card:active { cursor: grabbing; }
-  .shelf-card .pill {
-    position: absolute; right: 7px; bottom: 7px; padding: 2px 7px; border-radius: 7px;
-    font: 600 11px/1.4 var(--font); letter-spacing: 0; color: #fff; background: var(--accent);
-  }
-  .shelf-card.ring { animation: ring 1.6s ease-out 1 both; }
-  @keyframes ring { from { box-shadow: var(--shadow-sm), 0 0 0 3px var(--accent); } to { box-shadow: var(--shadow-sm), 0 0 0 1px var(--line); } }
-
   /* One orchestrated entrance, only with motion allowed. */
   @media (prefers-reduced-motion: no-preference) {
     .rise { animation: rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
@@ -546,9 +542,6 @@
   }
 
   @media (max-width: 1080px) {
-    .hero { grid-template-columns: minmax(0, 1fr); gap: 56px; }
-    .hero-copy { max-width: 36rem; }
-    .stage { max-width: 820px; width: 100%; margin-inline: auto; }
     .feature, .feature.flip { grid-template-columns: minmax(0, 1fr); gap: 40px; }
     .feature.flip .shot { order: 0; }
     .feature .body { max-width: 40rem; }
@@ -567,7 +560,11 @@
     .nav nav { display: none; }
     .nav .theme-switch { margin-left: auto; }
     .nav .wrap { gap: 12px; }
-    .hero { padding-top: 40px; gap: 48px; }
+    .hero { padding-top: 44px; }
+    .hero-cmd { padding: 6px 6px 6px 14px; }
+    .hero-cmd code { font-size: 13px; }
+    .trust { flex-direction: column; align-items: center; gap: 8px; }
+    .hero .stage { margin-top: 56px; }
     .lead { font-size: 19px; }
     .cta { flex-direction: column; align-items: stretch; gap: 18px; }
     .cta .button { width: 100%; }
@@ -579,7 +576,6 @@
     .lid::before { width: 4px; height: 4px; margin-left: -2px; }
     .screen { border-radius: 3px; }
     .deck { height: 9px; width: 104%; margin-left: -2%; }
-    .stage figcaption { margin-top: 22px; }
     .section-head { margin-bottom: 32px; }
     .feature + .feature { margin-top: 80px; }
     .tile { padding: 28px 22px 0; border-radius: var(--radius); }
@@ -608,34 +604,39 @@
     <a class="brand" href="#top" aria-label="Margin, back to top"><img src="icon.png" alt="" width="30" height="30">Margin</a>
     <nav aria-label="Sections">
       <ul>
-        <li><a href="#how">How it works</a></li>
-        <li><a href="#shelf">The shelf</a></li>
-        <li><a href="#shortcuts">Shortcuts</a></li>
-        <li><a href="#privacy">Privacy</a></li>
+        <li><a href="#how">Features</a></li>
+        <li><a href="#install">Install</a></li>
         <li><a href="https://github.com/Jenish-Shobhit/margin">GitHub</a></li>
       </ul>
     </nav>
-    <div class="theme-switch" role="radiogroup" aria-label="Appearance"><button type="button" role="radio" aria-checked="false" data-theme-choice="auto" aria-label="Match your Mac" title="Match your Mac"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor"/></svg></button><button type="button" role="radio" aria-checked="false" data-theme-choice="light" aria-label="Light" title="Light"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3.05 3.05l1.13 1.13M11.82 11.82l1.13 1.13M3.05 12.95l1.13-1.13M11.82 4.18l1.13-1.13" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button><button type="button" role="radio" aria-checked="false" data-theme-choice="dark" aria-label="Dark" title="Dark"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.6 10.2A6 6 0 0 1 5.8 2.4a6 6 0 1 0 7.8 7.8z" fill="currentColor"/></svg></button></div>
-    <a class="pill" data-download href="https://github.com/Jenish-Shobhit/margin/releases/latest">Download</a>
+    <a class="pill" href="#install">Get Margin</a>
   </div>
 </header>
 
 <main id="main">
-  <div class="hero wrap" id="top">
-    <div class="hero-copy">
+  <div class="hero" id="top">
+    <div class="wrap">
       <h1 id="headline" class="rise">Screenshots that wait in the margin.</h1>
       <p class="lead rise d1">Every shot is saved, copied and kept at the edge of your screen until you drag it where it belongs.</p>
-      <div class="cta rise d2">
-        <a class="button" id="download" data-download href="https://github.com/Jenish-Shobhit/margin/releases/latest">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42l2.3 2.3V3a1 1 0 0 1 1-1ZM4 16a1 1 0 1 0 0 2h12a1 1 0 1 0 0-2H4Z"/></svg>
-          Download for Mac
-        </a>
-        <a class="textlink" href="#install">Install from Terminal</a>
+      <div class="get rise d2">
+        <p class="get-label">Install it with one line in Terminal</p>
+        <div class="cmd hero-cmd">
+          <code><span class="prompt">$ </span><span data-cmd>curl -fsSL https://jenish-shobhit.github.io/margin/install.sh | bash</span></code>
+          <button class="copy-button" type="button" data-copy aria-label="Copy the install command">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M5 2.5A1.5 1.5 0 0 1 6.5 1h6A1.5 1.5 0 0 1 14 2.5v8a1.5 1.5 0 0 1-1.5 1.5H11v1.5A1.5 1.5 0 0 1 9.5 15h-6A1.5 1.5 0 0 1 2 13.5v-8A1.5 1.5 0 0 1 3.5 4H5V2.5ZM6.5 2.5V4h3A1.5 1.5 0 0 1 11 5.5v5h1.5v-8h-6Zm-3 3v8h6v-8h-6Z"/></svg>
+            <span>Copy</span>
+          </button>
+        </div>
+        <ul class="trust">
+          <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Checks the download is signed by Margin</li>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>No security prompts</li>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><a href="install.sh">Read the script first</a></li>
+        </ul>
+        <p class="meta">Free and open source, for macOS 26 or later on Apple silicon. Or <a data-download href="https://github.com/Jenish-Shobhit/margin/releases/latest">download the app</a>.</p>
       </div>
-      <p class="meta rise d2">Free and open source. For macOS 26 or later on Apple silicon.</p>
     </div>
 
-    <figure class="stage rise d4">
+    <figure class="stage wrap rise d4">
       <div class="mac">
         <div class="lid">
           <div class="screen">
@@ -644,17 +645,14 @@
               <img id="demo" src="images/demo.gif" width="800" height="508" fetchpriority="high"
                    alt="A Mac desktop with a chat and a code editor. An area of the code is selected with ⇧⌘4, the shot flies onto a shelf of thumbnails at the right edge, then its card is dragged into the chat and leaves the shelf.">
             </picture>
+            <button class="motion-toggle" id="motion-toggle" type="button" hidden aria-pressed="false">
+              <svg viewBox="0 0 12 12" aria-hidden="true"><path id="motion-icon" fill="currentColor" d="M2.5 1.5h2.2v9H2.5zM7.3 1.5h2.2v9H7.3z"/></svg>
+              <span id="motion-label">Pause</span>
+            </button>
           </div>
         </div>
         <div class="deck" aria-hidden="true"></div>
       </div>
-      <figcaption>
-        <span>⇧⌘4, drag, let go. Then drag the card into the chat.</span>
-        <button class="motion-toggle" id="motion-toggle" type="button" hidden aria-pressed="false">
-          <svg viewBox="0 0 12 12" aria-hidden="true"><path id="motion-icon" fill="currentColor" d="M2.5 1.5h2.2v9H2.5zM7.3 1.5h2.2v9H7.3z"/></svg>
-          <span id="motion-label">Pause</span>
-        </button>
-      </figcaption>
     </figure>
   </div>
 
@@ -947,8 +945,6 @@
   </div>
 </footer>
 
-<div class="shelf-card" id="shelf-card" aria-hidden="true">Screenshots that wait in the margin.<span class="pill">⌘V</span></div>
-
 <script>
 (function () {
   "use strict";
@@ -976,7 +972,7 @@
     if (theme === "auto") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", theme);
     for (var m = 0; m < themeMetas.length; m++) {
       var light = themeMetas[m].getAttribute("media").indexOf("light") >= 0;
-      themeMetas[m].setAttribute("content", theme === "auto" ? (light ? "#ffffff" : "#000000") : (theme === "dark" ? "#000000" : "#ffffff"));
+      themeMetas[m].setAttribute("content", theme === "auto" ? (light ? "#ffffff" : "#0e0d16") : (theme === "dark" ? "#0e0d16" : "#ffffff"));
     }
     var choices = document.querySelectorAll("[data-theme-choice]");
     for (var c = 0; c < choices.length; c++) {
@@ -1067,77 +1063,6 @@
   toggle.hidden = false;
   toggle.addEventListener("click", function () { show(!playing); });
 
-  // The one flourish: the headline is "captured" (the icon's corner brackets, a flash) and flies onto a shelf at the
-  // right edge, where it waits as a shot does in Margin; drag it away and it leaves. Only where the page leaves room
-  // beside it, and not with Reduce Motion.
-  var card = document.getElementById("shelf-card");
-  var headline = document.getElementById("headline");
-  var roomy = window.matchMedia("(min-width: 1420px) and (min-height: 700px)").matches;
-  if (reduce || !card.animate || !roomy) { card.remove(); return; }
-
-  window.addEventListener("load", function () {
-    setTimeout(function () {
-      if (window.scrollY > 40) { card.remove(); return; }
-      // The text's own bounds, not the column it sits in.
-      var words = document.createRange();
-      words.selectNodeContents(headline);
-      var h = words.getBoundingClientRect(), c = card.getBoundingClientRect();
-      var pad = 16;
-      var sel = document.createElement("div");
-      sel.className = "selection";
-      sel.setAttribute("aria-hidden", "true");
-      sel.innerHTML = "<i></i><i></i><i></i><i></i>";
-      sel.style.left = (h.left + window.scrollX - pad) + "px";
-      sel.style.top = (h.top + window.scrollY - pad) + "px";
-      sel.style.width = (h.width + pad * 2) + "px";
-      sel.style.height = (h.height + pad * 2) + "px";
-      document.body.appendChild(sel);
-      sel.animate([{ opacity: 0, transform: "scale(1.05)" }, { opacity: 1, transform: "scale(1)" }],
-                  { duration: 240, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
-      setTimeout(function () {
-        var flash = document.createElement("div");
-        flash.className = "flash";
-        document.body.appendChild(flash);
-        flash.animate([{ opacity: 0.0 }, { opacity: 0.18 }, { opacity: 0 }], { duration: 260, easing: "ease-out" })
-          .onfinish = function () { flash.remove(); };
-        sel.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: "forwards" })
-          .onfinish = function () { sel.remove(); };
-        var scale = Math.min(4, (h.width + pad * 2) / c.width);
-        var dx = (h.left + h.width / 2) - (c.left + c.width / 2), dy = (h.top + h.height / 2) - (c.top + c.height / 2);
-        card.style.visibility = "visible";
-        card.animate([
-          { transform: "translate(" + dx + "px," + dy + "px) scale(" + scale + ")", opacity: 0.25 },
-          { transform: "none", opacity: 1 }
-        ], { duration: 560, easing: "cubic-bezier(.2,.85,.25,1)" }).onfinish = function () { card.classList.add("ring"); };
-      }, 620);
-    }, 1100);
-  });
-
-  // Dragging the card: far enough and it leaves the shelf (as a drop in another app does); otherwise it springs back.
-  var start = null;
-  card.addEventListener("pointerdown", function (e) {
-    start = { x: e.clientX, y: e.clientY };
-    card.setPointerCapture(e.pointerId);
-  });
-  card.addEventListener("pointermove", function (e) {
-    if (!start) return;
-    card.style.transform = "translate(" + (e.clientX - start.x) + "px," + (e.clientY - start.y) + "px) rotate(-2deg)";
-  });
-  function release(e) {
-    if (!start) return;
-    var dx = e.clientX - start.x, dy = e.clientY - start.y;
-    start = null;
-    var from = card.style.transform;
-    if (Math.sqrt(dx * dx + dy * dy) > 120) {
-      card.animate([{ transform: from, opacity: 1 }, { transform: from + " scale(0.6)", opacity: 0 }],
-                   { duration: 220, easing: "ease-in", fill: "forwards" }).onfinish = function () { card.remove(); };
-    } else {
-      card.style.transform = "";
-      card.animate([{ transform: from }, { transform: "none" }], { duration: 380, easing: "cubic-bezier(.3,1.4,.5,1)" });
-    }
-  }
-  card.addEventListener("pointerup", release);
-  card.addEventListener("pointercancel", release);
 })();
 </script>
 </body>
