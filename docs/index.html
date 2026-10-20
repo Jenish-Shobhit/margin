@@ -558,11 +558,11 @@
   @media (max-width: 760px) {
     :root { --gutter: max(20px, env(safe-area-inset-left)); --section: 96px; }
     .nav nav { display: none; }
-    .nav .theme-switch { margin-left: auto; }
+    .nav .pill { margin-left: auto; }
     .nav .wrap { gap: 12px; }
     .hero { padding-top: 44px; }
     .hero-cmd { padding: 6px 6px 6px 14px; }
-    .hero-cmd code { font-size: 13px; }
+    .hero-cmd code { font-size: 13px; white-space: normal; overflow-wrap: anywhere; }
     .trust { flex-direction: column; align-items: center; gap: 8px; }
     .hero .stage { margin-top: 56px; }
     .lead { font-size: 19px; }
@@ -617,7 +617,7 @@
   <div class="hero" id="top">
     <div class="wrap">
       <h1 id="headline" class="rise">Screenshots that wait in the margin.</h1>
-      <p class="lead rise d1">Every shot is saved, copied and kept at the edge of your screen until you drag it where it belongs.</p>
+      <p class="lead rise d1">The macOS thumbnail vanishes in seconds. In Margin, every shot is saved, copied and kept at the edge of your screen until you drag it where it belongs.</p>
       <div class="get rise d2">
         <p class="get-label">Install it with one line in Terminal</p>
         <div class="cmd hero-cmd">
@@ -628,8 +628,8 @@
           </button>
         </div>
         <ul class="trust">
-          <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Checks the download is signed by Margin</li>
-          <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>No security prompts</li>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Verified against Margin's own signature</li>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>No Open Anyway step</li>
           <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><a href="install.sh">Read the script first</a></li>
         </ul>
         <p class="meta">Free and open source, for macOS 26 or later on Apple silicon. Or <a data-download href="https://github.com/Jenish-Shobhit/margin/releases/latest">download the app</a>.</p>
@@ -870,7 +870,7 @@
     <div class="install">
       <div class="panel">
         <h3>One line in Terminal <span class="tag">Recommended</span></h3>
-        <p>It downloads the latest release, checks it's signed with Margin's certificate, moves it to Applications and opens it. Nothing to approve.</p>
+        <p>It downloads the latest release from GitHub, checks it against GitHub's listing and Margin's own signature, copies it to Applications and opens it. If any check fails, nothing is installed.</p>
         <div class="foot">
           <div class="cmd">
             <code><span class="prompt">$ </span><span data-cmd>curl -fsSL https://jenish-shobhit.github.io/margin/install.sh | bash</span></code>
@@ -879,7 +879,7 @@
               <span>Copy</span>
             </button>
           </div>
-          <p class="small">Open Terminal from Applications › Utilities. Read the script first if you like: <a href="install.sh">install.sh</a>.</p>
+          <p class="small">No sudo and no Open Anyway step; Margin then asks for Screen Recording itself. Read the script first if you like: <a href="install.sh">install.sh</a>.</p>
         </div>
       </div>
       <div class="panel">
@@ -909,6 +909,14 @@
       </div>
     </div>
     <p class="after-install" id="update">Already have Margin? <a href="margin://update">Update Margin</a>, or choose <strong>Check for Updates…</strong> in its menu. Updates need no Open Anyway.</p>
+    <details class="more">
+      <summary>How to uninstall</summary>
+      <ol class="steps">
+        <li>Give the screenshot keys back to macOS first: in Margin's Settings › Shortcuts, click <strong>Restore</strong> under macOS Screenshot Shortcuts.</li>
+        <li>Turn off <strong>Launch at login</strong> in Settings › General, then choose <strong>Quit Margin</strong> from its menu bar icon.</li>
+        <li>Drag <strong>Margin.app</strong> from Applications to the Trash. Your screenshots stay in your folder. To remove its settings too, see the <a href="https://github.com/Jenish-Shobhit/margin#uninstall">full steps</a>.</li>
+      </ol>
+    </details>
   </section>
 
   <section class="closing wrap" aria-labelledby="closing-title">
