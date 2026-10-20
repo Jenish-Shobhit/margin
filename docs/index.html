@@ -35,13 +35,12 @@
   })();
 </script>
 <style>
-  /* Apple's palette and type: white and #f5f5f7 sections, #1d1d1f text, #0071e3 actions; black in dark mode. */
+  /* One canvas and one surface: the page is a single colour, and tiles, panels and the command sit on a grey surface.
+     Light: white and #f5f5f7. Dark: black and #1c1c1e. */
   :root {
     color-scheme: light;
     --bg: #ffffff;
-    --bg-alt: #f5f5f7;
-    --surface: #ffffff;
-    --surface-alt: #f5f5f7;
+    --surface: #f5f5f7;
     --ink: #1d1d1f;
     --ink-2: #424245;
     --muted: #6e6e73;
@@ -55,46 +54,52 @@
     --fill-strong: rgba(0, 0, 0, 0.08);
     --segment-on: #ffffff;
     --key-top: #ffffff;
-    --key-bottom: #f5f5f7;
+    --key-bottom: #fbfbfd;
     --key-edge: #c7c7cc;
     --nav-bg: rgba(255, 255, 255, 0.72);
-    --nav-line: rgba(0, 0, 0, 0.16);
+    --nav-line: rgba(0, 0, 0, 0.12);
     --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.06), 0 30px 60px -24px rgba(0, 0, 0, 0.28);
     --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.08);
     --bezel: #0b0b0d;
     --bezel-edge: rgba(255, 255, 255, 0.08);
     --deck-top: #e3e4e6;
     --deck-bottom: #b6b7bb;
-    --radius-lg: 18px;
-    --radius-xl: 28px;
-    --gutter: max(22px, env(safe-area-inset-left));
-    --wide: 980px;
+    --radius: 20px;
+    --radius-sm: 12px;
+    --gutter: max(24px, env(safe-area-inset-left));
+    --wide: 1080px;
+    --section: 136px;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", system-ui, "Helvetica Neue", Arial, sans-serif;
     --display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", system-ui, "Helvetica Neue", Arial, sans-serif;
-    --text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", system-ui, "Helvetica Neue", Arial, sans-serif;
     --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    /* The type scale: six sizes and nothing between them. */
+    --t-small: 13px;
+    --t-caption: 15px;
+    --t-body: 17px;
+    --t-lead: 21px;
+    --t-h2: clamp(34px, 4.2vw, 48px);
+    --t-h1: clamp(40px, 4.2vw, 58px);
   }
   /* Dark: with the Mac's appearance on Auto, or chosen on the page. */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
       --bg: #000000;
-      --bg-alt: #101012;
-      --surface: #1d1d1f;
-      --surface-alt: #1d1d1f;
+      --surface: #1c1c1e;
       --ink: #f5f5f7;
       --ink-2: #d2d2d7;
-      --muted: #86868b;
-      --line: #424245;
+      --muted: #98989d;
+      --line: #48484a;
       --line-soft: #2c2c2e;
       --accent-ink: #2997ff;
       --fill: rgba(255, 255, 255, 0.08);
       --fill-strong: rgba(255, 255, 255, 0.14);
       --segment-on: #5a5a5e;
-      --key-top: #2c2c2e;
-      --key-bottom: #1c1c1e;
+      --key-top: #3a3a3c;
+      --key-bottom: #2c2c2e;
       --key-edge: #000000;
-      --nav-bg: rgba(22, 22, 23, 0.8);
-      --nav-line: rgba(255, 255, 255, 0.16);
+      --nav-bg: rgba(0, 0, 0, 0.72);
+      --nav-line: rgba(255, 255, 255, 0.14);
       --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.5), 0 30px 70px -24px rgba(0, 0, 0, 0.9);
       --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.5);
       --bezel-edge: rgba(255, 255, 255, 0.16);
@@ -105,23 +110,21 @@
   :root[data-theme="dark"] {
     color-scheme: dark;
     --bg: #000000;
-    --bg-alt: #101012;
-    --surface: #1d1d1f;
-    --surface-alt: #1d1d1f;
+    --surface: #1c1c1e;
     --ink: #f5f5f7;
     --ink-2: #d2d2d7;
-    --muted: #86868b;
-    --line: #424245;
+    --muted: #98989d;
+    --line: #48484a;
     --line-soft: #2c2c2e;
     --accent-ink: #2997ff;
     --fill: rgba(255, 255, 255, 0.08);
     --fill-strong: rgba(255, 255, 255, 0.14);
     --segment-on: #5a5a5e;
-    --key-top: #2c2c2e;
-    --key-bottom: #1c1c1e;
+    --key-top: #3a3a3c;
+    --key-bottom: #2c2c2e;
     --key-edge: #000000;
-    --nav-bg: rgba(22, 22, 23, 0.8);
-    --nav-line: rgba(255, 255, 255, 0.16);
+    --nav-bg: rgba(0, 0, 0, 0.72);
+    --nav-line: rgba(255, 255, 255, 0.14);
     --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.5), 0 30px 70px -24px rgba(0, 0, 0, 0.9);
     --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.5);
     --bezel-edge: rgba(255, 255, 255, 0.16);
@@ -135,8 +138,8 @@
     margin: 0;
     background: var(--bg);
     color: var(--ink);
-    font: 17px/1.47 var(--text);
-    letter-spacing: -0.022em;
+    font: var(--t-body)/1.47 var(--font);
+    letter-spacing: -0.01em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -157,8 +160,12 @@
     border-radius: 6px;
     white-space: nowrap;
   }
-  h1, h2, h3 { font-family: var(--display); color: var(--ink); margin: 0; text-wrap: balance; }
+  h1, h2, h3 { font-family: var(--display); color: var(--ink); margin: 0; font-weight: 600; text-wrap: balance; }
+  h2 { font-size: var(--t-h2); line-height: 1.08; letter-spacing: -0.02em; }
+  h3 { font-size: var(--t-body); line-height: 1.3; letter-spacing: -0.01em; }
   p { margin: 0; text-wrap: pretty; }
+  /* The paragraph that follows a section's heading, everywhere. */
+  .lead { font: 400 var(--t-lead)/1.38 var(--display); letter-spacing: -0.01em; color: var(--muted); }
 
   .skip {
     position: absolute; left: 12px; top: -60px; z-index: 50;
@@ -168,9 +175,8 @@
   .skip:focus { top: 12px; }
 
   .wrap { width: 100%; max-width: calc(var(--wide) + 2 * var(--gutter)); margin-inline: auto; padding-inline: var(--gutter); }
-  .band { margin-top: 120px; background: var(--bg-alt); transition: background-color 0.3s ease; }
 
-  /* Navigation: Apple's local nav, frosted, a hairline once the page scrolls under it. */
+  /* Navigation: frosted, a hairline once the page scrolls under it. */
   .nav {
     position: sticky; top: 0; z-index: 20;
     background: var(--nav-bg);
@@ -180,16 +186,16 @@
     transition: box-shadow 0.2s, background-color 0.3s ease;
   }
   .nav.scrolled { box-shadow: inset 0 -1px 0 var(--nav-line); }
-  .nav .wrap { display: flex; align-items: center; gap: 22px; height: 52px; }
-  .nav .brand { display: flex; align-items: center; gap: 8px; font: 600 21px/1 var(--display); color: var(--ink); text-decoration: none; letter-spacing: 0.011em; }
-  .nav .brand img { width: 28px; height: 28px; margin: -2px; }
+  .nav .wrap { display: flex; align-items: center; gap: 24px; height: 52px; }
+  .nav .brand { display: flex; align-items: center; gap: 8px; font: 600 var(--t-body)/1 var(--display); color: var(--ink); text-decoration: none; letter-spacing: -0.01em; }
+  .nav .brand img { width: 26px; height: 26px; }
   .nav nav { margin-left: auto; }
-  .nav ul { display: flex; gap: 24px; list-style: none; margin: 0; padding: 0; font-size: 12px; letter-spacing: -0.01em; }
-  .nav ul a { color: var(--ink); opacity: 0.8; text-decoration: none; }
-  .nav ul a:hover { opacity: 1; color: var(--accent-ink); }
+  .nav ul { display: flex; gap: 28px; list-style: none; margin: 0; padding: 0; font-size: var(--t-small); letter-spacing: 0; }
+  .nav ul a { color: var(--ink-2); text-decoration: none; }
+  .nav ul a:hover { color: var(--ink); }
   .nav .pill {
-    display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 980px;
-    background: var(--accent); color: var(--on-accent); font-size: 12px; font-weight: 400; letter-spacing: -0.01em; text-decoration: none;
+    display: inline-flex; align-items: center; height: 28px; padding: 0 14px; border-radius: 980px;
+    background: var(--accent); color: var(--on-accent); font-size: var(--t-small); letter-spacing: 0; text-decoration: none;
   }
   .nav .pill:hover { background: var(--accent-hover); text-decoration: none; }
 
@@ -201,7 +207,7 @@
   .theme-switch button {
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     height: 24px; min-width: 28px; padding: 0 8px; border: 0; border-radius: 7px;
-    font: 400 12px/1 var(--text); letter-spacing: -0.01em; color: var(--ink-2);
+    font: 400 var(--t-small)/1 var(--font); letter-spacing: 0; color: var(--ink-2);
     background: transparent; cursor: pointer;
   }
   .theme-switch button svg { width: 14px; height: 14px; flex: none; }
@@ -210,32 +216,19 @@
   .theme-switch button:focus-visible { outline-offset: 1px; border-radius: 7px; }
   .nav .theme-switch button { padding: 0 6px; }
 
-  /* Hero */
-  .hero { position: relative; text-align: center; padding-top: 72px; }
-  .hero .app-icon { width: 120px; height: 120px; margin: 0 auto 20px; filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.18)); }
-  .eyebrow { font: 600 21px/1.2 var(--display); letter-spacing: 0.011em; color: var(--ink); margin: 0 0 10px; }
-  .hero h1 {
-    font-size: clamp(44px, 7vw, 80px);
-    line-height: 1.05;
-    letter-spacing: -0.015em;
-    font-weight: 600;
-    max-width: 12em;
-    margin: 0 auto;
-    position: relative;
+  /* Hero: the words on the left, the Mac on the right, where Margin's shelf lives. Both above the fold. */
+  .hero {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 56px; align-items: center;
+    padding-top: clamp(40px, 8vh, 88px);
   }
-  .hero .pitch {
-    font: 400 clamp(19px, 2.1vw, 24px)/1.33 var(--display);
-    letter-spacing: 0.009em;
-    color: var(--muted);
-    max-width: 30em;
-    margin: 20px auto 0;
-  }
-  .cta { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px 30px; margin: 34px 0 0; }
+  .hero h1 { font-size: var(--t-h1); line-height: 1.05; letter-spacing: -0.03em; }
+  .hero .lead { margin-top: 20px; }
+  .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; margin-top: 32px; }
   .button {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     min-height: 48px; padding: 0 24px;
     border-radius: 980px;
-    font: 400 17px/1 var(--text); letter-spacing: -0.022em;
+    font: 400 var(--t-body)/1 var(--font); letter-spacing: -0.01em;
     text-decoration: none;
     background: var(--accent); color: var(--on-accent);
     transition: background-color 0.15s ease, transform 0.15s ease;
@@ -246,46 +239,40 @@
   .button:focus-visible { border-radius: 980px; }
   .button.secondary { background: transparent; color: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--accent-ink); }
   .button.secondary:hover { background: var(--accent); color: var(--on-accent); box-shadow: none; }
-  /* Apple's text link: blue, with a chevron. */
-  .textlink { font-size: 17px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+  /* A text link: blue, with a chevron. */
+  .textlink { font-size: var(--t-body); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
   .textlink::after { content: "›"; font-size: 1.15em; line-height: 1; transform: translateY(-0.04em); }
   .textlink:hover { text-decoration: underline; }
-  .meta { color: var(--muted); font-size: 14px; letter-spacing: -0.016em; margin: 16px auto 0; max-width: 44em; text-wrap: balance; }
-  .terminal { max-width: 720px; margin: 30px auto 0; text-align: left; }
-  .terminal .label { color: var(--muted); font-size: 14px; margin: 0 0 10px; text-align: center; }
+  .meta { margin-top: 14px; color: var(--muted); font-size: var(--t-small); letter-spacing: 0; }
+  .terminal { margin-top: 32px; }
+  .terminal .label { color: var(--muted); font-size: var(--t-caption); margin-bottom: 10px; }
   .terminal .label strong { color: var(--ink); }
   .cmd {
     display: flex; align-items: center; gap: 10px;
-    background: var(--surface-alt); border-radius: 14px;
-    padding: 6px 6px 6px 18px;
+    background: var(--surface); border-radius: var(--radius-sm);
+    padding: 6px 6px 6px 16px;
   }
-  .band .cmd { background: var(--surface); }
   .cmd code {
     flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none;
-    background: none; padding: 11px 0; font-size: 14px; line-height: 1.4; color: var(--ink);
+    background: none; padding: 10px 0; font-size: 13px; line-height: 1.4; color: var(--ink);
   }
   .cmd code::-webkit-scrollbar { display: none; }
   .cmd code .prompt { color: var(--muted); user-select: none; -webkit-user-select: none; }
   .copy-button {
-    flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 14px;
-    font: 400 14px/1 var(--text); color: var(--on-accent); background: var(--accent);
+    flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 14px;
+    font: 400 var(--t-small)/1 var(--font); color: var(--on-accent); background: var(--accent);
     border: 0; border-radius: 980px; cursor: pointer;
   }
   .copy-button:hover { background: var(--accent-hover); }
   .copy-button svg { width: 13px; height: 13px; }
-  .install-choice { display: grid; gap: 14px; margin: 0 0 32px; }
-  .install-choice h3 { font-size: 24px; font-weight: 600; letter-spacing: 0.009em; }
-  .install-choice .tag { display: inline-block; margin-left: 10px; padding: 3px 10px; border-radius: 980px; font: 600 12px/1.4 var(--text); letter-spacing: -0.01em; color: var(--on-accent); background: var(--accent); vertical-align: 4px; }
-  .install-choice p { color: var(--muted); }
-  .or-download { font: 600 24px/1.2 var(--display); letter-spacing: 0.009em; margin: 12px 0 10px; color: var(--ink); }
 
   /* The Mac */
-  .stage { position: relative; margin: 64px auto 0; max-width: 960px; }
-  .mac { position: relative; z-index: 1; margin: 0 auto; width: min(100%, 880px); }
+  .stage { margin: 0; min-width: 0; }
+  .mac { position: relative; z-index: 1; margin: 0 auto; width: 100%; }
   .lid {
     position: relative;
     background: var(--bezel);
-    border-radius: 22px 22px 8px 8px;
+    border-radius: 20px 20px 8px 8px;
     padding: 2.4% 2.4% 3.2%;
     box-shadow: inset 0 0 0 1px var(--bezel-edge), var(--shadow-lg);
   }
@@ -296,132 +283,130 @@
   .screen { position: relative; border-radius: 6px; overflow: hidden; background: #1b1638; aspect-ratio: 800 / 508; }
   .screen img { width: 100%; height: 100%; object-fit: cover; }
   .deck {
-    position: relative; height: 16px; width: 112%; margin-left: -6%;
+    position: relative; height: 14px; width: 110%; margin-left: -5%;
     background: linear-gradient(var(--deck-top), var(--deck-bottom) 70%, #8d8d96);
     border-radius: 2px 2px 14px 14px / 2px 2px 12px 12px;
     box-shadow: 0 18px 30px -12px rgba(0, 0, 0, 0.35);
   }
   .deck::before { /* the thumb notch */
-    content: ""; position: absolute; left: 50%; top: 0; width: 15%; height: 6px; transform: translateX(-50%);
+    content: ""; position: absolute; left: 50%; top: 0; width: 15%; height: 5px; transform: translateX(-50%);
     border-radius: 0 0 8px 8px; background: linear-gradient(rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.06));
   }
   .stage figcaption {
-    position: relative; z-index: 1;
-    display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px 18px;
-    margin: 36px auto 0; max-width: 46em; color: var(--muted); font-size: 14px;
+    display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px 16px;
+    margin-top: 28px; color: var(--muted); font-size: var(--t-small); letter-spacing: 0; text-align: center;
   }
   .motion-toggle {
     display: inline-flex; align-items: center; gap: 7px;
-    font: 400 12px/1 var(--text); color: var(--ink-2);
+    font: 400 var(--t-small)/1 var(--font); color: var(--ink-2);
     background: var(--fill); border: 0; border-radius: 980px;
     height: 28px; padding: 0 12px; cursor: pointer;
   }
   .motion-toggle:hover { background: var(--fill-strong); color: var(--ink); }
   .motion-toggle svg { width: 11px; height: 11px; }
 
-  /* Sections */
-  section { padding: 120px 0 0; }
-  .band > section { padding-block: 112px 120px; }
-  .section-head { max-width: 42rem; margin: 0 0 56px; }
-  .section-head.center { margin-left: auto; margin-right: auto; text-align: center; }
-  h2 { font-size: clamp(36px, 5vw, 56px); line-height: 1.07; letter-spacing: -0.005em; font-weight: 600; }
-  .section-head p { margin-top: 18px; font: 400 21px/1.38 var(--display); letter-spacing: 0.011em; color: var(--muted); }
+  /* Sections: one rhythm, one left edge. */
+  section { padding-top: var(--section); }
+  .section-head { max-width: 40rem; margin: 0 0 48px; }
+  .section-head .lead { margin-top: 18px; }
 
-  /* Features: tiles, as on Apple's product pages. */
-  .features { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-  .features li { background: var(--surface); border-radius: var(--radius-xl); padding: 34px 32px 36px; transition: background-color 0.3s ease; }
-  .features .glyph { width: 40px; height: 40px; margin-bottom: 18px; color: var(--accent-ink); }
-  .features .glyph svg { width: 40px; height: 40px; stroke-width: 1.6; }
-  .features h3 { font-size: 21px; line-height: 1.24; letter-spacing: 0.011em; font-weight: 600; margin-bottom: 8px; }
-  .features p { color: var(--muted); font-size: 17px; line-height: 1.47; }
+  /* Features */
+  .features { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .features li { background: var(--surface); border-radius: var(--radius); padding: 28px 28px 30px; transition: background-color 0.3s ease; }
+  .features .glyph { width: 32px; height: 32px; margin-bottom: 18px; color: var(--accent-ink); }
+  .features .glyph svg { width: 32px; height: 32px; }
+  .features h3 { margin-bottom: 6px; }
+  .features p { color: var(--muted); font-size: var(--t-caption); }
 
   /* Detail rows */
-  .detail { display: grid; grid-template-columns: 1.25fr 1fr; gap: 64px; align-items: center; }
+  .detail { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 64px; align-items: center; }
   .shot { margin: 0; }
-  .shot img { border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
-  .detail h2 { font-size: clamp(32px, 4vw, 48px); line-height: 1.08; }
-  .detail .body p { margin-top: 18px; color: var(--muted); font: 400 19px/1.42 var(--display); letter-spacing: 0.012em; }
-  .ticks { list-style: none; margin: 26px 0 0; padding: 0; display: grid; gap: 12px; font-size: 17px; color: var(--ink-2); }
+  .shot img { border-radius: var(--radius); box-shadow: var(--shadow-lg); }
+  .detail .lead { margin-top: 18px; }
+  .ticks { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 12px; color: var(--ink-2); }
   .ticks li { position: relative; padding-left: 30px; }
   .ticks li::before {
     content: ""; position: absolute; left: 0; top: 0.2em; width: 18px; height: 18px; border-radius: 50%;
     background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M5.2 9.4l2.4 2.4 5.2-5.6' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 18px no-repeat;
   }
   .wide-shot { margin: 0; }
-  .wide-shot .scroller { overflow-x: auto; overscroll-behavior-x: contain; border-radius: var(--radius-lg); scrollbar-width: thin; }
-  .wide-shot img { border-radius: var(--radius-lg); min-width: 760px; width: 100%; }
-  .wide-shot figcaption { margin-top: 18px; color: var(--muted); font-size: 14px; text-align: center; }
+  .wide-shot .scroller { overflow-x: auto; overscroll-behavior-x: contain; border-radius: var(--radius); scrollbar-width: thin; }
+  .wide-shot img { border-radius: var(--radius); min-width: 760px; width: 100%; }
+  .wide-shot figcaption { margin-top: 18px; color: var(--muted); font-size: var(--t-small); letter-spacing: 0; text-align: center; }
 
   /* Shortcuts */
-  .shortcuts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
-  .shortcuts li { text-align: center; background: var(--surface); border-radius: var(--radius-lg); padding: 28px 14px 26px; transition: background-color 0.3s ease; }
+  .shortcuts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
+  .shortcuts li { text-align: center; background: var(--surface); border-radius: var(--radius); padding: 28px 14px 26px; transition: background-color 0.3s ease; }
   .caps { display: flex; justify-content: center; gap: 6px; margin-bottom: 18px; }
   kbd {
     display: inline-grid; place-items: center;
     min-width: 44px; height: 44px; padding: 0 10px;
-    font: 500 19px/1 var(--text); color: var(--ink);
+    font: 500 var(--t-body)/1 var(--font); color: var(--ink);
     background: linear-gradient(var(--key-top), var(--key-bottom));
     border-radius: 9px;
     box-shadow: 0 0 0 0.5px var(--line), 0 2px 0 var(--key-edge), 0 3px 6px rgba(0, 0, 0, 0.08);
   }
-  .shortcuts strong { display: block; font-size: 17px; letter-spacing: -0.022em; }
-  .shortcuts span { display: block; color: var(--muted); font-size: 14px; line-height: 1.43; margin-top: 4px; }
-  .keys-note { margin: 44px auto 0; text-align: center; color: var(--muted); font-size: 14px; max-width: 42em; }
-  kbd.mini { min-width: 0; height: auto; padding: 1px 6px; font-size: 13px; border-radius: 5px; box-shadow: 0 0 0 0.5px var(--line), 0 1px 0 var(--key-edge); vertical-align: 1px; }
+  .shortcuts strong { display: block; font-size: var(--t-body); }
+  .shortcuts span { display: block; color: var(--muted); font-size: var(--t-caption); line-height: 1.4; margin-top: 4px; }
+  .keys-note { margin-top: 28px; color: var(--muted); font-size: var(--t-caption); max-width: 44em; }
+  kbd.mini { min-width: 0; height: auto; padding: 1px 6px; font-size: 0.8em; border-radius: 5px; box-shadow: 0 0 0 0.5px var(--line), 0 1px 0 var(--key-edge); vertical-align: 0.1em; }
 
   /* Install */
-  .install { display: grid; grid-template-columns: 1.3fr 1fr; gap: 56px; align-items: start; }
-  .install > *, .detail > *, .privacy > * { min-width: 0; }
+  .install { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 64px; align-items: start; }
+  .install-choice { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin: 0 0 56px; }
+  .install h3.option { font-size: var(--t-lead); letter-spacing: -0.01em; }
+  .install-choice .tag { display: inline-block; margin-left: 10px; padding: 3px 10px; border-radius: 980px; font: 600 12px/1.4 var(--font); letter-spacing: 0; color: var(--on-accent); background: var(--accent); vertical-align: 3px; }
+  .install-choice p, .install .note { color: var(--muted); }
+  .install .note { margin: 10px 0 28px; }
   ol.steps { list-style: none; margin: 0; padding: 0; counter-reset: step; display: grid; gap: 28px; }
-  ol.steps > li { counter-increment: step; position: relative; padding-left: 52px; }
+  ol.steps > li { counter-increment: step; position: relative; padding-left: 48px; }
   ol.steps > li::before {
-    content: counter(step); position: absolute; left: 0; top: -2px;
-    width: 32px; height: 32px; border-radius: 50%;
+    content: counter(step); position: absolute; left: 0; top: -3px;
+    width: 30px; height: 30px; border-radius: 50%;
     display: grid; place-items: center;
-    font: 600 15px/1 var(--display);
+    font: 600 var(--t-caption)/1 var(--display);
     color: var(--on-accent); background: var(--accent);
   }
-  ol.steps h3 { font-size: 19px; letter-spacing: 0.012em; font-weight: 600; line-height: 1.3; }
-  ol.steps p { color: var(--muted); margin-top: 6px; font-size: 17px; }
+  ol.steps p { color: var(--muted); margin-top: 4px; font-size: var(--t-caption); }
   .gatekeeper {
-    margin: 16px 0 0; padding: 18px 20px 18px 42px; border-radius: 14px;
-    background: var(--surface-alt);
-    font-size: 15px; color: var(--ink-2); display: grid; gap: 8px;
+    margin: 14px 0 0; padding: 18px 20px 18px 40px; border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-size: var(--t-caption); color: var(--ink-2); display: grid; gap: 8px;
   }
   .gatekeeper li::marker { color: var(--accent-ink); font-weight: 600; }
   .path { white-space: nowrap; }
 
-  .side { display: grid; gap: 20px; }
-  .panel { padding: 30px; border-radius: var(--radius-xl); background: var(--surface-alt); transition: background-color 0.3s ease; }
-  .panel h3 { font-size: 24px; letter-spacing: 0.009em; font-weight: 600; }
-  .panel p { color: var(--muted); font-size: 15px; margin-top: 10px; }
-  .panel .button { margin-top: 20px; min-height: 40px; padding: 0 20px; font-size: 15px; }
-  .reqs { margin: 16px 0 0; display: grid; gap: 12px; font-size: 15px; }
-  .reqs div { display: grid; grid-template-columns: 7.5em 1fr; gap: 12px; }
+  .side { display: grid; gap: 16px; }
+  .panel { padding: 28px; border-radius: var(--radius); background: var(--surface); transition: background-color 0.3s ease; }
+  .panel h3 { font-size: var(--t-lead); letter-spacing: -0.01em; }
+  .panel p { color: var(--muted); font-size: var(--t-caption); margin-top: 10px; }
+  .panel .button { margin-top: 20px; min-height: 40px; padding: 0 20px; font-size: var(--t-caption); }
+  .reqs { margin: 16px 0 0; display: grid; gap: 12px; font-size: var(--t-caption); }
+  .reqs div { display: grid; grid-template-columns: 7em 1fr; gap: 12px; }
   .reqs dt { color: var(--muted); }
   .reqs dd { margin: 0; color: var(--ink); }
 
   /* Privacy */
-  .privacy { display: grid; grid-template-columns: 1fr 1.15fr; gap: 64px; align-items: start; }
-  .privacy .lead p { margin-top: 18px; color: var(--muted); font: 400 19px/1.42 var(--display); letter-spacing: 0.012em; }
-  .privacy .lead p:first-of-type { margin-top: 22px; }
-  .asks { margin: 0; display: grid; gap: 0; background: var(--surface); border-radius: var(--radius-xl); padding: 8px 28px; transition: background-color 0.3s ease; }
-  .asks div { padding: 18px 0; border-bottom: 1px solid var(--line-soft); display: grid; grid-template-columns: 10.5em 1fr; gap: 6px 24px; }
+  .privacy { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 64px; align-items: start; }
+  .privacy .lead { margin-top: 18px; }
+  .privacy .lead + .lead { margin-top: 14px; }
+  .asks { margin: 0; display: grid; background: var(--surface); border-radius: var(--radius); padding: 8px 28px; transition: background-color 0.3s ease; }
+  .asks div { padding: 18px 0; border-bottom: 1px solid var(--line-soft); display: grid; grid-template-columns: 10em 1fr; gap: 6px 24px; }
   .asks div:last-child { border-bottom: 0; }
-  .asks dt { font-weight: 600; font-size: 17px; letter-spacing: -0.022em; }
-  .asks dd { margin: 0; color: var(--muted); font-size: 15px; }
+  .asks dt { font-weight: 600; }
+  .asks dd { margin: 0; color: var(--muted); font-size: var(--t-caption); }
 
-  /* Closing CTA */
-  .closing { text-align: center; padding-top: 140px; padding-bottom: 140px; }
-  .closing img { width: 88px; height: 88px; margin: 0 auto 24px; }
-  .closing h2 { max-width: 14em; margin: 0 auto; }
-  .closing .cta { margin-top: 32px; }
+  /* Closing: the one centred moment. */
+  .closing { text-align: center; padding-bottom: var(--section); }
+  .closing img { width: 80px; height: 80px; margin: 0 auto 24px; }
+  .closing h2 { max-width: 13em; margin: 0 auto; }
+  .closing .cta { justify-content: center; margin-top: 32px; }
 
-  /* Footer: Apple's, small and grey. */
-  footer { background: var(--bg-alt); color: var(--muted); font-size: 12px; letter-spacing: -0.01em; transition: background-color 0.3s ease; }
-  footer .wrap { padding-top: 22px; padding-bottom: 28px; }
+  /* Footer: small and grey, on the same canvas behind a hairline. */
+  footer { border-top: 1px solid var(--line-soft); color: var(--muted); font-size: var(--t-small); letter-spacing: 0; }
+  footer .wrap { padding-top: 24px; padding-bottom: 32px; }
   footer .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; }
-  footer .row + .row { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+  footer .row + .row { margin-top: 16px; }
   footer nav ul { display: flex; flex-wrap: wrap; gap: 8px 0; list-style: none; margin: 0; padding: 0; }
   footer nav li + li::before { content: "|"; color: var(--line); margin: 0 10px; }
   footer a { color: var(--ink-2); text-decoration: none; }
@@ -450,7 +435,7 @@
   .shelf-card:active { cursor: grabbing; }
   .shelf-card .pill {
     position: absolute; right: 7px; bottom: 7px; padding: 2px 7px; border-radius: 7px;
-    font: 600 11px/1.4 var(--text); letter-spacing: 0; color: #fff; background: var(--accent);
+    font: 600 11px/1.4 var(--font); letter-spacing: 0; color: #fff; background: var(--accent);
   }
   .shelf-card.ring { animation: ring 1.6s ease-out 1 both; }
   @keyframes ring { from { box-shadow: var(--shadow-sm), 0 0 0 3px var(--accent); } to { box-shadow: var(--shadow-sm), 0 0 0 1px var(--line); } }
@@ -458,10 +443,10 @@
   /* One orchestrated entrance, only with motion allowed. */
   @media (prefers-reduced-motion: no-preference) {
     .rise { animation: rise 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-    .rise.d1 { animation-delay: 0.06s; }
-    .rise.d2 { animation-delay: 0.14s; }
-    .rise.d3 { animation-delay: 0.22s; }
-    .rise.d4 { animation-delay: 0.34s; animation-duration: 1.2s; }
+    .rise.d1 { animation-delay: 0.08s; }
+    .rise.d2 { animation-delay: 0.16s; }
+    .rise.d3 { animation-delay: 0.24s; }
+    .rise.d4 { animation-delay: 0.3s; animation-duration: 1.2s; }
     @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -469,49 +454,48 @@
     *, *::before, *::after { transition: none !important; }
   }
 
-  @media (max-width: 1040px) {
-    .features { grid-template-columns: repeat(2, 1fr); }
-    .shortcuts { grid-template-columns: repeat(3, 1fr); }
-    .detail, .install, .privacy { grid-template-columns: 1fr; gap: 40px; }
-    .detail .body, .privacy .lead { max-width: 40rem; }
+  @media (max-width: 1080px) {
+    .hero { grid-template-columns: minmax(0, 1fr); gap: 56px; }
+    .hero-copy { max-width: 36rem; }
+    .stage { max-width: 820px; width: 100%; margin-inline: auto; }
+    .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .shortcuts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .detail, .install, .privacy { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+    .detail .body, .privacy .text { max-width: 40rem; }
   }
   @media (max-width: 760px) {
-    .nav ul { display: none; }
+    :root { --gutter: max(20px, env(safe-area-inset-left)); --section: 96px; }
     .nav nav { display: none; }
     .nav .theme-switch { margin-left: auto; }
     .nav .wrap { gap: 12px; }
-    body { font-size: 17px; }
-    .hero { padding-top: 48px; }
-    .hero .app-icon { width: 96px; height: 96px; margin-bottom: 18px; }
-    .cta { flex-direction: column; gap: 18px; }
-    .cta .button { width: 100%; max-width: 360px; }
-    .stage { margin-top: 48px; }
+    .hero { padding-top: 40px; gap: 48px; }
+    .hero .lead, .lead { font-size: 19px; }
+    .cta { flex-direction: column; align-items: stretch; gap: 18px; }
+    .cta .button { width: 100%; }
+    .closing .cta { align-items: center; }
+    .closing .cta .button { max-width: 360px; }
+    .cta .textlink { align-self: flex-start; }
+    .closing .cta .textlink { align-self: center; }
     .lid { border-radius: 14px 14px 5px 5px; }
     .lid::before { width: 4px; height: 4px; margin-left: -2px; }
     .screen { border-radius: 3px; }
     .deck { height: 9px; width: 104%; margin-left: -2%; }
-    .stage figcaption { margin-top: 28px; }
-    section { padding-top: 88px; }
-    .band { margin-top: 88px; }
-    .band > section { padding-block: 80px 88px; }
-    .section-head { margin-bottom: 36px; }
-    .section-head p { font-size: 19px; }
-    .features { grid-template-columns: 1fr; gap: 14px; }
-    .features li { padding: 28px 24px 30px; }
-    .detail .body p, .privacy .lead p { font-size: 17px; }
-    .shortcuts { grid-template-columns: 1fr; gap: 10px; }
+    .stage figcaption { margin-top: 22px; }
+    .section-head { margin-bottom: 32px; }
+    .features { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .features li { padding: 24px 22px 26px; }
+    .shortcuts { grid-template-columns: minmax(0, 1fr); gap: 10px; }
     .shortcuts li { display: grid; grid-template-columns: 9em 1fr; align-items: center; gap: 14px; text-align: left; padding: 16px 18px; }
     .caps { justify-content: flex-start; margin: 0; gap: 4px; }
-    kbd { min-width: 34px; height: 34px; padding: 0 8px; font-size: 15px; border-radius: 7px; }
-    kbd.mini { min-width: 0; height: auto; padding: 1px 5px; font-size: 12px; }
+    kbd { min-width: 34px; height: 34px; padding: 0 8px; font-size: var(--t-caption); border-radius: 7px; }
+    kbd.mini { min-width: 0; height: auto; padding: 1px 5px; }
     .asks { padding: 4px 20px; }
     .asks div { grid-template-columns: 1fr; padding: 16px 0; }
     .reqs div { grid-template-columns: 6.5em 1fr; }
     .path { white-space: normal; }
     .panel { padding: 24px; }
-    ol.steps > li { padding-left: 46px; }
+    ol.steps > li { padding-left: 44px; }
     .gatekeeper { padding: 16px 16px 16px 34px; }
-    .closing { padding-top: 100px; padding-bottom: 100px; }
     footer .appearance { margin-left: 0; width: 100%; }
   }
 </style>
@@ -538,22 +522,21 @@
 
 <main id="main">
   <div class="hero wrap" id="top">
-    <img class="app-icon rise" src="icon.png" alt="" width="128" height="128">
-    <p class="eyebrow rise d1">Margin for Mac</p>
-    <h1 id="headline" class="rise d1">Screenshots that wait in the margin of your screen</h1>
-    <p class="pitch rise d2">Margin saves every capture, copies it, and keeps it on a shelf at the edge of your screen until you drag it where it belongs.</p>
+    <div class="hero-copy">
+    <h1 id="headline" class="rise">Screenshots that wait in the margin of your screen</h1>
+    <p class="lead rise d1">Margin saves every capture, copies it, and keeps it on a shelf at the edge of your screen until you drag it where it belongs.</p>
 
-    <div class="cta rise d3">
+    <div class="cta rise d2">
       <a class="button" id="download" data-download href="https://github.com/Jenish-Shobhit/margin/releases/latest">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42l2.3 2.3V3a1 1 0 0 1 1-1ZM4 16a1 1 0 1 0 0 2h12a1 1 0 1 0 0-2H4Z"/></svg>
         <span id="download-label">Download Margin</span>
       </a>
       <a class="textlink" href="#update">Already have it? Update Margin</a>
     </div>
-    <p class="meta rise d3" id="download-meta">For macOS 26 or later on Apple silicon. Free and open source.</p>
+    <p class="meta rise d2" id="download-meta">For macOS 26 or later on Apple silicon. Free and open source.</p>
 
     <div class="terminal rise d3">
-      <p class="label">Or paste one line into <strong>Terminal</strong>: Margin installs and opens with no security prompts.</p>
+      <p class="label">Or paste one line into <strong>Terminal</strong>, with no security prompts:</p>
       <div class="cmd">
         <code><span class="prompt">$ </span><span data-cmd>curl -fsSL https://jenish-shobhit.github.io/margin/install.sh | bash</span></code>
         <button class="copy-button" type="button" data-copy aria-label="Copy the install command">
@@ -561,6 +544,7 @@
           <span>Copy</span>
         </button>
       </div>
+    </div>
     </div>
 
     <figure class="stage rise d4">
@@ -586,11 +570,10 @@
     </figure>
   </div>
 
-  <div class="band">
   <section id="features" class="wrap" aria-labelledby="features-title">
     <div class="section-head">
       <h2 id="features-title">Out of your way until you need it.</h2>
-      <p>No preview to dismiss, no save dialog, no editor in between. Margin does the boring part instantly and keeps the shot within reach.</p>
+      <p class="lead">No preview to dismiss, no save dialog, no editor in between. Margin does the boring part instantly and keeps the shot within reach.</p>
     </div>
     <ul class="features">
       <li>
@@ -640,7 +623,6 @@
       </li>
     </ul>
   </section>
-  </div>
 
   <section class="wrap" aria-labelledby="precise-title">
     <div class="detail">
@@ -650,7 +632,7 @@
       </figure>
       <div class="body">
         <h2 id="precise-title">Precise when it matters.</h2>
-        <p>Most shots are a quick drag. For the others, everything you need is on the overlay before you let go.</p>
+        <p class="lead">Most shots are a quick drag. For the others, everything you need is on the overlay before you let go.</p>
         <ul class="ticks">
           <li>Resize handles and arrow-key nudging, 1 px at a time</li>
           <li>Edges that snap to the windows underneath</li>
@@ -663,9 +645,9 @@
   </section>
 
   <section class="wrap" aria-labelledby="shelf-title">
-    <div class="section-head center">
+    <div class="section-head">
       <h2 id="shelf-title">Your shots, in reach.</h2>
-      <p>Drag a card into Finder, Slack, Chrome or Terminal. Click to copy it again, press Space to look closer, and tuck the shelf away with <kbd class="mini">⇧</kbd><kbd class="mini">⌘</kbd><kbd class="mini">1</kbd>.</p>
+      <p class="lead">Drag a card into Finder, Slack, Chrome or Terminal. Click to copy it again, press Space to look closer, and tuck the shelf away with <kbd class="mini">⇧</kbd><kbd class="mini">⌘</kbd><kbd class="mini">1</kbd>.</p>
     </div>
     <figure class="wide-shot">
       <div class="scroller" tabindex="0" role="group" aria-label="The shelf in four states; scrolls sideways on small screens">
@@ -676,11 +658,10 @@
     </figure>
   </section>
 
-  <div class="band">
     <section id="shortcuts" class="wrap" aria-labelledby="shortcuts-title">
-      <div class="section-head center">
+      <div class="section-head">
         <h2 id="shortcuts-title">The shortcuts you already know.</h2>
-        <p>Margin takes over the macOS screenshot keys, with your permission, and you can change any of them in Settings.</p>
+        <p class="lead">Margin takes over the macOS screenshot keys, with your permission, and you can change any of them in Settings.</p>
       </div>
       <ul class="shortcuts">
         <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>4</kbd></div><div><strong>Capture an area</strong><span>Press Space for a single window.</span></div></li>
@@ -691,17 +672,16 @@
       </ul>
       <p class="keys-note">Every shot is already copied, so the <kbd class="mini">⌃</kbd> versions do the same. The <a href="https://github.com/Jenish-Shobhit/margin/blob/main/docs/shortcuts.md">full list</a> covers the keys for selecting and for the shelf.</p>
     </section>
-  </div>
 
   <section id="install" class="wrap" aria-labelledby="install-title">
     <div class="section-head">
       <h2 id="install-title">Install in a minute.</h2>
-      <p>One line in Terminal is quickest. The same line updates Margin later.</p>
+      <p class="lead">One line in Terminal is quickest. The same line updates Margin later.</p>
     </div>
     <div class="install">
       <div>
       <div class="install-choice">
-        <h3>One line in Terminal<span class="tag">Recommended</span></h3>
+        <h3 class="option">One line in Terminal<span class="tag">Recommended</span></h3>
         <p>Open Terminal (in Applications › Utilities), paste this and press Return. It downloads the latest release from GitHub, checks its checksum and that it's signed with Margin's certificate, moves it to Applications and opens it. Nothing to approve in System Settings.</p>
         <div class="cmd">
           <code><span class="prompt">$ </span><span data-cmd>curl -fsSL https://jenish-shobhit.github.io/margin/install.sh | bash</span></code>
@@ -712,8 +692,8 @@
         </div>
         <p>Read it first if you like: <a href="install.sh">install.sh</a>.</p>
       </div>
-      <p class="or-download">Or download the zip</p>
-      <p class="meta" style="text-align:left;margin:0 0 18px">Margin isn't notarized by Apple yet, so a downloaded copy's first launch takes one extra step, once.</p>
+      <h3 class="option">Or download the zip</h3>
+      <p class="note">Margin isn't notarized by Apple yet, so a downloaded copy's first launch takes one extra step, once.</p>
       <ol class="steps">
         <li>
           <h3>Download and unzip</h3>
@@ -761,13 +741,12 @@
     </div>
   </section>
 
-  <div class="band">
   <section id="privacy" class="wrap" aria-labelledby="privacy-title">
     <div class="privacy">
-      <div class="lead">
+      <div class="text">
         <h2 id="privacy-title">No accounts. No analytics.</h2>
-        <p>Margin works entirely on your Mac and sends no telemetry. Your screenshots and recordings never leave it unless you drag them somewhere.</p>
-        <p>Its one network request is the update check: once a day it asks GitHub for the latest release, sending nothing about you. Turn that off in Settings. It doesn't need Accessibility or Input Monitoring.</p>
+        <p class="lead">Margin works entirely on your Mac and sends no telemetry. Your screenshots and recordings never leave it unless you drag them somewhere.</p>
+        <p class="lead">Its one network request is the update check: once a day it asks GitHub for the latest release, sending nothing about you. Turn that off in Settings. It doesn't need Accessibility or Input Monitoring.</p>
       </div>
       <dl class="asks">
         <div><dt>Screen Recording</dt><dd>To capture and record the screen. It asks only when you click Allow… in the welcome window.</dd></div>
@@ -778,7 +757,6 @@
       </dl>
     </div>
   </section>
-  </div>
 
   <section class="closing wrap" aria-labelledby="closing-title">
     <img src="icon.png" alt="" width="88" height="88" loading="lazy">
@@ -945,13 +923,16 @@
   // beside it, and not with Reduce Motion.
   var card = document.getElementById("shelf-card");
   var headline = document.getElementById("headline");
-  var roomy = window.matchMedia("(min-width: 1400px) and (min-height: 700px)").matches;
+  var roomy = window.matchMedia("(min-width: 1420px) and (min-height: 700px)").matches;
   if (reduce || !card.animate || !roomy) { card.remove(); return; }
 
   window.addEventListener("load", function () {
     setTimeout(function () {
       if (window.scrollY > 40) { card.remove(); return; }
-      var h = headline.getBoundingClientRect(), c = card.getBoundingClientRect();
+      // The text's own bounds, not the column it sits in.
+      var words = document.createRange();
+      words.selectNodeContents(headline);
+      var h = words.getBoundingClientRect(), c = card.getBoundingClientRect();
       var pad = 16;
       var sel = document.createElement("div");
       sel.className = "selection";
