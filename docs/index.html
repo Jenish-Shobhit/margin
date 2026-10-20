@@ -35,8 +35,6 @@
   })();
 </script>
 <style>
-  /* One canvas and one surface: the page is a single colour, and tiles, panels and the command sit on a grey surface.
-     Light: white and #f5f5f7. Dark: black and #1c1c1e. */
   :root {
     color-scheme: light;
     --bg: #ffffff;
@@ -78,7 +76,7 @@
     --t-body: 17px;
     --t-lead: 21px;
     --t-h2: clamp(34px, 4.2vw, 48px);
-    --t-h1: clamp(40px, 4.2vw, 58px);
+    --t-h1: clamp(42px, 4.6vw, 64px);
   }
   /* Dark: with the Mac's appearance on Auto, or chosen on the page. */
   @media (prefers-color-scheme: dark) {
@@ -131,6 +129,7 @@
     --deck-top: #4a4b50;
     --deck-bottom: #232327;
   }
+
 
   *, *::before, *::after { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 64px; overflow-x: clip; }
@@ -216,17 +215,17 @@
   .theme-switch button:focus-visible { outline-offset: 1px; border-radius: 7px; }
   .nav .theme-switch button { padding: 0 6px; }
 
-  /* Hero: the words on the left, the Mac on the right, where Margin's shelf lives. Both above the fold. */
+  /* Hero: a short promise on the left, the Mac on the right, where Margin's shelf lives. */
   .hero {
-    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 56px; align-items: center;
-    padding-top: clamp(40px, 8vh, 88px);
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 56px; align-items: center;
+    padding-top: clamp(48px, 10vh, 112px);
   }
-  .hero h1 { font-size: var(--t-h1); line-height: 1.05; letter-spacing: -0.03em; }
-  .hero .lead { margin-top: 20px; }
-  .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; margin-top: 32px; }
+  .hero h1 { font-size: var(--t-h1); line-height: 1.04; letter-spacing: -0.035em; }
+  .hero .lead { margin-top: 22px; max-width: 22em; }
+  .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; margin-top: 36px; }
   .button {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    min-height: 48px; padding: 0 24px;
+    min-height: 48px; padding: 0 26px;
     border-radius: 980px;
     font: 400 var(--t-body)/1 var(--font); letter-spacing: -0.01em;
     text-decoration: none;
@@ -243,28 +242,7 @@
   .textlink { font-size: var(--t-body); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
   .textlink::after { content: "›"; font-size: 1.15em; line-height: 1; transform: translateY(-0.04em); }
   .textlink:hover { text-decoration: underline; }
-  .meta { margin-top: 14px; color: var(--muted); font-size: var(--t-small); letter-spacing: 0; }
-  .terminal { margin-top: 32px; }
-  .terminal .label { color: var(--muted); font-size: var(--t-caption); margin-bottom: 10px; }
-  .terminal .label strong { color: var(--ink); }
-  .cmd {
-    display: flex; align-items: center; gap: 10px;
-    background: var(--surface); border-radius: var(--radius-sm);
-    padding: 6px 6px 6px 16px;
-  }
-  .cmd code {
-    flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none;
-    background: none; padding: 10px 0; font-size: 13px; line-height: 1.4; color: var(--ink);
-  }
-  .cmd code::-webkit-scrollbar { display: none; }
-  .cmd code .prompt { color: var(--muted); user-select: none; -webkit-user-select: none; }
-  .copy-button {
-    flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 14px;
-    font: 400 var(--t-small)/1 var(--font); color: var(--on-accent); background: var(--accent);
-    border: 0; border-radius: 980px; cursor: pointer;
-  }
-  .copy-button:hover { background: var(--accent-hover); }
-  .copy-button svg { width: 13px; height: 13px; }
+  .meta { margin-top: 16px; color: var(--muted); font-size: var(--t-small); letter-spacing: 0; }
 
   /* The Mac */
   .stage { margin: 0; min-width: 0; }
@@ -307,32 +285,136 @@
 
   /* Sections: one rhythm, one left edge. */
   section { padding-top: var(--section); }
-  .section-head { max-width: 40rem; margin: 0 0 48px; }
+  .section-head { max-width: 42rem; margin: 0 0 48px; }
   .section-head .lead { margin-top: 18px; }
 
-  /* Features */
-  .features { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-  .features li { background: var(--surface); border-radius: var(--radius); padding: 28px 28px 30px; transition: background-color 0.3s ease; }
-  .features .glyph { width: 32px; height: 32px; margin-bottom: 18px; color: var(--accent-ink); }
-  .features .glyph svg { width: 32px; height: 32px; }
-  .features h3 { margin-bottom: 6px; }
-  .features p { color: var(--muted); font-size: var(--t-caption); }
+  /* How it works: three beats, because it is a sequence. Each has a small drawing of its moment. */
+  .beats { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .beats li { background: var(--surface); border-radius: var(--radius); padding: 12px 12px 28px; transition: background-color 0.3s ease; }
+  .beats .art { height: 168px; border-radius: 14px; background: var(--bg); display: grid; place-items: center; margin-bottom: 24px; position: relative; overflow: hidden; transition: background-color 0.3s ease; }
+  .beats h3, .beats p { padding-inline: 16px; }
+  .beats h3 { display: flex; align-items: center; gap: 10px; }
+  .beats .n {
+    flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+    font: 600 var(--t-small)/1 var(--display); letter-spacing: 0; color: var(--on-accent); background: var(--accent);
+  }
+  .beats p { margin-top: 8px; color: var(--muted); font-size: var(--t-caption); }
+  .beats .caps { display: flex; gap: 8px; }
+  .beats kbd { min-width: 56px; height: 56px; font-size: var(--t-lead); border-radius: 12px; }
+  /* Beat two: a selection being drawn. */
+  .marquee { position: relative; width: 62%; height: 56%; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .marquee i { position: absolute; width: 18px; height: 18px; border: 0 solid var(--accent); }
+  .marquee i:nth-child(1) { left: -2px; top: -2px; border-left-width: 3px; border-top-width: 3px; border-top-left-radius: 4px; }
+  .marquee i:nth-child(2) { right: -2px; top: -2px; border-right-width: 3px; border-top-width: 3px; border-top-right-radius: 4px; }
+  .marquee i:nth-child(3) { left: -2px; bottom: -2px; border-left-width: 3px; border-bottom-width: 3px; border-bottom-left-radius: 4px; }
+  .marquee i:nth-child(4) { right: -2px; bottom: -2px; border-right-width: 3px; border-bottom-width: 3px; border-bottom-right-radius: 4px; }
+  .marquee b {
+    position: absolute; right: 0; bottom: -30px; padding: 3px 8px; border-radius: 6px;
+    font: 500 12px/1.3 var(--mono); letter-spacing: 0; color: #fff; background: rgba(0, 0, 0, 0.72);
+  }
+  .marquee svg { position: absolute; right: -14px; bottom: -16px; width: 18px; height: 18px; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3)); }
+  /* Beat three: the shot on the shelf, and on the clipboard. */
+  .mini-shelf { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); display: grid; gap: 6px; }
+  .mini-shelf span {
+    display: block; width: 92px; height: 34px; border-radius: 7px; position: relative;
+    background: linear-gradient(135deg, #5b4bd6, #c2562a); opacity: 0.35;
+  }
+  .mini-shelf span:last-child { opacity: 1; height: 52px; box-shadow: 0 0 0 2px var(--accent), var(--shadow-sm); }
+  .mini-shelf span:last-child::after {
+    content: "⌘V"; position: absolute; right: 5px; bottom: 5px; padding: 1px 5px; border-radius: 5px;
+    font: 600 10px/1.4 var(--font); letter-spacing: 0; color: #fff; background: var(--accent);
+  }
+  .saved { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); display: grid; gap: 10px; font-size: var(--t-small); letter-spacing: 0; color: var(--ink-2); }
+  .saved span { display: flex; align-items: center; gap: 8px; }
+  .saved svg { width: 16px; height: 16px; flex: none; color: #30d158; }
 
-  /* Detail rows */
-  .detail { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 64px; align-items: center; }
+  /* Fact rows: three short claims under a picture or a heading. */
+  .facts { list-style: none; margin: 40px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+  .facts li { border-top: 1px solid var(--line-soft); padding-top: 20px; }
+  .facts p { margin-top: 6px; color: var(--muted); font-size: var(--t-caption); }
+
+  .wide-shot { margin: 0; }
+  .wide-shot .scroller { overflow-x: auto; overscroll-behavior-x: contain; border-radius: var(--radius); scrollbar-width: thin; }
+  .wide-shot img { border-radius: var(--radius); min-width: 760px; width: 100%; }
+
+  /* Feature rows: a picture and its claim, alternating sides. */
+  .feature { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 64px; align-items: center; }
+  .feature + .feature { margin-top: 112px; }
+  .feature.flip { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+  .feature.flip .shot { order: 2; }
   .shot { margin: 0; }
   .shot img { border-radius: var(--radius); box-shadow: var(--shadow-lg); }
-  .detail .lead { margin-top: 18px; }
+  /* A real window, captured with its own shadow. */
+  .shot.window img { width: min(100%, 520px); margin-inline: auto; border-radius: 0; box-shadow: none; }
+  .feature .lead { margin-top: 18px; }
   .ticks { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 12px; color: var(--ink-2); }
   .ticks li { position: relative; padding-left: 30px; }
   .ticks li::before {
     content: ""; position: absolute; left: 0; top: 0.2em; width: 18px; height: 18px; border-radius: 50%;
     background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M5.2 9.4l2.4 2.4 5.2-5.6' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 18px no-repeat;
   }
-  .wide-shot { margin: 0; }
-  .wide-shot .scroller { overflow-x: auto; overscroll-behavior-x: contain; border-radius: var(--radius); scrollbar-width: thin; }
-  .wide-shot img { border-radius: var(--radius); min-width: 760px; width: 100%; }
-  .wide-shot figcaption { margin-top: 18px; color: var(--muted); font-size: var(--t-small); letter-spacing: 0; text-align: center; }
+
+  /* Two showcase tiles: the words on top, a drawing of the moment underneath. */
+  .duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .tile {
+    display: flex; flex-direction: column; overflow: hidden;
+    background: var(--surface); border-radius: 28px; padding: 40px 40px 0;
+    transition: background-color 0.3s ease;
+  }
+  .tile h2 { font-size: clamp(28px, 3vw, 36px); }
+  .tile .lead { margin-top: 14px; font-size: var(--t-body); line-height: 1.47; }
+  .tile .scene { margin-top: auto; padding-top: 40px; }
+  /* A terminal, always dark, as most are. */
+  .term {
+    border-radius: 14px 14px 0 0; background: #161618; color: #e5e5ea;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), var(--shadow-lg);
+    font: 13px/1.7 var(--mono); letter-spacing: 0;
+  }
+  .term .bar { display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+  .term .bar i { width: 11px; height: 11px; border-radius: 50%; background: #ff5f57; }
+  .term .bar i:nth-child(2) { background: #febc2e; }
+  .term .bar i:nth-child(3) { background: #28c840; }
+  .term .bar span { margin-left: auto; margin-right: auto; padding-right: 50px; font: 500 12px/1 var(--font); color: #8e8e93; }
+  .term pre { margin: 0; padding: 18px 20px 26px; font: inherit; white-space: pre-wrap; word-break: break-word; }
+  .term .dim { color: #8e8e93; }
+  .term .ok { color: #30d158; }
+  .term .img { color: #fff; background: #0071e3; border-radius: 4px; padding: 1px 6px; }
+  .term .paste { color: #64d2ff; }
+  .term .caret { display: inline-block; width: 8px; height: 15px; vertical-align: -2px; background: #e5e5ea; }
+  /* A desktop with Margin recording: the menu bar's stop button and time, and the area being recorded. */
+  .desk {
+    position: relative; aspect-ratio: 16 / 9.4; border-radius: 14px 14px 0 0; overflow: hidden;
+    background: radial-gradient(120% 90% at 85% 100%, #c2562a 0%, rgba(194, 86, 42, 0) 55%), linear-gradient(160deg, #2a1f63 0%, #3b2a7a 45%, #1d1640 100%);
+    box-shadow: var(--shadow-lg);
+  }
+  .desk .menubar {
+    display: flex; align-items: center; gap: 14px; height: 30px; padding: 0 12px;
+    background: rgba(0, 0, 0, 0.28); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+    font: 600 12px/1 var(--font); letter-spacing: 0; color: #fff;
+  }
+  .desk .menubar span { font-weight: 400; opacity: 0.85; }
+  .desk .menubar .right { margin-left: auto; display: flex; align-items: center; gap: 12px; font-weight: 400; }
+  .desk .stop {
+    display: inline-flex; align-items: center; gap: 6px; height: 20px; padding: 0 8px; border-radius: 6px;
+    background: #ff3b30; color: #fff; font: 600 12px/1 var(--font); font-variant-numeric: tabular-nums;
+  }
+  .desk .stop::before { content: ""; width: 7px; height: 7px; border-radius: 1.5px; background: #fff; }
+  .desk .area {
+    position: absolute; left: 14%; top: 24%; width: 56%; height: 58%;
+    border-radius: 4px; box-shadow: 0 0 0 1.5px #ff3b30, 0 0 0 9999px rgba(0, 0, 0, 0.28);
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .desk .area::before, .desk .area::after { content: ""; position: absolute; left: 10%; right: 18%; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.22); }
+  .desk .area::before { top: 18%; }
+  .desk .area::after { top: 34%; right: 40%; }
+  .desk .tags { position: absolute; left: 14%; bottom: 7%; display: flex; gap: 6px; }
+  .desk .tags span { padding: 3px 8px; border-radius: 6px; font: 500 11px/1.3 var(--font); letter-spacing: 0; color: #fff; background: rgba(0, 0, 0, 0.5); }
+
+  /* The little things: a quiet list, no tiles. */
+  .little { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 32px; }
+  .little .glyph { width: 28px; height: 28px; margin-bottom: 14px; color: var(--accent-ink); }
+  .little .glyph svg { width: 28px; height: 28px; }
+  .little p { margin-top: 6px; color: var(--muted); font-size: var(--t-caption); }
 
   /* Shortcuts */
   .shortcuts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
@@ -351,56 +433,65 @@
   .keys-note { margin-top: 28px; color: var(--muted); font-size: var(--t-caption); max-width: 44em; }
   kbd.mini { min-width: 0; height: auto; padding: 1px 6px; font-size: 0.8em; border-radius: 5px; box-shadow: 0 0 0 0.5px var(--line), 0 1px 0 var(--key-edge); vertical-align: 0.1em; }
 
-  /* Install */
-  .install { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 64px; align-items: start; }
-  .install-choice { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin: 0 0 56px; }
-  .install h3.option { font-size: var(--t-lead); letter-spacing: -0.01em; }
-  .install-choice .tag { display: inline-block; margin-left: 10px; padding: 3px 10px; border-radius: 980px; font: 600 12px/1.4 var(--font); letter-spacing: 0; color: var(--on-accent); background: var(--accent); vertical-align: 3px; }
-  .install-choice p, .install .note { color: var(--muted); }
-  .install .note { margin: 10px 0 28px; }
-  ol.steps { list-style: none; margin: 0; padding: 0; counter-reset: step; display: grid; gap: 28px; }
-  ol.steps > li { counter-increment: step; position: relative; padding-left: 48px; }
-  ol.steps > li::before {
-    content: counter(step); position: absolute; left: 0; top: -3px;
-    width: 30px; height: 30px; border-radius: 50%;
-    display: grid; place-items: center;
-    font: 600 var(--t-caption)/1 var(--display);
-    color: var(--on-accent); background: var(--accent);
+  /* Disclosure: the long version, for whoever wants it. */
+  .more { margin-top: 32px; }
+  .more summary {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer; list-style: none;
+    color: var(--accent-ink); font-size: var(--t-body);
   }
-  ol.steps p { color: var(--muted); margin-top: 4px; font-size: var(--t-caption); }
-  .gatekeeper {
-    margin: 14px 0 0; padding: 18px 20px 18px 40px; border-radius: var(--radius-sm);
-    background: var(--surface);
-    font-size: var(--t-caption); color: var(--ink-2); display: grid; gap: 8px;
-  }
-  .gatekeeper li::marker { color: var(--accent-ink); font-weight: 600; }
-  .path { white-space: nowrap; }
+  .more summary::-webkit-details-marker { display: none; }
+  .more summary::after { content: "›"; font-size: 1.15em; line-height: 1; transition: transform 0.2s ease; }
+  .more[open] summary::after { transform: rotate(90deg); }
+  .more summary:hover { text-decoration: underline; }
+  .more > :not(summary) { margin-top: 20px; }
 
-  .side { display: grid; gap: 16px; }
-  .panel { padding: 28px; border-radius: var(--radius); background: var(--surface); transition: background-color 0.3s ease; }
-  .panel h3 { font-size: var(--t-lead); letter-spacing: -0.01em; }
-  .panel p { color: var(--muted); font-size: var(--t-caption); margin-top: 10px; }
-  .panel .button { margin-top: 20px; min-height: 40px; padding: 0 20px; font-size: var(--t-caption); }
-  .reqs { margin: 16px 0 0; display: grid; gap: 12px; font-size: var(--t-caption); }
-  .reqs div { display: grid; grid-template-columns: 7em 1fr; gap: 12px; }
-  .reqs dt { color: var(--muted); }
-  .reqs dd { margin: 0; color: var(--ink); }
-
-  /* Privacy */
-  .privacy { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 64px; align-items: start; }
-  .privacy .lead { margin-top: 18px; }
-  .privacy .lead + .lead { margin-top: 14px; }
-  .asks { margin: 0; display: grid; background: var(--surface); border-radius: var(--radius); padding: 8px 28px; transition: background-color 0.3s ease; }
-  .asks div { padding: 18px 0; border-bottom: 1px solid var(--line-soft); display: grid; grid-template-columns: 10em 1fr; gap: 6px 24px; }
+  .asks { margin: 0; display: grid; background: var(--surface); border-radius: var(--radius); padding: 8px 28px; max-width: 52rem; }
+  .asks div { padding: 18px 0; border-bottom: 1px solid var(--line-soft); display: grid; grid-template-columns: 11em 1fr; gap: 6px 24px; }
   .asks div:last-child { border-bottom: 0; }
   .asks dt { font-weight: 600; }
   .asks dd { margin: 0; color: var(--muted); font-size: var(--t-caption); }
 
+  /* Install: two ways in, side by side. */
+  .install { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+  .panel { display: flex; flex-direction: column; padding: 36px; border-radius: 28px; background: var(--surface); transition: background-color 0.3s ease; }
+  .panel h3 { font-size: var(--t-lead); letter-spacing: -0.01em; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .panel > p { color: var(--muted); margin-top: 10px; }
+  .panel .tag { padding: 3px 10px; border-radius: 980px; font: 600 12px/1.4 var(--font); letter-spacing: 0; color: var(--on-accent); background: var(--accent); }
+  .panel .foot { margin-top: auto; padding-top: 28px; }
+  .panel .small { margin-top: 14px; color: var(--muted); font-size: var(--t-small); letter-spacing: 0; }
+  .cmd {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg); border-radius: var(--radius-sm);
+    padding: 6px 6px 6px 16px;
+    transition: background-color 0.3s ease;
+  }
+  .cmd code {
+    flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none;
+    background: none; padding: 10px 0; font-size: 13px; line-height: 1.4; color: var(--ink);
+  }
+  .cmd code::-webkit-scrollbar { display: none; }
+  .cmd code .prompt { color: var(--muted); user-select: none; -webkit-user-select: none; }
+  .copy-button {
+    flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 14px;
+    font: 400 var(--t-small)/1 var(--font); color: var(--on-accent); background: var(--accent);
+    border: 0; border-radius: 980px; cursor: pointer;
+  }
+  .copy-button:hover { background: var(--accent-hover); }
+  .copy-button svg { width: 13px; height: 13px; }
+  .panel .more { margin-top: 18px; }
+  .panel .more summary { font-size: var(--t-caption); }
+  ol.steps { margin: 0; padding: 0 0 0 1.3em; display: grid; gap: 10px; font-size: var(--t-caption); color: var(--ink-2); }
+  ol.steps li::marker { color: var(--accent-ink); font-weight: 600; }
+  ol.steps ol { margin: 8px 0 0; padding-left: 1.2em; display: grid; gap: 6px; list-style: lower-alpha; }
+  .path { white-space: nowrap; }
+  .after-install { margin-top: 24px; color: var(--muted); font-size: var(--t-caption); }
+
   /* Closing: the one centred moment. */
   .closing { text-align: center; padding-bottom: var(--section); }
-  .closing img { width: 80px; height: 80px; margin: 0 auto 24px; }
-  .closing h2 { max-width: 13em; margin: 0 auto; }
-  .closing .cta { justify-content: center; margin-top: 32px; }
+  .closing img { width: 96px; height: 96px; margin: 0 auto 28px; filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.18)); }
+  .closing h2 { font-size: var(--t-h1); line-height: 1.04; letter-spacing: -0.035em; max-width: 12em; margin: 0 auto; }
+  .closing .lead { margin-top: 18px; }
+  .closing .cta { justify-content: center; margin-top: 36px; }
 
   /* Footer: small and grey, on the same canvas behind a hairline. */
   footer { border-top: 1px solid var(--line-soft); color: var(--muted); font-size: var(--t-small); letter-spacing: 0; }
@@ -458,10 +549,18 @@
     .hero { grid-template-columns: minmax(0, 1fr); gap: 56px; }
     .hero-copy { max-width: 36rem; }
     .stage { max-width: 820px; width: 100%; margin-inline: auto; }
-    .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .feature, .feature.flip { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+    .feature.flip .shot { order: 0; }
+    .feature .body { max-width: 40rem; }
+    .duo { grid-template-columns: minmax(0, 1fr); }
+    .little { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .shortcuts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .detail, .install, .privacy { grid-template-columns: minmax(0, 1fr); gap: 40px; }
-    .detail .body, .privacy .text { max-width: 40rem; }
+  }
+  @media (max-width: 860px) {
+    .beats { grid-template-columns: minmax(0, 1fr); }
+    .facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .facts li { padding: 18px 0; }
+    .install { grid-template-columns: minmax(0, 1fr); }
   }
   @media (max-width: 760px) {
     :root { --gutter: max(20px, env(safe-area-inset-left)); --section: 96px; }
@@ -469,12 +568,12 @@
     .nav .theme-switch { margin-left: auto; }
     .nav .wrap { gap: 12px; }
     .hero { padding-top: 40px; gap: 48px; }
-    .hero .lead, .lead { font-size: 19px; }
+    .lead { font-size: 19px; }
     .cta { flex-direction: column; align-items: stretch; gap: 18px; }
     .cta .button { width: 100%; }
+    .cta .textlink { align-self: flex-start; }
     .closing .cta { align-items: center; }
     .closing .cta .button { max-width: 360px; }
-    .cta .textlink { align-self: flex-start; }
     .closing .cta .textlink { align-self: center; }
     .lid { border-radius: 14px 14px 5px 5px; }
     .lid::before { width: 4px; height: 4px; margin-left: -2px; }
@@ -482,20 +581,21 @@
     .deck { height: 9px; width: 104%; margin-left: -2%; }
     .stage figcaption { margin-top: 22px; }
     .section-head { margin-bottom: 32px; }
-    .features { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-    .features li { padding: 24px 22px 26px; }
+    .feature + .feature { margin-top: 80px; }
+    .tile { padding: 28px 22px 0; border-radius: var(--radius); }
+    .tile .scene { padding-top: 28px; }
+    .term { font-size: 12px; }
+    .little { grid-template-columns: minmax(0, 1fr); gap: 28px; }
     .shortcuts { grid-template-columns: minmax(0, 1fr); gap: 10px; }
     .shortcuts li { display: grid; grid-template-columns: 9em 1fr; align-items: center; gap: 14px; text-align: left; padding: 16px 18px; }
     .caps { justify-content: flex-start; margin: 0; gap: 4px; }
     kbd { min-width: 34px; height: 34px; padding: 0 8px; font-size: var(--t-caption); border-radius: 7px; }
     kbd.mini { min-width: 0; height: auto; padding: 1px 5px; }
+    .beats kbd { min-width: 48px; height: 48px; font-size: var(--t-body); }
     .asks { padding: 4px 20px; }
     .asks div { grid-template-columns: 1fr; padding: 16px 0; }
-    .reqs div { grid-template-columns: 6.5em 1fr; }
     .path { white-space: normal; }
-    .panel { padding: 24px; }
-    ol.steps > li { padding-left: 44px; }
-    .gatekeeper { padding: 16px 16px 16px 34px; }
+    .panel { padding: 24px; border-radius: var(--radius); }
     footer .appearance { margin-left: 0; width: 100%; }
   }
 </style>
@@ -508,9 +608,9 @@
     <a class="brand" href="#top" aria-label="Margin, back to top"><img src="icon.png" alt="" width="30" height="30">Margin</a>
     <nav aria-label="Sections">
       <ul>
-        <li><a href="#features">Features</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#shelf">The shelf</a></li>
         <li><a href="#shortcuts">Shortcuts</a></li>
-        <li><a href="#install">Install</a></li>
         <li><a href="#privacy">Privacy</a></li>
         <li><a href="https://github.com/Jenish-Shobhit/margin">GitHub</a></li>
       </ul>
@@ -523,28 +623,16 @@
 <main id="main">
   <div class="hero wrap" id="top">
     <div class="hero-copy">
-    <h1 id="headline" class="rise">Screenshots that wait in the margin of your screen</h1>
-    <p class="lead rise d1">Margin saves every capture, copies it, and keeps it on a shelf at the edge of your screen until you drag it where it belongs.</p>
-
-    <div class="cta rise d2">
-      <a class="button" id="download" data-download href="https://github.com/Jenish-Shobhit/margin/releases/latest">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42l2.3 2.3V3a1 1 0 0 1 1-1ZM4 16a1 1 0 1 0 0 2h12a1 1 0 1 0 0-2H4Z"/></svg>
-        <span id="download-label">Download Margin</span>
-      </a>
-      <a class="textlink" href="#update">Already have it? Update Margin</a>
-    </div>
-    <p class="meta rise d2" id="download-meta">For macOS 26 or later on Apple silicon. Free and open source.</p>
-
-    <div class="terminal rise d3">
-      <p class="label">Or paste one line into <strong>Terminal</strong>, with no security prompts:</p>
-      <div class="cmd">
-        <code><span class="prompt">$ </span><span data-cmd>curl -fsSL https://jenish-shobhit.github.io/margin/install.sh | bash</span></code>
-        <button class="copy-button" type="button" data-copy aria-label="Copy the install command">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M5 2.5A1.5 1.5 0 0 1 6.5 1h6A1.5 1.5 0 0 1 14 2.5v8a1.5 1.5 0 0 1-1.5 1.5H11v1.5A1.5 1.5 0 0 1 9.5 15h-6A1.5 1.5 0 0 1 2 13.5v-8A1.5 1.5 0 0 1 3.5 4H5V2.5ZM6.5 2.5V4h3A1.5 1.5 0 0 1 11 5.5v5h1.5v-8h-6Zm-3 3v8h6v-8h-6Z"/></svg>
-          <span>Copy</span>
-        </button>
+      <h1 id="headline" class="rise">Screenshots that wait in the margin.</h1>
+      <p class="lead rise d1">Every shot is saved, copied and kept at the edge of your screen until you drag it where it belongs.</p>
+      <div class="cta rise d2">
+        <a class="button" id="download" data-download href="https://github.com/Jenish-Shobhit/margin/releases/latest">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42l2.3 2.3V3a1 1 0 0 1 1-1ZM4 16a1 1 0 1 0 0 2h12a1 1 0 1 0 0-2H4Z"/></svg>
+          Download for Mac
+        </a>
+        <a class="textlink" href="#install">Install from Terminal</a>
       </div>
-    </div>
+      <p class="meta rise d2">Free and open source. For macOS 26 or later on Apple silicon.</p>
     </div>
 
     <figure class="stage rise d4">
@@ -561,7 +649,7 @@
         <div class="deck" aria-hidden="true"></div>
       </div>
       <figcaption>
-        <span>Press ⇧⌘4, drag, let go. The shot is saved, copied and on the shelf before you look up.</span>
+        <span>⇧⌘4, drag, let go. Then drag the card into the chat.</span>
         <button class="motion-toggle" id="motion-toggle" type="button" hidden aria-pressed="false">
           <svg viewBox="0 0 12 12" aria-hidden="true"><path id="motion-icon" fill="currentColor" d="M2.5 1.5h2.2v9H2.5zM7.3 1.5h2.2v9H7.3z"/></svg>
           <span id="motion-label">Pause</span>
@@ -570,184 +658,202 @@
     </figure>
   </div>
 
-  <section id="features" class="wrap" aria-labelledby="features-title">
+  <section id="how" class="wrap" aria-labelledby="how-title">
     <div class="section-head">
-      <h2 id="features-title">Out of your way until you need it.</h2>
-      <p class="lead">No preview to dismiss, no save dialog, no editor in between. Margin does the boring part instantly and keeps the shot within reach.</p>
+      <h2 id="how-title">Press. Drag. Let go.</h2>
+      <p class="lead">That's the whole job. No preview to dismiss, no save dialog, no editor in the way.</p>
     </div>
-    <ul class="features">
+    <ol class="beats">
       <li>
-        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 14 2 2 4-4"/></svg></div>
-        <h3>Saved and copied, every time</h3>
-        <p>Each shot is a PNG in <code>~/Desktop/Screenshots</code> and on the clipboard the moment you let go.</p>
+        <div class="art" aria-hidden="true"><div class="caps"><kbd>⇧</kbd><kbd>⌘</kbd><kbd>4</kbd></div></div>
+        <h3><span class="n">1</span>The screen freezes</h3>
+        <p>At once, so the menu or tooltip you're after can't close on you.</p>
       </li>
       <li>
-        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><rect x="13.5" y="6" width="5" height="3.5" rx="1"/><rect x="13.5" y="10.5" width="5" height="3.5" rx="1"/><rect x="13.5" y="15" width="5" height="3.5" rx="1"/></svg></div>
-        <h3>A shelf that waits</h3>
-        <p>Thumbnails stack at the right edge and stay until you drag them into an app, even after a restart.</p>
+        <div class="art" aria-hidden="true">
+          <div class="marquee"><i></i><i></i><i></i><i></i><b>486 × 304</b><svg viewBox="0 0 18 18"><path d="M3 2v13l3.6-3.4 2.3 5 2.2-1-2.3-4.9H14z" fill="#fff" stroke="#000" stroke-width="1.1" stroke-linejoin="round"/></svg></div>
+        </div>
+        <h3><span class="n">2</span>Drag over what you want</h3>
+        <p>Letting go is the capture. There's no button to confirm.</p>
       </li>
       <li>
-        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/></svg></div>
-        <h3>Instant, on a frozen screen</h3>
-        <p><kbd class="mini">⇧</kbd><kbd class="mini">⌘</kbd><kbd class="mini">4</kbd> freezes the screen at once. Letting go of the mouse captures, with no confirm step.</p>
+        <div class="art" aria-hidden="true">
+          <div class="saved">
+            <span><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Saved as PNG</span>
+            <span><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Copied</span>
+            <span><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>On the shelf</span>
+          </div>
+          <div class="mini-shelf"><span></span><span></span><span></span></div>
+        </div>
+        <h3><span class="n">3</span>It's already done</h3>
+        <p>In <code>~/Desktop/Screenshots</code>, on the clipboard and on the shelf, in under a tenth of a second.</p>
       </li>
-      <li>
-        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg></div>
-        <h3>⌘V works in terminals</h3>
-        <p>The clipboard holds the image and the file, so Ghostty pastes the path and Claude Code attaches the shot.</p>
-      </li>
-      <li>
-        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.6" fill="currentColor" stroke="none"/></svg></div>
-        <h3>Screen recording, too</h3>
-        <p><kbd class="mini">⇧</kbd><kbd class="mini">⌘</kbd><kbd class="mini">5</kbd> records an area, a window or a display as a Retina MP4 at up to 60 fps, with sound if you want it.</p>
-      </li>
-      <li>
-        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.8 9.8 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></div>
-        <h3>Never in its own shots</h3>
-        <p>The shelf, the selection and the fly-in are left out of every capture and every recording.</p>
-      </li>
-      <li>
-        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></div>
-        <h3>Close the shelf, keep the files</h3>
-        <p>Close Shelf clears every card at once. ⌘Z brings back the last 20 removals, even files you put in the Trash.</p>
-      </li>
-      <li>
-        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4h6v3"/></svg></div>
-        <h3>Or don't keep them at all</h3>
-        <p>Turn on Delete screenshots after pasting, and a shot is gone once it's pasted or dropped where it belongs.</p>
-      </li>
-      <li>
-        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg></div>
-        <h3>Native and light</h3>
-        <p>Written in Swift for macOS 26. A menu bar icon, no Dock icon, no accounts and no third-party code.</p>
-      </li>
-    </ul>
+    </ol>
   </section>
 
-  <section class="wrap" aria-labelledby="precise-title">
-    <div class="detail">
-      <figure class="shot">
-        <img src="images/capture.png" width="1760" height="1120" loading="lazy" decoding="async"
-             alt="Selecting part of a code editor on a frozen screen: resize handles, a magnifier showing pixel coordinates and colour, and labels reading From center and Snapped to window.">
-      </figure>
-      <div class="body">
-        <h2 id="precise-title">Precise when it matters.</h2>
-        <p class="lead">Most shots are a quick drag. For the others, everything you need is on the overlay before you let go.</p>
-        <ul class="ticks">
-          <li>Resize handles and arrow-key nudging, 1 px at a time</li>
-          <li>Edges that snap to the windows underneath</li>
-          <li>Press <kbd class="mini">Z</kbd> for a magnifier with the exact position and colour</li>
-          <li>Press <kbd class="mini">Space</kbd> for one window, with clean rounded corners</li>
-          <li>Every display, at its own Retina scale and colour profile</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="wrap" aria-labelledby="shelf-title">
+  <section id="shelf" class="wrap" aria-labelledby="shelf-title">
     <div class="section-head">
-      <h2 id="shelf-title">Your shots, in reach.</h2>
-      <p class="lead">Drag a card into Finder, Slack, Chrome or Terminal. Click to copy it again, press Space to look closer, and tuck the shelf away with <kbd class="mini">⇧</kbd><kbd class="mini">⌘</kbd><kbd class="mini">1</kbd>.</p>
+      <h2 id="shelf-title">A shelf that waits for you.</h2>
+      <p class="lead">Shots stack at the right edge of your screen and stay there, even after a restart, until you put them to use.</p>
     </div>
     <figure class="wide-shot">
       <div class="scroller" tabindex="0" role="group" aria-label="The shelf in four states; scrolls sideways on small screens">
         <img src="images/shelf-states.png" width="2188" height="728" loading="lazy" decoding="async"
              alt="Four views of the shelf: a card on hover with its menu and close buttons; two selected cards dragged together with a count badge; older shots folded into a +6 older pile; and the shelf tucked into a small tab at the screen edge.">
       </div>
-      <figcaption>Up to six cards, newest at the bottom. Older shots fold into a pile.</figcaption>
     </figure>
+    <ul class="facts">
+      <li><h3>Drag it anywhere</h3><p>Into Finder, Slack, Chrome or Terminal. The card leaves the shelf once the drop lands.</p></li>
+      <li><h3>Click to copy it again</h3><p>Press Space to look closer, or double-click to open. <kbd class="mini">⇧</kbd><kbd class="mini">⌘</kbd><kbd class="mini">1</kbd> tucks the shelf away.</p></li>
+      <li><h3>Nothing is ever lost</h3><p><kbd class="mini">⌘</kbd><kbd class="mini">Z</kbd> brings back the last 20 removals, even files you put in the Trash.</p></li>
+    </ul>
   </section>
 
-    <section id="shortcuts" class="wrap" aria-labelledby="shortcuts-title">
-      <div class="section-head">
-        <h2 id="shortcuts-title">The shortcuts you already know.</h2>
-        <p class="lead">Margin takes over the macOS screenshot keys, with your permission, and you can change any of them in Settings.</p>
+  <section class="wrap" aria-label="Capturing">
+    <div class="feature">
+      <figure class="shot">
+        <img src="images/capture.png" width="1760" height="1120" loading="lazy" decoding="async"
+             alt="Selecting part of a code editor on a frozen screen: resize handles, a magnifier showing pixel coordinates and colour, and labels reading From center and Snapped to window.">
+      </figure>
+      <div class="body">
+        <h2>Pixel-perfect when it matters.</h2>
+        <p class="lead">Most shots are a quick drag. For the rest, everything you need is on the overlay before you let go.</p>
+        <ul class="ticks">
+          <li>Resize handles, and arrow keys that nudge by 1 px</li>
+          <li>Edges that snap to the windows underneath</li>
+          <li><kbd class="mini">Z</kbd> for a magnifier with the exact position and colour</li>
+          <li>Every display at its own Retina scale and colour profile</li>
+        </ul>
       </div>
-      <ul class="shortcuts">
-        <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>4</kbd></div><div><strong>Capture an area</strong><span>Press Space for a single window.</span></div></li>
-        <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>3</kbd></div><div><strong>Capture the screen</strong><span>The display under the pointer.</span></div></li>
-        <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>2</kbd></div><div><strong>Repeat last area</strong><span>The same area again, no overlay.</span></div></li>
-        <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>5</kbd></div><div><strong>Record the screen</strong><span>Press it again to stop.</span></div></li>
-        <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>1</kbd></div><div><strong>Tuck the shelf</strong><span>Into a small tab, and back.</span></div></li>
-      </ul>
-      <p class="keys-note">Every shot is already copied, so the <kbd class="mini">⌃</kbd> versions do the same. The <a href="https://github.com/Jenish-Shobhit/margin/blob/main/docs/shortcuts.md">full list</a> covers the keys for selecting and for the shelf.</p>
-    </section>
+    </div>
+    <div class="feature flip">
+      <figure class="shot">
+        <img src="images/window-mode.png" width="1760" height="1120" loading="lazy" decoding="async"
+             alt="Window mode: the code editor window is highlighted with a label reading Editor 768 by 784, and a hint bar reads Click to capture, Option Keep shadow, Space Area, Esc Cancel.">
+      </figure>
+      <div class="body">
+        <h2>One window, clean corners.</h2>
+        <p class="lead">Press Space and click a window. You get just that window, with transparent rounded corners and nothing behind it.</p>
+        <ul class="ticks">
+          <li>Hold <kbd class="mini">⌥</kbd> to keep its shadow</li>
+          <li><kbd class="mini">⇧</kbd><kbd class="mini">⌘</kbd><kbd class="mini">2</kbd> takes the same area again, with no overlay</li>
+        </ul>
+      </div>
+    </div>
+  </section>
 
-  <section id="install" class="wrap" aria-labelledby="install-title">
+  <section class="wrap" aria-label="For terminals, and for recordings">
+    <div class="duo">
+      <article class="tile">
+        <h2>⌘V works in your terminal.</h2>
+        <p class="lead">The clipboard holds the image and its file, so Ghostty pastes the path and Claude Code attaches the shot.</p>
+        <div class="scene" aria-hidden="true">
+          <div class="term">
+            <div class="bar"><i></i><i></i><i></i><span>~/app</span></div>
+            <pre><span class="dim">~/app</span> <span class="ok">❯</span> cp <span class="paste">/Users/you/Desktop/Screenshots/Screenshot\ 2026-10-14\ at\ 17.42.17.png</span> docs/
+<span class="dim">~/app</span> <span class="ok">❯</span> claude
+<span class="dim">&gt;</span> why is this test red? <span class="img">[Image #1]</span> <span class="caret"></span></pre>
+          </div>
+        </div>
+      </article>
+      <article class="tile">
+        <h2>Record the screen, too.</h2>
+        <p class="lead"><kbd class="mini">⇧</kbd><kbd class="mini">⌘</kbd><kbd class="mini">5</kbd> records an area, a window or a display as a Retina MP4 at up to 60 fps, with sound if you want it.</p>
+        <div class="scene" aria-hidden="true">
+          <div class="desk">
+            <div class="menubar">Editor <span>File</span> <span>Edit</span> <span>View</span><div class="right"><span class="stop">0:42</span>Wed 14 Oct 17:42</div></div>
+            <div class="area"></div>
+            <div class="tags"><span>Retina</span><span>60 fps</span><span>System audio</span></div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="wrap" aria-labelledby="native-title">
+    <div class="feature flip">
+      <figure class="shot window">
+        <img src="images/settings.png" width="1624" height="1664" loading="lazy" decoding="async"
+             alt="Margin's Settings window, General pane: Save to Screenshots, Copy each capture on, Delete screenshots after pasting off, Shutter sound on, Show key hints while capturing on, Launch at login on and Show menu bar icon on, with Ready to capture at the foot of the sidebar.">
+      </figure>
+      <div class="body">
+        <h2 id="native-title">A real Mac app, and a light one.</h2>
+        <p class="lead">Written in Swift for macOS 26. It lives in the menu bar, with no Dock icon, no account and no third-party code.</p>
+        <ul class="ticks">
+          <li>Settings laid out like System Settings</li>
+          <li>Light and dark, Reduce Motion and Reduce Transparency</li>
+          <li>Updates itself, checked against Margin's own signature</li>
+          <li>Hide the menu bar icon and it keeps working</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" aria-labelledby="little-title">
     <div class="section-head">
-      <h2 id="install-title">Install in a minute.</h2>
-      <p class="lead">One line in Terminal is quickest. The same line updates Margin later.</p>
+      <h2 id="little-title">And all the little things.</h2>
     </div>
-    <div class="install">
-      <div>
-      <div class="install-choice">
-        <h3 class="option">One line in Terminal<span class="tag">Recommended</span></h3>
-        <p>Open Terminal (in Applications › Utilities), paste this and press Return. It downloads the latest release from GitHub, checks its checksum and that it's signed with Margin's certificate, moves it to Applications and opens it. Nothing to approve in System Settings.</p>
-        <div class="cmd">
-          <code><span class="prompt">$ </span><span data-cmd>curl -fsSL https://jenish-shobhit.github.io/margin/install.sh | bash</span></code>
-          <button class="copy-button" type="button" data-copy aria-label="Copy the install command">
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M5 2.5A1.5 1.5 0 0 1 6.5 1h6A1.5 1.5 0 0 1 14 2.5v8a1.5 1.5 0 0 1-1.5 1.5H11v1.5A1.5 1.5 0 0 1 9.5 15h-6A1.5 1.5 0 0 1 2 13.5v-8A1.5 1.5 0 0 1 3.5 4H5V2.5ZM6.5 2.5V4h3A1.5 1.5 0 0 1 11 5.5v5h1.5v-8h-6Zm-3 3v8h6v-8h-6Z"/></svg>
-            <span>Copy</span>
-          </button>
-        </div>
-        <p>Read it first if you like: <a href="install.sh">install.sh</a>.</p>
-      </div>
-      <h3 class="option">Or download the zip</h3>
-      <p class="note">Margin isn't notarized by Apple yet, so a downloaded copy's first launch takes one extra step, once.</p>
-      <ol class="steps">
-        <li>
-          <h3>Download and unzip</h3>
-          <p>Open <span id="zip-name">the zip</span> from your Downloads folder. You get <strong>Margin.app</strong>.</p>
-        </li>
-        <li>
-          <h3>Move it to Applications</h3>
-          <p>And keep it there: macOS ties Margin's Screen Recording permission to that copy.</p>
-        </li>
-        <li>
-          <h3>Open it, then Open Anyway</h3>
-          <p>macOS blocks the first launch of an app that isn't notarized:</p>
-          <ol class="gatekeeper">
-            <li>In the "Margin" Not Opened dialog, click <strong>Done</strong>, not Move to Trash.</li>
-            <li>Open <span class="path"><strong>System Settings › Privacy &amp; Security</strong></span> and scroll down to Security.</li>
-            <li>Next to "Margin" was blocked, click <strong>Open Anyway</strong>, then confirm with your password or Touch ID.</li>
-          </ol>
-        </li>
-        <li>
-          <h3>Follow the welcome window</h3>
-          <p>Allow Screen Recording, hand over the screenshot shortcuts, and take your first shot.</p>
-        </li>
-      </ol>
-      </div>
+    <ul class="little">
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.8 9.8 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></div>
+        <h3>Never in its own shots</h3>
+        <p>The shelf, the overlay and the fly-in are left out of every capture and recording.</p>
+      </li>
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></div>
+        <h3>Close the shelf, keep the files</h3>
+        <p>One click clears every card. The files stay in your folder.</p>
+      </li>
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4h6v3"/></svg></div>
+        <h3>Or don't keep them at all</h3>
+        <p>Turn on Delete screenshots after pasting, and a shot goes once it's done its job.</p>
+      </li>
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 15h6"/></svg></div>
+        <h3>Follows your files</h3>
+        <p>Rename or move a shot in Finder and its card keeps up.</p>
+      </li>
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div>
+        <h3>Every Space, every display</h3>
+        <p>Over full-screen apps too, and it never takes focus from the app you're in.</p>
+      </li>
+      <li>
+        <div class="glyph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div>
+        <h3>Findable like any screenshot</h3>
+        <p>Tagged as a screenshot, so Finder and Spotlight find it, with its colour profile kept.</p>
+      </li>
+    </ul>
+  </section>
 
-      <div class="side">
-        <div class="panel" id="update">
-          <h3 id="update-title">Already have Margin?</h3>
-          <p>This opens Margin and checks for a newer version, or choose <strong>Check for Updates…</strong> in Margin's menu. Nothing is installed until you click Install in Margin's window, and updates need no Open Anyway.</p>
-          <a class="button secondary" href="margin://update">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 3a7 7 0 0 1 6.32 4H14a1 1 0 1 0 0 2h4a1 1 0 0 0 1-1V4a1 1 0 1 0-2 0v1.6A9 9 0 1 0 19 10a1 1 0 1 0-2 0 7 7 0 1 1-7-7Z"/></svg>
-            Update Margin
-          </a>
-          <p>A copy too old to have that menu item needs a fresh download instead.</p>
-        </div>
-        <div class="panel">
-          <h3 id="reqs-title">Requirements</h3>
-          <dl class="reqs">
-            <div><dt>macOS</dt><dd>macOS 26 Tahoe or later</dd></div>
-            <div><dt>Mac</dt><dd>Apple silicon (Intel Macs aren't supported)</dd></div>
-            <div><dt>Price</dt><dd>Free and open source, MIT license</dd></div>
-          </dl>
-        </div>
-      </div>
+  <section id="shortcuts" class="wrap" aria-labelledby="shortcuts-title">
+    <div class="section-head">
+      <h2 id="shortcuts-title">The shortcuts you already know.</h2>
+      <p class="lead">Margin takes over the macOS screenshot keys, with your permission. Change any of them in Settings.</p>
     </div>
+    <ul class="shortcuts">
+      <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>4</kbd></div><div><strong>Capture an area</strong><span>Press Space for a single window.</span></div></li>
+      <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>3</kbd></div><div><strong>Capture the screen</strong><span>The display under the pointer.</span></div></li>
+      <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>2</kbd></div><div><strong>Repeat last area</strong><span>The same area again, no overlay.</span></div></li>
+      <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>5</kbd></div><div><strong>Record the screen</strong><span>Press it again to stop.</span></div></li>
+      <li><div class="caps"><kbd aria-label="Shift">⇧</kbd><kbd aria-label="Command">⌘</kbd><kbd>1</kbd></div><div><strong>Tuck the shelf</strong><span>Into a small tab, and back.</span></div></li>
+    </ul>
+    <p class="keys-note">Every shot is already copied, so the <kbd class="mini">⌃</kbd> versions do the same. The <a href="https://github.com/Jenish-Shobhit/margin/blob/main/docs/shortcuts.md">full list</a> covers the keys for selecting and for the shelf.</p>
   </section>
 
   <section id="privacy" class="wrap" aria-labelledby="privacy-title">
-    <div class="privacy">
-      <div class="text">
-        <h2 id="privacy-title">No accounts. No analytics.</h2>
-        <p class="lead">Margin works entirely on your Mac and sends no telemetry. Your screenshots and recordings never leave it unless you drag them somewhere.</p>
-        <p class="lead">Its one network request is the update check: once a day it asks GitHub for the latest release, sending nothing about you. Turn that off in Settings. It doesn't need Accessibility or Input Monitoring.</p>
-      </div>
+    <div class="section-head">
+      <h2 id="privacy-title">No accounts. No analytics.</h2>
+      <p class="lead">Margin works entirely on your Mac. Your shots never leave it unless you drag them somewhere.</p>
+    </div>
+    <ul class="facts">
+      <li><h3>One network request</h3><p>A daily check with GitHub for a new version, sending nothing about you. Turn it off in Settings.</p></li>
+      <li><h3>Only what it needs</h3><p>Screen Recording, and the microphone only if you record it. No Accessibility or Input Monitoring.</p></li>
+      <li><h3>Open source</h3><p>MIT licensed, with every line <a href="https://github.com/Jenish-Shobhit/margin">on GitHub</a>.</p></li>
+    </ul>
+    <details class="more">
+      <summary>Everything Margin asks for</summary>
       <dl class="asks">
         <div><dt>Screen Recording</dt><dd>To capture and record the screen. It asks only when you click Allow… in the welcome window.</dd></div>
         <div><dt>Your Desktop folder</dt><dd>macOS asks once, before Margin first saves into <code>~/Desktop/Screenshots</code>. Pick another folder in Settings if you like.</dd></div>
@@ -755,16 +861,65 @@
         <div><dt>The microphone</dt><dd>Only if you turn on <strong>Record microphone</strong> for screen recordings.</dd></div>
         <div><dt>Launch at login</dt><dd>On by default, so the shortcuts work after a restart. Turn it off in Settings.</dd></div>
       </dl>
+    </details>
+  </section>
+
+  <section id="install" class="wrap" aria-labelledby="install-title">
+    <div class="section-head">
+      <h2 id="install-title">Install in a minute.</h2>
+      <p class="lead">Free, for macOS 26 or later on Apple silicon.</p>
     </div>
+    <div class="install">
+      <div class="panel">
+        <h3>One line in Terminal <span class="tag">Recommended</span></h3>
+        <p>It downloads the latest release, checks it's signed with Margin's certificate, moves it to Applications and opens it. Nothing to approve.</p>
+        <div class="foot">
+          <div class="cmd">
+            <code><span class="prompt">$ </span><span data-cmd>curl -fsSL https://jenish-shobhit.github.io/margin/install.sh | bash</span></code>
+            <button class="copy-button" type="button" data-copy aria-label="Copy the install command">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M5 2.5A1.5 1.5 0 0 1 6.5 1h6A1.5 1.5 0 0 1 14 2.5v8a1.5 1.5 0 0 1-1.5 1.5H11v1.5A1.5 1.5 0 0 1 9.5 15h-6A1.5 1.5 0 0 1 2 13.5v-8A1.5 1.5 0 0 1 3.5 4H5V2.5ZM6.5 2.5V4h3A1.5 1.5 0 0 1 11 5.5v5h1.5v-8h-6Zm-3 3v8h6v-8h-6Z"/></svg>
+              <span>Copy</span>
+            </button>
+          </div>
+          <p class="small">Open Terminal from Applications › Utilities. Read the script first if you like: <a href="install.sh">install.sh</a>.</p>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Or download it</h3>
+        <p>Margin isn't notarized by Apple yet, so a downloaded copy's first launch takes one extra step, once.</p>
+        <div class="foot">
+          <a class="button" data-download href="https://github.com/Jenish-Shobhit/margin/releases/latest">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42l2.3 2.3V3a1 1 0 0 1 1-1ZM4 16a1 1 0 1 0 0 2h12a1 1 0 1 0 0-2H4Z"/></svg>
+            <span data-download-label>Download Margin</span>
+          </a>
+          <p class="small" id="download-meta">A zip with Margin.app inside.</p>
+          <details class="more">
+            <summary>How to open it the first time</summary>
+            <ol class="steps">
+              <li>Unzip <span id="zip-name">the zip</span> and move <strong>Margin.app</strong> to Applications. Keep it there: its Screen Recording permission belongs to that copy.</li>
+              <li>Open it. macOS blocks the first launch:
+                <ol>
+                  <li>In the "Margin" Not Opened dialog, click <strong>Done</strong>, not Move to Trash.</li>
+                  <li>Open <span class="path"><strong>System Settings › Privacy &amp; Security</strong></span> and scroll down to Security.</li>
+                  <li>Next to "Margin" was blocked, click <strong>Open Anyway</strong>, then confirm with your password or Touch ID.</li>
+                </ol>
+              </li>
+              <li>Follow the welcome window: allow Screen Recording, hand over the screenshot shortcuts and take your first shot.</li>
+            </ol>
+          </details>
+        </div>
+      </div>
+    </div>
+    <p class="after-install" id="update">Already have Margin? <a href="margin://update">Update Margin</a>, or choose <strong>Check for Updates…</strong> in its menu. Updates need no Open Anyway.</p>
   </section>
 
   <section class="closing wrap" aria-labelledby="closing-title">
-    <img src="icon.png" alt="" width="88" height="88" loading="lazy">
+    <img src="icon.png" alt="" width="96" height="96" loading="lazy">
     <h2 id="closing-title">Take a screenshot. Leave it in the margin.</h2>
     <div class="cta">
       <a class="button" data-download href="https://github.com/Jenish-Shobhit/margin/releases/latest">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M10 2a1 1 0 0 1 1 1v8.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42l2.3 2.3V3a1 1 0 0 1 1-1ZM4 16a1 1 0 1 0 0 2h12a1 1 0 1 0 0-2H4Z"/></svg>
-        <span data-download-label>Download Margin</span>
+        Download for Mac
       </a>
       <a class="textlink" href="https://github.com/Jenish-Shobhit/margin/blob/main/docs/user-guide.md">Read the user guide</a>
     </div>
@@ -792,7 +947,7 @@
   </div>
 </footer>
 
-<div class="shelf-card" id="shelf-card" aria-hidden="true">Screenshots that wait in the margin of your screen<span class="pill">⌘V</span></div>
+<div class="shelf-card" id="shelf-card" aria-hidden="true">Screenshots that wait in the margin.<span class="pill">⌘V</span></div>
 
 <script>
 (function () {
@@ -867,20 +1022,14 @@
         if (!zip || zip.state !== "uploaded" || !/^https:\/\/github\.com\//.test(zip.browser_download_url)) return;
         var links = document.querySelectorAll("[data-download]");
         for (var i = 0; i < links.length; i++) links[i].href = zip.browser_download_url;
-        document.getElementById("download-label").textContent = "Download Margin " + version;
         var labels = document.querySelectorAll("[data-download-label]");
         for (var j = 0; j < labels.length; j++) labels[j].textContent = "Download Margin " + version;
         document.getElementById("zip-name").textContent = name;
         if (/^https:\/\/github\.com\//.test(release.html_url || "")) document.getElementById("notes").href = release.html_url;
-        var meta = "Version " + version;
-        if (release.published_at) {
-          var date = new Date(release.published_at);
-          if (!isNaN(date)) meta += ", released " + date.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
-        }
         var mb = Number(zip.size) / 1048576;
-        meta += mb > 0 ? ". A " + (mb >= 10 ? Math.round(mb) : mb.toFixed(1)) + "\u00a0MB zip" : ". A zip";
-        meta += " for macOS 26 or later on Apple silicon.";
-        document.getElementById("download-meta").textContent = meta;
+        var size = mb > 0 ? ", " + (mb >= 10 ? Math.round(mb) : mb.toFixed(1)) + "\u00a0MB" : "";
+        document.getElementById("download-meta").textContent =
+          "Version " + version + size + ", a zip with Margin.app inside.";
       })
       .catch(function () {});
   }
