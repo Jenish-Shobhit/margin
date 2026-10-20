@@ -500,6 +500,7 @@
   }
   .copy-button:hover { background: var(--accent-hover); }
   .copy-button svg { width: 13px; height: 13px; }
+  .panel .cmd code { -webkit-mask-image: linear-gradient(to right, #000 82%, transparent); mask-image: linear-gradient(to right, #000 82%, transparent); padding-right: 24px; }
   .panel .more { margin-top: 18px; }
   .panel .more summary { font-size: var(--t-caption); }
   ol.steps { margin: 0; padding: 0 0 0 1.3em; display: grid; gap: 10px; font-size: var(--t-caption); color: var(--ink-2); }
@@ -628,7 +629,7 @@
           </button>
         </div>
         <ul class="trust">
-          <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Verified against Margin's own signature</li>
+          <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Checked against Margin's signing certificate</li>
           <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>No Open Anyway step</li>
           <li><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><a href="install.sh">Read the script first</a></li>
         </ul>
@@ -846,7 +847,7 @@
       <p class="lead">Margin works entirely on your Mac. Your shots never leave it unless you drag them somewhere.</p>
     </div>
     <ul class="facts">
-      <li><h3>One network request</h3><p>A daily check with GitHub for a new version, sending nothing about you. Turn it off in Settings.</p></li>
+      <li><h3>Only talks to GitHub</h3><p>A daily check for a new version, and the download if you choose to install it. Nothing about you is sent. Turn it off in Settings.</p></li>
       <li><h3>Only what it needs</h3><p>Screen Recording, and the microphone only if you record it. No Accessibility or Input Monitoring.</p></li>
       <li><h3>Open source</h3><p>MIT licensed, with every line <a href="https://github.com/Jenish-Shobhit/margin">on GitHub</a>.</p></li>
     </ul>
@@ -865,12 +866,12 @@
   <section id="install" class="wrap" aria-labelledby="install-title">
     <div class="section-head">
       <h2 id="install-title">Install in a minute.</h2>
-      <p class="lead">Free, for macOS 26 or later on Apple silicon.</p>
+      <p class="lead">Free, for macOS 26 or later on Apple silicon, from an account that can install apps.</p>
     </div>
     <div class="install">
       <div class="panel">
         <h3>One line in Terminal <span class="tag">Recommended</span></h3>
-        <p>It downloads the latest release from GitHub, checks it against GitHub's listing and Margin's own signature, copies it to Applications and opens it. If any check fails, nothing is installed.</p>
+        <p>It downloads the latest release from GitHub, checks its size and checksum against GitHub's and its signing certificate against Margin's, copies it to Applications and opens it. If a check fails, nothing is installed.</p>
         <div class="foot">
           <div class="cmd">
             <code><span class="prompt">$ </span><span data-cmd>curl -fsSL https://jenish-shobhit.github.io/margin/install.sh | bash</span></code>
