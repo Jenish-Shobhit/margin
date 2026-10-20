@@ -298,7 +298,8 @@
   }
 
   /* The demo, right under the fold, in the light of its own wallpaper. */
-  .showcase { position: relative; isolation: isolate; padding-top: clamp(40px, 8vh, 88px); }
+  /* overflow-x: clip keeps the glow (wider than the window) from widening the page; it still spills vertically. */
+  .showcase { position: relative; isolation: isolate; overflow-x: clip; padding-top: clamp(40px, 8vh, 88px); }
   .showcase::before {
     content: ""; position: absolute; z-index: -1; left: 50%; top: 0; width: min(1500px, 160vw); height: 1100px;
     transform: translateX(-50%); pointer-events: none;
