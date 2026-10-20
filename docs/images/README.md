@@ -16,3 +16,4 @@ Every image here except `settings.png` is rendered from Margin's real views, off
 
 - `demo-poster.jpg` is the first frame of `demo.gif`, extracted with ffmpeg. The website shows it when the demo is paused, and first under Reduce Motion.
 - `og.png` is the website's Open Graph/Twitter card (1200 × 630): the app icon, the headline and `demo-poster.jpg` in the page's MacBook frame, laid out in HTML and rendered offscreen with `WKWebView`'s `takeSnapshot`.
+- `shelf/*.webp` are the cards on the website hero's shelf, cropped from `settings.png`, `shelf-states.png` and `capture.png` with ImageMagick (`-crop … -strip`, WebP at quality 86–90; the Settings crop is scaled to 504 px wide), so the hero doesn't load the full images.
